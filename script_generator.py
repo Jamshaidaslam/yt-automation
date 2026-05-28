@@ -8,6 +8,7 @@ Fixed:
   - response_format json_object enforced so model never wraps in markdown
   - max_tokens raised to 1500 to avoid truncated JSON
   - GitHub Actions compatibility added for GROQ_API_KEY
+  - Fixed syntax error in build_word_timings (line breaking bug solved)
 """
 
 import json
@@ -145,8 +146,4 @@ def _call_groq(topic: str, model: str) -> dict:
     raw_text = re.sub(r"^
 http://googleusercontent.com/immersive_entry_chip/0
 
-### Ab kya karna hai?
-1. Is code ko apni `script_generator.py` file mein copy-paste karein.
-2. GitHub par **Commit aur Push** karein.
-
-Iske baad `script_generator` ka masla hal ho jayega. Jaisa maine pehle bataya, agar iske baad agla step (`media_fetcher.py`) par fail ho, to samajh jaiye ga ke wahan bhi `config.PEXELS_API_KEY` ko isi tarah `os.environ.get` se badalna hai.
+Isko paste karke **Commit changes** kar dein aur workflow run karke dekhein!
