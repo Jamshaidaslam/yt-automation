@@ -69,14 +69,23 @@ def run_pipeline(topic: str | None = None, skip_upload: bool = False) -> dict:
     script_output.write_text(json.dumps(script_data, indent=2), encoding="utf-8")
     
     logger.info(f"Script generated successfully -> {script_output.name}")
-    logger.info(f"Title: {script_data['seo']['title']}")
+    logger.info(f"Title: {script_data.get('seo', {}).get('title', 'Untitled')}")
 
     # ─────────────────────────────────────────────────────────────────────────
     # STEP 2: Media Asset Procurement (B-Roll Video Clips)
     # ─────────────────────────────────────────────────────────────────────────
     logger.info("STEP 2/5 — Querying stock video download engines…")
+    
+    # FIX: KeyError se bachne ke liye alternate keys extraction aur automatic fallback check
+    keywords_list = script_data.get("search_keywords") or script_data.get("keywords") or script_data.get("broll_keywords")
+    
+    if not keywords_list:
+        title_text = script_data.get("seo", {}).get("title", "dark secrets mystery")
+        keywords_list = [w.strip() for w in title_text.split() if len(w) > 3][:3]
+        logger.warning(f"Groq API response missing search keys. Generated fallbacks: {keywords_list}")
+
     media_paths = media_fetcher.fetch_broll_clips(
-        keywords          = script_data["search_keywords"],
+        keywords          = keywords_list,
         clips_per_keyword = config.MEDIA_PER_KEYWORD,
     )
 
@@ -89,7 +98,7 @@ def run_pipeline(topic: str | None = None, skip_upload: bool = False) -> dict:
     # ─────────────────────────────────────────────────────────────────────────
     logger.info("STEP 3/5 — Generating natural TTS voice synthesis…")
     voiceover_data = audio_generator.generate_voiceover(
-        script      = script_data["script"],
+        script      = script_data.get("script", ""),
         output_stem = stem,
     )
 
@@ -112,7 +121,7 @@ def run_pipeline(topic: str | None = None, skip_upload: bool = False) -> dict:
         logger.info("STEP 5/5 — Uploading to all platforms…")
         upload_results = uploader.upload_all_platforms(
             video_path = video_path,
-            seo        = script_data["seo"],
+            seo        = script_data.get("seo", {}),
         )
     else:
         logger.info("STEP 5/5 — Upload skipped (--skip-upload flag).")
@@ -125,7 +134,7 @@ def run_pipeline(topic: str | None = None, skip_upload: bool = False) -> dict:
     return {
         "stem":           stem,
         "video_path":     video_path,
-        "seo":            script_data["seo"],
+        "seo":            script_data.get("seo", {}),
         "upload_results": upload_results,
     }
 
