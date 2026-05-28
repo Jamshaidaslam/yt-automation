@@ -1,15 +1,14 @@
 """
-audio_generator.py — Edge-TTS Premium Voice Engine
+audio_generator.py — Anti-Block Google TTS + FFmpeg Voice Modulator
 AI Dark Realities · Short-Form Video Pipeline
 ──────────────────────────────────────────────
 """
 
-import asyncio
 import json
 import logging
 import subprocess
 from pathlib import Path
-import edge_tts
+from gtts import gTTS
 from script_generator import build_word_timings
 import config
 
@@ -19,59 +18,57 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
 
 def generate_voiceover(script: str, output_stem: str) -> dict:
     """
-    Generates vocal audio track using Edge-TTS premium neural engines.
+    Generates vocal audio track using Google TTS and modulates it 
+    via FFmpeg filters to create a cinematic, non-robotic dark voice.
     """
-    audio_path = config.AUDIO_DIR / f"{output_stem}.mp3"
+    raw_audio_path = config.AUDIO_DIR / f"{output_stem}_raw.mp3"
+    final_audio_path = config.AUDIO_DIR / f"{output_stem}.mp3"
     timings_path = config.AUDIO_DIR / f"{output_stem}_timings.json"
 
-    logger.info(f"Synthesising premium voice narration via Edge-TTS [{config.TTS_VOICE}]...")
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    communicate = edge_tts.Communicate(
-        text   = script,
-        voice  = config.TTS_VOICE,
-        rate   = config.TTS_RATE,
-        volume = config.TTS_VOLUME,
-    )
-
-    raw_words = []
-    submaker = edge_tts.SubMaker()
-
-    async def _gather():
-        async for chunk in communicate.stream():
-            if chunk["type"] == "audio":
-                with open(audio_path, "ab") as f:
-                    f.write(chunk["data"])
-            elif chunk["type"] == "WordBoundary":
-                submaker.create_sub((chunk["offset"], chunk["duration"]), chunk["text"])
-                raw_words.append({
-                    "word": chunk["text"],
-                    "start": chunk["offset"] / 10000000,
-                    "end": (chunk["offset"] + chunk["duration"]) / 10000000
-                })
-
-    if audio_path.exists():
-        audio_path.unlink()
+    logger.info("Synthesising safe voiceover via Google TTS Engine...")
 
     try:
-        loop.run_until_complete(_gather())
-    finally:
-        loop.close()
+        # 1. Download raw stable audio stream from Google Translate panel
+        tts = gTTS(text=script, lang="en", tld="com", slow=False)
+        tts.save(str(raw_audio_path))
+        
+        # 2. Modulate pitch & speed using local FFmpeg to make it sound like a deep cinematic human
+        logger.info("Applying cinematic voice modulation via FFmpeg...")
+        if final_audio_path.exists():
+            final_audio_path.unlink()
 
-    duration_sec = _get_audio_duration_sec(audio_path)
+        # Filter adds slight deepness and optimizes resonance
+        cmd = [
+            "ffmpeg", "-y", "-i", str(raw_audio_path),
+            "-af", "asetrate=44100*0.88,atempo=1.14,equalizer=f=250:width_type=o:w=1:g=4",
+            str(final_audio_path)
+        ]
+        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        
+        # Clean up temporary raw file
+        if raw_audio_path.exists():
+            raw_audio_path.unlink()
+            
+        logger.info(f"Cinematic voice track saved -> {final_audio_path.name}")
+        
+    except Exception as e:
+        logger.error(f"Audio production layer failed critically: {e}")
+        if raw_audio_path.exists():
+            raw_audio_path.unlink()
+        raise e
 
-    if not raw_words:
-        logger.warning("Precise boundaries missing, generating fallbacks...")
-        word_timings = build_word_timings(script, duration_sec)
-    else:
-        word_timings = raw_words
+    # Extract precise duration of the modulated audio
+    duration_sec = _get_audio_duration_sec(final_audio_path)
 
+    # Distribute caption tracking boundaries
+    logger.info("Aligning automated subtitle timing nodes...")
+    word_timings = build_word_timings(script, duration_sec)
+
+    # Save tracking json file mapping configuration metrics
     timings_path.write_text(json.dumps(word_timings, indent=2), encoding="utf-8")
 
     return {
-        "audio_path":   str(audio_path),
+        "audio_path":   str(final_audio_path),
         "timings_path": str(timings_path),
         "word_timings": word_timings,
         "duration_sec": duration_sec,
