@@ -28,8 +28,7 @@ def _get_youtube_service():
     Authenticates and constructs the YouTube API service with auto-refresh layers.
     """
     creds = None
-    scopes = getattr(config, "YOUTUBE_SCOPES", ["https://www.googleapis.com/auth/youtube.upload"])
-    
+    scopes = ["https://www.googleapis.com/auth/youtube.upload"]
     # 1. GitHub Actions Cloud Secrets checking layer
     if os.environ.get("YOUTUBE_TOKEN_JSON"):
         try:
