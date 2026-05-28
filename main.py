@@ -50,65 +50,57 @@ def run_pipeline(topic: str | None = None, skip_upload: bool = False) -> dict:
     """
     start_time = time.time()
     timestamp  = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    stem       = f"ai_dark_{timestamp}"
+    stem       = f"video_{timestamp}"
 
     logger.info("=" * 60)
-    logger.info(f"🎬  AI Dark Realities Pipeline  |  {timestamp}")
+    logger.info(f"🚀 Starting Pipeline Session: {stem.upper()}")
+    if topic:
+        logger.info(f"🎯 Target Topic Forced: '{topic}'")
     logger.info("=" * 60)
 
     # ─────────────────────────────────────────────────────────────────────────
-    # STEP 1: Script + SEO generation
+    # STEP 1: Script + SEO generation via Groq Cloud
     # ─────────────────────────────────────────────────────────────────────────
-    logger.info("STEP 1/5 — Generating script via Groq…")
-    script_data = script_generator.generate_script(topic)
-
-    # Persist script JSON for audit / re-runs
-    script_path = config.SCRIPTS_DIR / f"{stem}_script.json"
-    script_path.write_text(json.dumps(script_data, indent=2), encoding="utf-8")
-    logger.info(f"Script saved → {script_path.name}")
+    logger.info("STEP 1/5 — Invoking Groq LLM for script engineering…")
+    script_data = script_generator.generate_script(topic=topic)
+    
+    # Save script JSON metadata for archive transparency
+    script_output = config.SCRIPTS_DIR / f"{stem}.json"
+    script_output.write_text(json.dumps(script_data, indent=2), encoding="utf-8")
+    
+    logger.info(f"Script generated successfully -> {script_output.name}")
     logger.info(f"Title: {script_data['seo']['title']}")
 
     # ─────────────────────────────────────────────────────────────────────────
-    # STEP 2: B-roll media download
+    # STEP 2: Media Asset Procurement (B-Roll Video Clips)
     # ─────────────────────────────────────────────────────────────────────────
-    logger.info("STEP 2/5 — Fetching B-roll media…")
-    broll_paths = media_fetcher.fetch_broll_clips(
-        keywords         = script_data["broll_keywords"],
-        clips_per_keyword= config.MEDIA_PER_KEYWORD,
+    logger.info("STEP 2/5 — Querying stock video download engines…")
+    media_paths = media_fetcher.fetch_broll_clips(
+        keywords          = script_data["search_keywords"],
+        clips_per_keyword = config.MEDIA_PER_KEYWORD,
     )
 
-    if not broll_paths:
-        logger.error("No B-roll clips retrieved — aborting pipeline.")
+    if not media_paths:
+        logger.error("Pipeline failure: No B-roll visual assets could be fetched.")
         sys.exit(1)
 
-    logger.info(f"B-roll ready: {len(broll_paths)} clips")
-
     # ─────────────────────────────────────────────────────────────────────────
-    # STEP 3: Voiceover synthesis
+    # STEP 3: Voiceover Audio Synthesis + Subtitle Timings
     # ─────────────────────────────────────────────────────────────────────────
-    logger.info("STEP 3/5 — Synthesising voiceover via Edge-TTS…")
-    audio_meta = audio_generator.generate_voiceover(
+    logger.info("STEP 3/5 — Generating natural TTS voice synthesis…")
+    voiceover_data = audio_generator.generate_voiceover(
         script      = script_data["script"],
         output_stem = stem,
     )
-    logger.info(f"Audio duration: {audio_meta['duration_sec']:.2f}s")
-
-    # Validate duration is within target range
-    dur = audio_meta["duration_sec"]
-    if dur < config.MIN_DURATION_SEC:
-        logger.warning(f"Audio is {dur:.1f}s — shorter than {config.MIN_DURATION_SEC}s target.")
-    elif dur > config.MAX_DURATION_SEC:
-        logger.warning(f"Audio is {dur:.1f}s — longer than {config.MAX_DURATION_SEC}s target.")
 
     # ─────────────────────────────────────────────────────────────────────────
-    # STEP 4: Video compilation
+    # STEP 4: Compile final vertical video with captions
     # ─────────────────────────────────────────────────────────────────────────
-    logger.info("STEP 4/5 — Compiling video…")
-video_path = video_compiler.compile_video(
-    media_paths     = media_paths,  
-    voiceover_data  = voiceover_data,
-    output_stem     = stem,
-)
+    logger.info("STEP 4/5 — Rendering video composition with MoviePy…")
+    video_path = video_compiler.compile_video(
+        media_paths     = media_paths,
+        voiceover_data  = voiceover_data,
+        output_stem     = stem,
     )
     logger.info(f"Video ready → {video_path}")
 
@@ -146,4 +138,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     result = run_pipeline(topic=args.topic, skip_upload=args.skip_upload)
-    print(json.dumps(result, indent=2, default=str))
