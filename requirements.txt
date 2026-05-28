@@ -1,10 +1,9 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # requirements.txt — AI Dark Realities Short-Form Video Pipeline
-# Pinned to completely stable cross-compatible versions for Ubuntu runners
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Script / SEO generation ──────────────────────────────────────────────────
-groq==0.9.0                    # Groq cloud SDK (Llama-3 inference)
+groq==0.18.0                  # FIX: Upgraded to resolve the 'proxies' initialization crash
 
 # ── HTTP / media fetching ────────────────────────────────────────────────────
 requests==2.32.3               # Pexels + Pixabay REST calls
