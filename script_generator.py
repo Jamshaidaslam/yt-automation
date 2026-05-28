@@ -1,7 +1,7 @@
 """
-script_generator.py — Groq Script & SEO Generation
+script_generator.py — Groq Script & SEO Generation (DARK PSYCHOLOGY & BRAIN MYSTERIES)
 AI Dark Realities · Short-Form Video Pipeline
-──────────────────────────────────────────────────
+────────────────────────────────────────────────────────────────────────────────────
 """
 
 import json
@@ -11,7 +11,6 @@ import logging
 import sys
 import os
 
-# CRITICAL IMPORT: Is line ki wajah se NameError aa raha tha
 from groq import Groq
 
 try:
@@ -32,48 +31,45 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s | %(message)s')
 # Groq client initialization
 _client = Groq(api_key=GROQ_API_KEY)
 
+# 🟢 NEW VIRAL TOPIC POOL: USA/UK High-Retention Psychology & Body Mysteries
 TOPIC_POOL = [
-    'How AI surveillance cameras track your face without consent',
-    'The hidden algorithm that decided you did not get that job',
-    'Why ChatGPT sometimes lies with complete confidence',
-    'The dark side of AI-generated deepfake voices scamming families',
-    'How social media AI is engineered to trigger dopamine addiction',
-    'The secret score banks use to predict your financial future',
-    'AI that predicts crime before it happens and gets it wrong',
-    'How recommendation algorithms trap you in an echo chamber forever',
-    'The company that sells your location data to anyone who pays',
-    'Why AI systems trained on biased data make racist decisions',
-    'The ghost workers behind every AI model you have ever used',
-    'How Google AI knows your search intent before you finish typing',
-    'The AI emotion-detection system used in job interviews',
-    'Why AI writing detectors are dangerously inaccurate',
-    'The military drones that choose their own targets using AI',
-    'How TikTok algorithm knows your secrets better than your therapist',
-    'The psychological manipulation tactics built into every app you use',
-    'AI-generated propaganda and how fake news is now indistinguishable',
-    'The dark truth about how AI models are trained on stolen art',
-    'Why AI hallucinations could get someone killed in a hospital'
+    'Dark psychology trick to read anyone instantly by watching their eyes',
+    'What happens to your brain when you secretly stare at someone',
+    'The terrifying reason why your brain experiences Deja Vu',
+    'Why your brain knows someone is looking at you even while you sleep',
+    'Psychological facts about how manipulation tactics control your choices',
+    'The hidden reason why you feel a sudden drop in your stomach',
+    'Dark behavior signs that someone is secretly jealous of your life',
+    'How reverse psychology tricks people into doing exactly what you want',
+    'What happens inside your dimage during a sleep paralysis episode',
+    'The biological secret of why eye contact can make anyone nervous',
+    'Psychological trick: How to make someone regret hurting you immediately',
+    'The subconscious reason why we match the body language of others',
+    'What your dreams are trying to tell you about your darkest fears',
+    'The manipulation technique used by toxic people to gaslight you',
+    'Why your brain sometimes creates false memories that never happened'
 ]
 
-# Browser crashes se bachne k liye plain single strings ko joda hai
+# 🟢 SYSTEM PROMPT OPTIMIZATION: Injected Magical Hooks & Premium Tone Control
 SYSTEM_PROMPT = (
-    'You are an expert short-form video scriptwriter and SEO strategist. '
-    'Target audience: curious adults aged 18-45 in the USA and UK. '
+    'You are an expert short-form video scriptwriter specializing in Dark Psychology, '
+    'Body Science, and Hidden Human Behavior Mysteries. Target audience: curious adults aged 18-45 in the USA and UK. '
     'RULES: '
-    '1. Script must be 110 to 150 words total. '
-    '2. Write in second-person using you and your. '
-    '3. First sentence must be a shocking hook. '
-    '4. End with a call-to-action asking viewers to follow for more. '
-    '5. Return ONLY a valid JSON object matching the exact schema below. '
-    '6. Do NOT include any markdown code fences. '
+    '1. Script must be 110 to 140 words total (strictly under 60 seconds of speech). '
+    '2. Write in second-person using "you" and "your" to create an intense connection. '
+    '3. MAGICAL HOOK: The first sentence MUST be a shocking, high-retention psychological hook that stops scrolling immediately. Do not say welcome. '
+    '4. Tone must be mysterious, dark, clinical, and authoritative. '
+    '5. BROLL KEYWORDS: Provide 3-4 dark, aesthetic visual search keywords for stock footage (e.g., "dark aesthetic", "shadowy figure", "brain macro"). '
+    '6. End with a sharp call-to-action asking viewers to follow for more dark secrets. '
+    '7. Return ONLY a valid JSON object matching the exact schema below without markdown formatting.'
     'EXACT JSON SCHEMA TO RETURN: '
     '{'
     '"topic": "string", '
-    '"script": "string with 110 to 150 words", '
+    '"script": "string with 110 to 140 words starting with a massive hook", '
     '"broll_keywords": ["keyword1", "keyword2", "keyword3"], '
     '"seo": {'
     '"title": "string under 60 characters", '
-    '"description": "string packed with keywords", '
+    '"description": "string packed with psychology keywords", '
     '"hashtags": ["#tag1", "#tag2", "#tag3"]'
     '}'
     '}'
@@ -87,14 +83,14 @@ MODEL_CHAIN = [
 
 def _call_groq(topic: str, model: str) -> dict:
     user_message = (
-        f'Create a complete short-form video package for this topic: {topic}. '
-        f'Return ONLY the JSON object. No extra text. No markdown.'
+        f'Create a complete dark psychology or brain mystery short-form video package for this topic: {topic}. '
+        f'Make sure the script starts with an absolute magical hook line. Return ONLY the JSON object.'
     )
     logger.info(f'Calling Groq model: {model}')
     response = _client.chat.completions.create(
         model=model,
         max_tokens=1500,
-        temperature=0.8,
+        temperature=0.85,  # Slightly higher for creative and dramatic hooks
         response_format={'type': 'json_object'},
         messages=[
             {'role': 'system', 'content': SYSTEM_PROMPT},
@@ -104,10 +100,10 @@ def _call_groq(topic: str, model: str) -> dict:
     raw_text = response.choices[0].message.content.strip()
     logger.info(f'Response received: {len(raw_text)} chars')
     
-    # Safe cleaning structure without string formatting issues
     if raw_text.startswith('```'):
         raw_text = raw_text.split('\n', 1)[1]
-    if raw_text.endswith('```'):
+    if raw_text.endswith('
+```'):
         raw_text = raw_text.rsplit('\n', 1)[0]
     raw_text = raw_text.strip()
     
@@ -141,12 +137,15 @@ def _validate_and_fix(data: dict) -> None:
     seo = data.get('seo', {})
     for key in ('title', 'description', 'hashtags'):
         if key not in seo: seo[key] = 'Missing seo data'
+    
+    # 🟢 NEW STABLE DEFAULT KEYWORDS: If model fails, fetch dark mysterious aesthetic stock videos
     if not isinstance(data['broll_keywords'], list):
-        data['broll_keywords'] = ['artificial intelligence technology', 'data privacy surveillance']
+        data['broll_keywords'] = ['dark aesthetic', 'mysterious cinematography', 'shadowy figure']
+        
     if len(seo['title']) > 100:
         seo['title'] = seo['title'][:95] + '...'
     if not isinstance(seo['hashtags'], list):
-        seo['hashtags'] = ['#AIFacts', '#DarkReality', '#Shorts']
+        seo['hashtags'] = ['#DarkPsychology', '#PsychologyFacts', '#MindMysteries']
 
 def build_word_timings(script: str, audio_duration: float) -> list[dict]:
     words = script.split()
