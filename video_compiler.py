@@ -1,5 +1,5 @@
 """
-video_compiler.py — Core Video Rendering Engine (FIXED MASK_COLOR CRASH & COMPRESSED SIZE)
+video_compiler.py — Core Video Rendering Engine (FAST-CUTTING & COMPRESSED SIZE)
 AI Dark Realities · Short-Form Video Pipeline
 ──────────────────────────────────────────────
 """
@@ -86,11 +86,16 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
 
     video_clips = []
     current_time = 0.0
+    media_index = 0
 
     try:
-        for path_str in media_paths:
-            if current_time >= total_dur:
-                break
+        # 🟢 RETENTION FIX: Har scene max 2.5 seconds chalega fast cutting k liye
+        MAX_CLIP_DURATION = 2.5
+
+        while current_time < total_dur:
+            # Clips khatam hone par round-robin loop chalega taake scene mix and match hota rahe
+            path_str = media_paths[media_index % len(media_paths)]
+            media_index += 1
 
             clip_path = Path(path_str)
             if not clip_path.exists():
@@ -98,12 +103,15 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
 
             clip = VideoFileClip(str(clip_path), audio=False)
             rem_dur = total_dur - current_time
-            clip_duration = min(clip.duration, rem_dur)
             
-            if clip_duration <= 0.5:
+            # Clip duration ab max 2.5s set hogi, chahe source clip kitni bhi bari ho
+            clip_duration = min(clip.duration, rem_dur, MAX_CLIP_DURATION)
+            
+            if clip_duration <= 0.3:
                 clip.close()
                 continue
                 
+            # Har bar clip ka start sa 2.5s ka smooth patch cut krna ha
             clip = clip.subclip(0, clip_duration)
             clip_w, clip_h = clip.size
             target_ratio = W / H  
@@ -143,17 +151,17 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
         final_video = CompositeVideoClip([video_sequence, caption_clip], size=(W, H))
         final_video = final_video.set_duration(total_dur)
 
-        logger.info(f"Rendering compressed final short output file to -> {final_path}")
+        logger.info(f"Rendering compressed fast-cut short output file to -> {final_path}")
         
-        # 🟢 COMPRESSION & QUALITY TARGET FIXES
+        # 🟢 COMPRESSION & SIZE OPTIMIZATION (15MB - 25MB Target)
         final_video.write_videofile(
             str(final_path),
             fps=FPS,
             codec="libx264",
             audio_codec="aac",
-            bitrate="3000k",          # Video size ko 15MB-25MB tak lane k liye speed limiter
-            audio_bitrate="128k",     # Audio data clean rakhne k liye Bina space zaya kiye
-            preset="fast",            # Fast preset balance bnaye rkhta ha performance or size me
+            bitrate="3000k",          
+            audio_bitrate="128k",     
+            preset="fast",            
             threads=4,
             logger=None,
         )
