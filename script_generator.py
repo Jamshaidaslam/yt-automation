@@ -50,29 +50,27 @@ TOPIC_POOL = [
     'Why AI hallucinations could get someone killed in a hospital'
 ]
 
-# Pure prompt ko safe single lines me convert kiya hai taake line break crash na ho
+# Crash se bachne k liye bilkul plain single line pieces ko joda hai
 SYSTEM_PROMPT = (
-    'You are an expert short-form video scriptwriter and SEO strategist '
-    'specialising in viral, suspenseful content about AI and technology dark realities. '
-    'Target audience: curious adults aged 18-45 in the USA and UK.\n\n'
-    'RULES:\n'
-    '1. Script must be 110 to 150 words total. No more, no less.\n'
-    '2. Write in second-person using you and your to create urgency.\n'
-    '3. First sentence must be a shocking hook.\n'
-    '4. End with a call-to-action asking viewers to follow for more.\n'
-    '5. Return ONLY a valid JSON object matching the exact schema below.\n'
-    '6. Do NOT include any text outside the JSON object.\n'
-    '7. Do NOT use markdown code fences.\n\n'
-    'EXACT JSON SCHEMA TO RETURN:\n'
-    '{\n'
-    '  "topic": "string",\n'
-    '  "script": "string with 110 to 150 words",\n'
-    '  "broll_keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"],\n'
-    '  "seo": {\n'
-    '    "title": "string under 60 characters",\n'
-    '    "description": "string 150 to 200 words packed with keywords",\n'
-    '    "hashtags": ["#tag1", "#tag2", "#tag3", "#tag4", "#tag5", "#tag6", "#tag7", "#tag8", "#tag9", "#tag10"]\n'
-    '  }\n'
+    'You are an expert short-form video scriptwriter and SEO strategist. '
+    'Target audience: curious adults aged 18-45 in the USA and UK. '
+    'RULES: '
+    '1. Script must be 110 to 150 words total. '
+    '2. Write in second-person using you and your. '
+    '3. First sentence must be a shocking hook. '
+    '4. End with a call-to-action asking viewers to follow for more. '
+    '5. Return ONLY a valid JSON object matching the exact schema below. '
+    '6. Do NOT include any markdown code fences. '
+    'EXACT JSON SCHEMA TO RETURN: '
+    '{'
+    '"topic": "string", '
+    '"script": "string with 110 to 150 words", '
+    '"broll_keywords": ["keyword1", "keyword2", "keyword3"], '
+    '"seo": {'
+    '"title": "string under 60 characters", '
+    '"description": "string packed with keywords", '
+    '"hashtags": ["#tag1", "#tag2", "#tag3"]'
+    '}'
     '}'
 )
 
@@ -84,8 +82,7 @@ MODEL_CHAIN = [
 
 def _call_groq(topic: str, model: str) -> dict:
     user_message = (
-        f'Create a complete short-form video package for this topic:\n'
-        f'TOPIC: {topic}\n'
+        f'Create a complete short-form video package for this topic: {topic}. '
         f'Return ONLY the JSON object. No extra text. No markdown.'
     )
     logger.info(f'Calling Groq model: {model}')
@@ -101,10 +98,65 @@ def _call_groq(topic: str, model: str) -> dict:
     )
     raw_text = response.choices[0].message.content.strip()
     logger.info(f'Response received: {len(raw_text)} chars')
-    raw_text = re.sub(r'^
-http://googleusercontent.com/immersive_entry_chip/0
+    
+    # Bilkul safe cleaning without complex regex patterns
+    if raw_text.startswith('```'):
+        raw_text = raw_text.split('\n', 1)[1]
+    if raw_text.endswith('```'):
+        raw_text = raw_text.rsplit('\n', 1)[0]
+    raw_text = raw_text.strip()
+    
+    try:
+        data = json.loads(raw_text)
+    except json.JSONDecodeError as exc:
+        logger.error(f'JSON parse error: {exc}')
+        raise ValueError(f'Invalid JSON from Groq: {exc}') from exc
+    return data
 
-### 💡 Choti si Request:
-Aap is code ko copy karke jab GitHub file mein paste karein, to commit karne se pehle ek baar dekh lijiye ga ke pure code mein koi single quote toota hua na ho. 
+def generate_script(topic: str | None = None) -> dict:
+    if topic is None:
+        topic = random.choice(TOPIC_POOL)
+    logger.info(f'Generating script for topic: {topic}')
+    last_error = None
+    for model in MODEL_CHAIN:
+        try:
+            data = _call_groq(topic, model)
+            _validate_and_fix(data)
+            logger.info(f'Script OK via {model}')
+            return data
+        except Exception as exc:
+            logger.warning(f'Model {model} failed: {exc}')
+            last_error = exc
+            continue
+    raise RuntimeError(f'All Groq models failed. Last error: {last_error}')
 
-Ab push karke run karein, yeh run bilkul green (pass) ho jayega!
+def _validate_and_fix(data: dict) -> None:
+    for key in ('topic', 'script', 'broll_keywords', 'seo'):
+        if key not in data: data[key] = 'Missing data'
+    seo = data.get('seo', {})
+    for key in ('title', 'description', 'hashtags'):
+        if key not in seo: seo[key] = 'Missing seo data'
+    if not isinstance(data['broll_keywords'], list):
+        data['broll_keywords'] = ['artificial intelligence technology', 'data privacy surveillance']
+    if len(seo['title']) > 100:
+        seo['title'] = seo['title'][:95] + '...'
+    if not isinstance(seo['hashtags'], list):
+        seo['hashtags'] = ['#AIFacts', '#DarkReality', '#Shorts']
+
+def build_word_timings(script: str, audio_duration: float) -> list[dict]:
+    words = script.split()
+    if not words: return []
+    per_word = audio_duration / len(words)
+    timings = []
+    t = 0.0
+    for word in words:
+        clean = ''.join(c for c in word if c.isalnum() or c in "'-")
+        if clean:
+            timings.append({'word': clean, 'start': round(t, 3), 'end': round(t + per_word, 3)})
+        t += per_word
+    return timings
+
+if __name__ == '__main__':
+    import pprint
+    result = generate_script()
+    pprint.pprint(result)
