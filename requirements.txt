@@ -3,21 +3,21 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Script / SEO generation ──────────────────────────────────────────────────
-groq==0.18.0                  # FIX: Upgraded to resolve the 'proxies' initialization crash
+groq==0.18.0
 
 # ── HTTP / media fetching ────────────────────────────────────────────────────
-requests==2.32.3               # Pexels + Pixabay REST calls
-aiohttp==3.9.5                 # async downloads for media files
+requests==2.32.3
+aiohttp==3.9.5
 
 # ── Text-to-Speech ───────────────────────────────────────────────────────────
-edge-tts==6.1.12               # Microsoft Edge neural TTS (free)
+edge-tts==6.1.12               # Premium Free Voice
 
 # ── Video editing ────────────────────────────────────────────────────────────
-moviepy==1.0.3                 # FFmpeg Python wrapper
-imageio==2.25.0                # Stable version for MoviePy frame reading
-imageio-ffmpeg==0.4.8          # Compatible FFmpeg binary backend
-Pillow==9.5.0                  # Stable image library with ANTIALIAS support
-numpy==1.26.4                  # Array ops for video frames
+moviepy==1.0.3
+imageio==2.25.0
+imageio-ffmpeg==0.4.8
+Pillow==9.5.0
+numpy==1.26.4
 
 # ── Google / YouTube upload ──────────────────────────────────────────────────
 google-api-python-client==2.131.0
@@ -26,6 +26,6 @@ google-auth-oauthlib==1.2.0
 google-auth-httplib2==0.2.0
 
 # ── Misc utilities ───────────────────────────────────────────────────────────
-python-dotenv==1.0.1           # Local .env support during development
-tenacity==8.3.0                # Retry decorator for API calls
-tqdm==4.66.4                   # Progress bars (CI-friendly)
+python-dotenv==1.0.1
+tenacity==8.3.0
+tqdm==4.66.4
