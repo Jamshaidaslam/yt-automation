@@ -11,12 +11,16 @@ import logging
 import sys
 import os
 
+# CRITICAL IMPORT: Is line ki wajah se NameError aa raha tha
+from groq import Groq
+
 try:
     import config
     HAS_CONFIG = True
 except ImportError:
     HAS_CONFIG = False
 
+# GitHub Secrets ya local config se API Key uthane ka setup
 GROQ_API_KEY = os.environ.get('GROQ_API_KEY') or (config.GROQ_API_KEY if HAS_CONFIG else None)
 
 if not GROQ_API_KEY:
@@ -25,6 +29,7 @@ if not GROQ_API_KEY:
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format='%(levelname)s | %(message)s')
 
+# Groq client initialization
 _client = Groq(api_key=GROQ_API_KEY)
 
 TOPIC_POOL = [
@@ -50,7 +55,7 @@ TOPIC_POOL = [
     'Why AI hallucinations could get someone killed in a hospital'
 ]
 
-# Crash se bachne k liye bilkul plain single line pieces ko joda hai
+# Browser crashes se bachne k liye plain single strings ko joda hai
 SYSTEM_PROMPT = (
     'You are an expert short-form video scriptwriter and SEO strategist. '
     'Target audience: curious adults aged 18-45 in the USA and UK. '
@@ -99,7 +104,7 @@ def _call_groq(topic: str, model: str) -> dict:
     raw_text = response.choices[0].message.content.strip()
     logger.info(f'Response received: {len(raw_text)} chars')
     
-    # Bilkul safe cleaning without complex regex patterns
+    # Safe cleaning structure without string formatting issues
     if raw_text.startswith('```'):
         raw_text = raw_text.split('\n', 1)[1]
     if raw_text.endswith('```'):
