@@ -17,7 +17,7 @@ VIDEO_HEIGHT = 1920
 VIDEO_FPS = 30
 MEDIA_PER_KEYWORD = 3
 
-# API Retry Configuration (Fixes all media_fetcher.py config errors)
+# API Retry Configuration
 API_RETRY_ATTEMPTS = 3
 API_RETRY_WAIT_SEC = 5
 
@@ -26,3 +26,8 @@ FONT_NAME = "Impact.ttf"
 
 # STRICT YOUTUBE OAUTH SCOPES
 YOUTUBE_SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+
+# ── STOCK VIDEO API KEYS (Fixes Step 2/5 Error) ──────────────────────────────
+# GitHub Actions ke cloud par chalne ke liye direct Environment standard setup:
+PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY", "YOUR_PEXELS_KEY_HERE")
+PIXABAY_API_KEY = os.environ.get("PIXABAY_API_KEY", "YOUR_PIXABAY_KEY_HERE")
