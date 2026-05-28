@@ -10,9 +10,6 @@ import random
 import logging
 import sys
 import os
-from tenacity import retry, stop_after_attempt, wait_fixed, before_sleep_log
-
-from groq import Groq, BadRequestError
 
 try:
     import config
@@ -53,30 +50,31 @@ TOPIC_POOL = [
     "Why AI hallucinations could get someone killed in a hospital",
 ]
 
-SYSTEM_PROMPT = """You are an expert short-form video scriptwriter and SEO strategist
-specialising in viral, suspenseful content about AI and technology dark realities.
-Target audience: curious adults aged 18-45 in the USA and UK.
-
-RULES:
-1. Script must be 110 to 150 words total. No more, no less.
-2. Write in second-person using you and your to create urgency.
-3. First sentence must be a shocking hook.
-4. End with a call-to-action asking viewers to follow for more.
-5. Return ONLY a valid JSON object matching the exact schema below.
-6. Do NOT include any text outside the JSON object.
-7. Do NOT use markdown code fences.
-
-EXACT JSON SCHEMA TO RETURN:
-{
-  "topic": "string",
-  "script": "string with 110 to 150 words",
-  "broll_keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"],
-  "seo": {
-    "title": "string under 60 characters",
-    "description": "string 150 to 200 words packed with keywords",
-    "hashtags": ["#tag1", "#tag2", "#tag3", "#tag4", "#tag5", "#tag6", "#tag7", "#tag8", "#tag9", "#tag10"]
-  }
-}"""
+# Formatting bug se bachne k liye prompt ko clean single lines me kiya hai
+SYSTEM_PROMPT = (
+    "You are an expert short-form video scriptwriter and SEO strategist "
+    "specialising in viral, suspenseful content about AI and technology dark realities. "
+    "Target audience: curious adults aged 18-45 in the USA and UK.\n\n"
+    "RULES:\n"
+    "1. Script must be 110 to 150 words total. No more, no less.\n"
+    "2. Write in second-person using you and your to create urgency.\n"
+    "3. First sentence must be a shocking hook.\n"
+    "4. End with a call-to-action asking viewers to follow for more.\n"
+    "5. Return ONLY a valid JSON object matching the exact schema below.\n"
+    "6. Do NOT include any text outside the JSON object.\n"
+    "7. Do NOT use markdown code fences.\n\n"
+    "EXACT JSON SCHEMA TO RETURN:\n"
+    "{\n"
+    "  \"topic\": \"string\",\n"
+    "  \"script\": \"string with 110 to 150 words\",\n"
+    "  \"broll_keywords\": [\"keyword1\", \"keyword2\", \"keyword3\", \"keyword4\", \"keyword5\"],\n"
+    "  \"seo\": {\n"
+    "    \"title\": \"string under 60 characters\",\n"
+    "    \"description\": \"string 150 to 200 words packed with keywords\",\n"
+    "    \"hashtags\": [\"#tag1\", \"#tag2\", \"#tag3\", \"#tag4\", \"#tag5\", \"#tag6\", \"#tag7\", \"#tag8\", \"#tag9\", \"#tag10\"]\n"
+    "  }\n"
+    "}"
+)
 
 MODEL_CHAIN = [
     "llama-3.3-70b-versatile",
@@ -106,4 +104,4 @@ def _call_groq(topic: str, model: str) -> dict:
     raw_text = re.sub(r"^
 http://googleusercontent.com/immersive_entry_chip/0
 
-Isko copy-paste karke save karein aur run karein. Is baar yeh syntax error 100% dead hai!
+Isko save kar ke push karein, is baar pipeline bina ruke aage nikal jayegi!
