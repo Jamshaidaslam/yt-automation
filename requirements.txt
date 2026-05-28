@@ -1,7 +1,7 @@
 groq==0.18.0
 requests==2.32.3
 aiohttp==3.9.5
-gTTS==2.5.1
+edge-tts
 moviepy==1.0.3
 imageio==2.25.0
 imageio-ffmpeg==0.4.8
