@@ -1,3 +1,9 @@
+"""
+audio_generator.py — Anti-Block Google TTS + FFmpeg Voice Modulator
+AI Dark Realities · Short-Form Video Pipeline
+──────────────────────────────────────────────
+"""
+
 import json
 import logging
 import subprocess
@@ -17,11 +23,11 @@ def generate_voiceover(script: str, output_stem: str) -> dict:
     logger.info("Synthesising safe voiceover via Google TTS Engine...")
 
     try:
-        # 1. Download raw stable audio stream from Google
+        # 1. Download raw stable audio stream from Google Translate panel
         tts = gTTS(text=script, lang="en", tld="com", slow=False)
         tts.save(str(raw_audio_path))
         
-        # 2. Modulate pitch & speed via FFmpeg to make it sound like a deep cinematic human
+        # 2. Modulate pitch & speed using local FFmpeg to make it sound deep and viral
         logger.info("Applying cinematic voice modulation via FFmpeg...")
         if final_audio_path.exists():
             final_audio_path.unlink()
