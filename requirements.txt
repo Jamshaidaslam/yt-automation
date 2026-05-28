@@ -18,7 +18,7 @@ edge-tts>=6.1.84               # Microsoft Edge neural TTS (free)
 moviepy==1.0.3                 # FFmpeg Python wrapper
 imageio==2.34.1                # required by moviepy
 imageio-ffmpeg==0.5.1          # bundled FFmpeg binary fallback
-Pillow==10.3.0                 # Image compositing for caption frames
+Pillow==9.5.0                 # Image compositing for caption frames
 numpy==1.26.4                  # Array ops for video frames
 
 # ── Google / YouTube upload ──────────────────────────────────────────────────
