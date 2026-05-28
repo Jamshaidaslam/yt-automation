@@ -9,10 +9,26 @@ import json
 import logging
 import sys
 import time
+import os  # <-- Environment variables read karne k liye zaroori hai
 from datetime import datetime
 from pathlib import Path
 
-import config
+# --- GITHUB ACTIONS O LOCAL PC COMPATIBILITY LAYER ---
+# Agar GitHub par chal raha hai to config file load nahi karega, crash nahi hoga
+try:
+    import config
+    HAS_CONFIG_FILE = True
+except ImportError:
+    HAS_CONFIG_FILE = False
+
+# Backup fallback settings (Agar config.py missing ho to ye chalenge)
+SCRIPTS_DIR = Path(config.SCRIPTS_DIR) if HAS_CONFIG_FILE else Path("output/scripts")
+MEDIA_PER_KEYWORD = config.MEDIA_PER_KEYWORD if HAS_CONFIG_FILE else 3
+
+# Folder automate create karne k liye agar missing ho
+SCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
+# -----------------------------------------------------
+
 import script_generator
 import media_fetcher
 import audio_generator
@@ -38,7 +54,7 @@ def run_pipeline(topic: str | None = None, skip_upload: bool = False) -> dict:
     # STEP 1: Script Generation
     logger.info("STEP 1/5 — Invoking Groq LLM for script engineering…")
     script_data = script_generator.generate_script(topic=topic)
-    script_output = config.SCRIPTS_DIR / f"{stem}.json"
+    script_output = SCRIPTS_DIR / f"{stem}.json"  # <-- Config direct call hata diya
     script_output.write_text(json.dumps(script_data, indent=2), encoding="utf-8")
 
     # STEP 2: Media Asset Procurement
@@ -52,7 +68,7 @@ def run_pipeline(topic: str | None = None, skip_upload: bool = False) -> dict:
 
     media_paths = media_fetcher.fetch_broll_clips(
         keywords          = keywords_list,
-        clips_per_keyword = config.MEDIA_PER_KEYWORD,
+        clips_per_keyword = MEDIA_PER_KEYWORD,  # <-- Config direct call hata diya
     )
 
     if not media_paths:
@@ -93,7 +109,7 @@ def run_pipeline(topic: str | None = None, skip_upload: bool = False) -> dict:
 
     return {
         "stem":           stem,
-        "video_path":     video_path,
+        "video_path":      video_path,
         "seo":            script_data.get("seo", {}),
         "upload_results": upload_results,
     }
