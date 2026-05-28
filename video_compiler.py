@@ -1,5 +1,5 @@
 """
-video_compiler.py — Core Video Rendering Engine (FAST-CUTTING & COMPRESSED SIZE)
+video_compiler.py — Core Video Rendering Engine (FAST-CUTTING, BOTTOM 3-WORD CAPTIONS)
 AI Dark Realities · Short-Form Video Pipeline
 ──────────────────────────────────────────────
 """
@@ -26,7 +26,7 @@ W  = config.VIDEO_WIDTH   # 1080
 H  = config.VIDEO_HEIGHT  # 1920
 FPS = config.VIDEO_FPS    # 30
 
-FONT_SIZE = 75
+FONT_SIZE = 70
 CAPTION_TEXT_COLOR = (255, 255, 0, 255)      # Bright Yellow with Full Alpha
 CAPTION_STROKE_COLOR = (0, 0, 0, 255)        # Black Outline with Full Alpha
 
@@ -42,24 +42,33 @@ def _get_font(size: int) -> ImageFont.FreeTypeFont:
 
 def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarray:
     """
-    Renders a transparent RGBA PIL image frame, then converts it safely 
-    to an RGB array for MoviePy compatibility.
+    Renders a transparent RGBA PIL image frame, displaying a chunk of 3 words
+    synced to the current audio timestamp at the lower third of the screen.
     """
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    active_word = ""
-    for item in word_timings:
+    active_phrase = ""
+    # 🟢 3-WORD GROUPING ENGINE: Find current active word index
+    for idx, item in enumerate(word_timings):
         if item["start"] <= t <= item["end"]:
-            active_word = item["word"].upper()
+            # Pick a block of 3 words starting from current index or slightly adjusted
+            start_chunk = max(0, idx - (idx % 3))
+            end_chunk = min(len(word_timings), start_chunk + 3)
+            
+            chunk_words = [word_timings[i]["word"].upper() for i in range(start_chunk, end_chunk)]
+            active_phrase = " ".join(chunk_words)
             break
 
-    if not active_word:
+    if not active_phrase:
         return np.array(img)
 
     font = _get_font(FONT_SIZE)
-    wrapped_lines = textwrap.wrap(active_word, width=10)
-    current_y = (H // 2) - 100
+    # Wrap text cleanly if lines get too wide
+    wrapped_lines = textwrap.wrap(active_phrase, width=18)
+    
+    # 🟢 POSITION FIX: Middle sa hata kar Lower Third (Screen k 75% niche) pr shift kiya ha
+    current_y = int(H * 0.75)
     
     for line in wrapped_lines:
         bbox = draw.textbbox((0, 0), line, font=font)
@@ -67,11 +76,13 @@ def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarr
         text_h = bbox[3] - bbox[1]
         x = (W - text_w) // 2
         
+        # Heavy 8-axis border stroke for text visibility over fast clips
         for adj_x, adj_y in [(-5,-5), (5,-5), (-5,5), (5,5), (-3,0), (3,0), (0,-3), (0,3)]:
             draw.text((x + adj_x, current_y + adj_y), line, font=font, fill=CAPTION_STROKE_COLOR)
             
+        # Main vibrant text layer
         draw.text((x, current_y), line, font=font, fill=CAPTION_TEXT_COLOR)
-        current_y += text_h + 25
+        current_y += text_h + 20
 
     return np.array(img)
 
@@ -89,11 +100,10 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
     media_index = 0
 
     try:
-        # 🟢 RETENTION FIX: Har scene max 2.5 seconds chalega fast cutting k liye
+        # Retention optimization: Max 2.5 seconds per clip
         MAX_CLIP_DURATION = 2.5
 
         while current_time < total_dur:
-            # Clips khatam hone par round-robin loop chalega taake scene mix and match hota rahe
             path_str = media_paths[media_index % len(media_paths)]
             media_index += 1
 
@@ -103,15 +113,12 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
 
             clip = VideoFileClip(str(clip_path), audio=False)
             rem_dur = total_dur - current_time
-            
-            # Clip duration ab max 2.5s set hogi, chahe source clip kitni bhi bari ho
             clip_duration = min(clip.duration, rem_dur, MAX_CLIP_DURATION)
             
             if clip_duration <= 0.3:
                 clip.close()
                 continue
                 
-            # Har bar clip ka start sa 2.5s ka smooth patch cut krna ha
             clip = clip.subclip(0, clip_duration)
             clip_w, clip_h = clip.size
             target_ratio = W / H  
@@ -153,7 +160,7 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
 
         logger.info(f"Rendering compressed fast-cut short output file to -> {final_path}")
         
-        # 🟢 COMPRESSION & SIZE OPTIMIZATION (15MB - 25MB Target)
+        # Quality Target & Size Compression Parameters
         final_video.write_videofile(
             str(final_path),
             fps=FPS,
