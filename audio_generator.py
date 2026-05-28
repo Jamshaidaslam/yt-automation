@@ -1,5 +1,5 @@
 """
-audio_generator.py — Edge-TTS Voiceover Pipeline with 403 Auto-Retry
+audio_generator.py — Edge-TTS Voiceover Pipeline (Fixed Object Stream Crash)
 AI Dark Realities · Short-Form Video Pipeline
 ──────────────────────────────────────────────
 """
@@ -20,21 +20,35 @@ import config
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
 
+
 # ═══════════════════════════════════════════════════════════════════════════════
-# CORE TTS FUNCTION WITH RETRY PATCH FOR 403 ERRORS
+# CORE TTS PIPELINE WITH FIX FOR ATTEMPT REUSE
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# FIX: Agar Microsoft 403 block de, to yeh decorator 4 baar automatic retry karega gaps k sath
+# FIX: Tenacity retry loop ab naye fresh object k sath execute hoga har bar
 @retry(
     stop=stop_after_attempt(4),
     wait=wait_exponential(multiplier=2, min=4, max=15),
     reraise=True,
-    before_sleep=lambda retry_state: logger.warning(f"TTS blocked (403/Connection issues). Retrying in a few seconds... (Attempt {retry_state.attempt_number})")
+    before_sleep=lambda retry_state: logger.warning(
+        f"TTS stream blocked or network glitch. Creating fresh stream session... (Attempt {retry_state.attempt_number})"
+    )
 )
-def _run_synthesis_sync(communicate, out_mp3, out_timings):
-    """Helper sync function to aggregate edge-tts async generator with retry stability."""
+def _execute_synthesis_with_retry(script: str, out_mp3: Path):
+    """
+    Creates a FRESH Communicate instance on every single retry attempt 
+    to completely prevent 'RuntimeError: stream can only be called once'.
+    """
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
+    
+    # Generate fresh clean instance mapping configurations
+    communicate = edge_tts.Communicate(
+        text   = script,
+        voice  = config.TTS_VOICE,
+        rate   = config.TTS_RATE,
+        volume = config.TTS_VOLUME,
+    )
     
     raw_words = []
     submaker = edge_tts.SubMaker()
@@ -52,13 +66,15 @@ def _run_synthesis_sync(communicate, out_mp3, out_timings):
                     "end": (chunk["offset"] + chunk["duration"]) / 10000000
                 })
                 
-    # Fresh clean file setup
+    # Reset/clean old file if it was partially written in a failed attempt
     if out_mp3.exists():
         out_mp3.unlink()
         
-    loop.run_until_complete(_gather())
-    loop.close()
-    return raw_words
+    try:
+        loop.run_until_complete(_gather())
+        return raw_words
+    finally:
+        loop.close()
 
 
 def generate_voiceover(script: str, output_stem: str) -> dict:
@@ -70,26 +86,21 @@ def generate_voiceover(script: str, output_stem: str) -> dict:
 
     logger.info(f"Synthesising TTS audio voice using voice: {config.TTS_VOICE}")
 
-    communicate = edge_tts.Communicate(
-        text   = script,
-        voice  = config.TTS_VOICE,
-        rate   = config.TTS_RATE,
-        volume = config.TTS_VOLUME,
-    )
-
     try:
-        # Retry logic execution
-        word_timings = _run_synthesis_sync(communicate, audio_path, timings_path)
+        # Run safe fresh object instantiation pipeline execution
+        word_timings = _execute_synthesis_with_retry(script, audio_path)
     except Exception as e:
-        logger.error(f"Edge-TTS fundamentally failed after maximum retries: {e}")
+        logger.error(f"Edge-TTS structurally blocked after maximum attempts: {e}")
         raise e
 
-    # Fallback structure validation
+    # Calculate final duration metrics
     duration_sec = _get_audio_duration_sec(audio_path)
+    
     if not word_timings:
         logger.warning("No precise word boundaries extracted. Building fallback linear distributions.")
         word_timings = build_word_timings(script, duration_sec)
 
+    # Save outputs tracking json file array
     timings_path.write_text(json.dumps(word_timings, indent=2), encoding="utf-8")
 
     return {
@@ -111,5 +122,5 @@ def _get_audio_duration_sec(audio_path: Path) -> float:
 
 
 if __name__ == "__main__":
-    test_text = "Testing the robust secure automated edge synthesis runtime framework layer."
-    print(generate_voiceover(test_text, "test_stability"))
+    test_text = "Testing the stream runtime instance creation pipeline layer wrapper framework."
+    print(generate_voiceover(test_text, "test_stream_safety"))
