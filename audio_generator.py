@@ -1,14 +1,15 @@
 """
-audio_generator.py — Clean Standard TTS Engine
+audio_generator.py — High-Retention Natural Male Voice Engine (Edge-TTS Sync)
 AI Dark Realities · Short-Form Video Pipeline
 ──────────────────────────────────────────────
 """
 
+import asyncio
 import json
 import logging
 import subprocess
 from pathlib import Path
-from gtts import gTTS
+import edge_tts
 from script_generator import build_word_timings
 import config
 
@@ -19,22 +20,33 @@ def generate_voiceover(script: str, output_stem: str) -> dict:
     final_audio_path = config.AUDIO_DIR / f"{output_stem}.mp3"
     timings_path = config.AUDIO_DIR / f"{output_stem}_timings.json"
 
-    logger.info("Synthesising clean voiceover via Google TTS Engine...")
+    logger.info("Synthesizing high-retention natural male voiceover via Edge Cloud...")
 
     try:
         if final_audio_path.exists():
             final_audio_path.unlink()
 
-        # Generate clean standard audio without breaking speed/pitch
-        tts = gTTS(text=script, lang="en", tld="com", slow=False)
-        tts.save(str(final_audio_path))
-        logger.info(f"Voice track saved successfully -> {final_audio_path.name}")
+        # Dark Psychology aur Mystery k liye sab se best heavy male voice
+        voice_character = "en-US-ChristopherNeural"
+        
+        # Google TTS sa nikal kar Edge-TTS pa shift kiya ha
+        # Speed ko -15% slow rakha ha taake natural suspense banay aur audio fast na ho
+        async def save_voice():
+            communicate = edge_tts.Communicate(script, voice_character, rate="-15%", pitch="+0Hz")
+            await communicate.save(str(final_audio_path))
+
+        # Cloud async task runner execution
+        asyncio.run(save_voice())
+        logger.info(f"Natural Male Voice track saved successfully -> {final_audio_path.name}")
         
     except Exception as e:
         logger.error(f"Audio production layer failed critically: {e}")
         raise e
 
+    # Aapka original exact duration finder engine (Using ffprobe)
     duration_sec = _get_audio_duration_sec(final_audio_path)
+    
+    # Aapka original perfect subtitle timing aligner engine
     logger.info("Aligning automated subtitle timing nodes...")
     word_timings = build_word_timings(script, duration_sec)
 
@@ -48,6 +60,9 @@ def generate_voiceover(script: str, output_stem: str) -> dict:
     }
 
 def _get_audio_duration_sec(audio_path: Path) -> float:
+    """
+    Aapka original function jo command line se audio ki absolute length check krta ha.
+    """
     cmd = [
         "ffprobe", "-v", "error", "-show_entries", "format=duration",
         "-of", "default=noprint_wrappers=1:nokey=1", str(audio_path)
