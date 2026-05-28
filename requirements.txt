@@ -12,7 +12,7 @@ requests==2.32.3               # Pexels + Pixabay REST calls
 aiohttp==3.9.5                 # async downloads for media files
 
 # ── Text-to-Speech ───────────────────────────────────────────────────────────
-edge-tts==6.1.12               # Microsoft Edge neural TTS (free)
+edge-tts>=6.1.84               # Microsoft Edge neural TTS (free)
 
 # ── Video editing ────────────────────────────────────────────────────────────
 moviepy==1.0.3                 # FFmpeg Python wrapper
