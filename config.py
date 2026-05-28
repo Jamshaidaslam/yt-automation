@@ -17,11 +17,12 @@ VIDEO_HEIGHT = 1920
 VIDEO_FPS = 30
 MEDIA_PER_KEYWORD = 3
 
-# API Retry Configuration (Fixes media_fetcher.py error)
+# API Retry Configuration (Fixes all media_fetcher.py config errors)
 API_RETRY_ATTEMPTS = 3
+API_RETRY_WAIT_SEC = 5
 
 # Visual Branding Fallback
 FONT_NAME = "Impact.ttf"
 
-# STRICT YOUTUBE OAUTH SCOPES (Fixed line-break bug)
+# STRICT YOUTUBE OAUTH SCOPES
 YOUTUBE_SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
