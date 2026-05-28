@@ -1,131 +1,55 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# .github/workflows/video_pipeline.yml
-# AI Dark Realities — Automated Short-Form Video Pipeline
-# ─────────────────────────────────────────────────────────────────────────────
-# Triggers 3× daily at USA/UK peak hours (UTC):
-#   11:00 UTC → 7 AM EST / 12 PM GMT   (Morning)
-#   17:00 UTC → 1 PM EST / 6 PM GMT    (Lunch / afternoon)
-#   23:00 UTC → 7 PM EST / 12 AM GMT   (Prime time)
-# ─────────────────────────────────────────────────────────────────────────────
-
-name: AI Dark Realities Video Pipeline
+name: Automated Video Production Pipeline
 
 on:
   schedule:
-    - cron: "0 11 * * *"   # Morning slot
-    - cron: "0 17 * * *"   # Afternoon slot
-    - cron: "0 23 * * *"   # Prime-time slot
-
-  # Allow manual triggering from the Actions tab for testing
+    - cron: '0 */8 * * *' # runs 3 times a day
   workflow_dispatch:
     inputs:
       topic:
-        description: "Override video topic (leave blank for random)"
+        description: 'Force a specific topic (Optional)'
         required: false
-        default: ""
+        default: ''
       skip_upload:
-        description: "Skip upload and only render video"
+        description: 'Skip uploading to YouTube/Instagram (true/false)'
         required: false
-        default: "false"
-
-# ─────────────────────────────────────────────────────────────────────────────
-# CONCURRENCY: Only one pipeline run at a time to avoid parallel renders
-# ─────────────────────────────────────────────────────────────────────────────
-concurrency:
-  group: video-pipeline
-  cancel-in-progress: false
+        default: 'false'
 
 jobs:
-  create-and-post:
+  build-and-run:
     runs-on: ubuntu-latest
 
-    # Free-tier Ubuntu runner: 2 vCPU, 7 GB RAM, 14 GB SSD
-    # The pipeline is designed to stay within these limits.
-
-    timeout-minutes: 55   # Safety valve — free runners cut at 6 h
-
     steps:
-      # ── 1. Checkout repository ────────────────────────────────────────────
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # ── 2. Set up Python ──────────────────────────────────────────────────
-      - name: Set up Python 3.11
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-          cache: "pip"
+          python-version: '3.11'
+          cache: 'pip'
 
-      # ── 3. Install Ubuntu system dependencies ────────────────────────────
-      - name: Install system packages
+      - name: Install System Dependencies
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-            ffmpeg \
-            imagemagick \
-            libmagickwand-dev \
-            fonts-liberation \
-            wget \
-            ca-certificates
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg imagemagick
 
-      # ── 4. Patch ImageMagick policy to allow text/PDF rendering ──────────
-      # Required for MoviePy caption rendering on Ubuntu runners
-      - name: Patch ImageMagick security policy
-        run: |
-          POLICY_FILE="/etc/ImageMagick-6/policy.xml"
-          if [ -f "$POLICY_FILE" ]; then
-            # Allow reading/writing all file types needed by MoviePy
-            sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' "$POLICY_FILE"
-            sudo sed -i 's/rights="none" pattern="PS"/rights="read|write" pattern="PS"/' "$POLICY_FILE"
-            sudo sed -i 's/rights="none" pattern="XPS"/rights="read|write" pattern="XPS"/' "$POLICY_FILE"
-            # Remove overly restrictive memory limits
-            sudo sed -i 's/<policy domain="resource" name="memory" value="[0-9]*MiB"\/>/<policy domain="resource" name="memory" value="2GiB"\/>/' "$POLICY_FILE"
-            echo "ImageMagick policy patched."
-          else
-            echo "ImageMagick policy file not found at $POLICY_FILE — skipping patch."
-          fi
-
-      # ── 5. Download Montserrat-ExtraBold font ────────────────────────────
-      - name: Download custom caption font
-        run: |
-          mkdir -p fonts
-          if [ ! -f "fonts/Montserrat-ExtraBold.ttf" ]; then
-            wget -q -O fonts/Montserrat-ExtraBold.ttf \
-              "https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-ExtraBold.ttf" \
-              || echo "Font download failed — PIL default will be used as fallback."
-          fi
-
-      # ── 6. Install Python dependencies ───────────────────────────────────
-      - name: Install Python dependencies
+      - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install gTTS==2.5.1
           pip install -r requirements.txt
 
-      # ── 7. Create output directories ─────────────────────────────────────
-      - name: Create output directories
-        run: |
-          mkdir -p output/audio output/scripts output/media output/final_videos
-
-      # ── 8. Run the video pipeline ─────────────────────────────────────────
-      - name: Run video pipeline
+      - name: Orchestrate pipeline execution
         env:
-          # ── API Keys (stored as GitHub Repository Secrets) ───────────────
           GROQ_API_KEY:              ${{ secrets.GROQ_API_KEY }}
           PEXELS_API_KEY:            ${{ secrets.PEXELS_API_KEY }}
           PIXABAY_API_KEY:           ${{ secrets.PIXABAY_API_KEY }}
-
-          # ── YouTube OAuth2 ───────────────────────────────────────────────
-          # YOUTUBE_CLIENT_SECRET: Full JSON of your OAuth2 client secret file
-          # YOUTUBE_TOKEN_JSON:    Serialised token after first authorisation
           YOUTUBE_CLIENT_SECRET:     ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_TOKEN_JSON:        ${{ secrets.YOUTUBE_TOKEN_JSON }}
-
-          # ── Meta Graph API ───────────────────────────────────────────────
           META_ACCESS_TOKEN:         ${{ secrets.META_ACCESS_TOKEN }}
           INSTAGRAM_ACCOUNT_ID:      ${{ secrets.INSTAGRAM_ACCOUNT_ID }}
           FACEBOOK_PAGE_ID:          ${{ secrets.FACEBOOK_PAGE_ID }}
         run: |
-          # Resolve optional manual-dispatch inputs
           TOPIC="${{ github.event.inputs.topic }}"
           SKIP="${{ github.event.inputs.skip_upload }}"
 
@@ -135,32 +59,3 @@ jobs:
 
           echo "Running: $CMD"
           eval "$CMD"
-
-      # ── 9. Upload rendered video as workflow artifact (30-day retention) ─
-      - name: Archive final videos
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: final-videos-${{ github.run_id }}
-          path: output/final_videos/*.mp4
-          retention-days: 30
-          if-no-files-found: warn
-
-      # ── 10. Archive logs and metadata ────────────────────────────────────
-      - name: Archive scripts and metadata
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pipeline-metadata-${{ github.run_id }}
-          path: |
-            output/scripts/*.json
-            output/audio/*_timings.json
-          retention-days: 14
-          if-no-files-found: warn
-
-      # ── 11. Clean up large media files to free runner disk space ─────────
-      - name: Clean up downloaded media
-        if: always()
-        run: |
-          rm -rf output/media/*.mp4 || true
-          echo "Media cache cleaned."
