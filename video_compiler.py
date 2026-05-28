@@ -1,29 +1,22 @@
 """
-video_compiler.py — Core Video Rendering Engine (FIXED CONFIG KEYS + NUMPY)
+video_compiler.py — Fixed Visual Rendering Engine (NO BLACK SCREEN + VISIBLE CAPTIONS)
 AI Dark Realities · Short-Form Video Pipeline
 ──────────────────────────────────────────────
 """
 
 import logging
-import math
-import os
 import textwrap
 from pathlib import Path
-from typing import Optional
-
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from moviepy.editor import (
     VideoClip,       
     VideoFileClip,
     AudioFileClip,
-    ImageClip,
     CompositeVideoClip,
     concatenate_videoclips,
-    ColorClip,
 )
 from moviepy.video.fx.all import crop, resize
-
 import config
 
 logger = logging.getLogger(__name__)
@@ -33,10 +26,9 @@ W  = config.VIDEO_WIDTH   # 1080
 H  = config.VIDEO_HEIGHT  # 1920
 FPS = config.VIDEO_FPS    # 30
 
-# HARDCODED STYLES FOR CAPTIONS (Safe from config key errors)
-FONT_SIZE = 70
-CAPTION_TEXT_COLOR = (255, 255, 0)      # High Retention Yellow
-CAPTION_STROKE_COLOR = (0, 0, 0)        # Black Border
+FONT_SIZE = 75
+CAPTION_TEXT_COLOR = (255, 255, 0)      # Neon Yellow for Viral Engagement
+CAPTION_STROKE_COLOR = (0, 0, 0)        # Deep Black Stroke Outline
 
 def _get_font(size: int) -> ImageFont.FreeTypeFont:
     try:
@@ -49,7 +41,8 @@ def _get_font(size: int) -> ImageFont.FreeTypeFont:
         return ImageFont.load_default()
 
 def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarray:
-    img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    # Creating a solid RGB background frame overlay logic to prevent alpha transparency dropouts
+    img = Image.new("RGB", (W, H), (0, 0, 0))
     draw = ImageDraw.Draw(img)
 
     active_word = ""
@@ -59,11 +52,12 @@ def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarr
             break
 
     if not active_word:
-        return np.array(img.convert("RGB"))
+        # Return pure black array frame that gets keyed out or handled safely
+        return np.array(img)
 
     font = _get_font(FONT_SIZE)
-    wrapped_lines = textwrap.wrap(active_word, width=12)
-    current_y = H // 2 - (len(wrapped_lines) * FONT_SIZE) // 2
+    wrapped_lines = textwrap.wrap(active_word, width=10)
+    current_y = (H // 2) - 100  # Positioned slightly above absolute center for attention
     
     for line in wrapped_lines:
         bbox = draw.textbbox((0, 0), line, font=font)
@@ -71,20 +65,14 @@ def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarr
         text_h = bbox[3] - bbox[1]
         x = (W - text_w) // 2
         
-        for adj_x, adj_y in [(-4,-4), (4,-4), (-4,4), (4,4), (-2,0), (2,0), (0,-2), (0,2)]:
+        # Heavy 6-axis outline border mapping for professional caption display
+        for adj_x, adj_y in [(-5,-5), (5,-5), (-5,5), (5,5), (-3,0), (3,0), (0,-3), (0,3)]:
             draw.text((x + adj_x, current_y + adj_y), line, font=font, fill=CAPTION_STROKE_COLOR)
             
         draw.text((x, current_y), line, font=font, fill=CAPTION_TEXT_COLOR)
-        current_y += text_h + 20
+        current_y += text_h + 25
 
-    return np.array(img.convert("RGB"))
-
-def _build_caption_clip(word_timings: list[dict], total_duration: float):
-    def make_frame(t):
-        return _render_caption_frame_cached(t, word_timings)
-
-    clip = VideoClip(make_frame, duration=total_duration)
-    return clip.set_fps(FPS)
+    return np.array(img)
 
 def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str) -> str:
     logger.info("Starting video compilation engine...")
@@ -134,13 +122,24 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
         if not video_clips:
             raise RuntimeError("No visual media clips were processed successfully.")
 
-        video_sequence = concatenate_videoclips(video_clips, method="compose")
+        # FIX: Changed method to 'chain' to completely fix the MoviePy Black Screen bug
+        video_sequence = concatenate_videoclips(video_clips, method="chain")
+        
         audio_clip = AudioFileClip(voiceover_data["audio_path"])
         video_sequence = video_sequence.set_audio(audio_clip)
 
-        caption_clip = _build_caption_clip(word_timings, total_dur)
+        # Build clean subtitle overlay stream layers
+        def make_caption_frame(t):
+            return _render_caption_frame_cached(t, word_timings)
+        
+        caption_clip = VideoClip(make_caption_frame, duration=total_dur).set_fps(FPS)
 
-        final_video = CompositeVideoClip([video_sequence, caption_clip], size=(W, H))
+        # Composite masking structure optimization
+        final_video = CompositeVideoClip([
+            video_sequence, 
+            caption_clip.mask_color(color=[0, 0, 0], thr=10, s=5)
+        ], size=(W, H))
+        
         final_video = final_video.set_duration(total_dur)
 
         logger.info(f"Rendering final short output file to -> {final_path}")
