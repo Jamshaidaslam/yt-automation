@@ -104,11 +104,11 @@ def run_pipeline(topic: str | None = None, skip_upload: bool = False) -> dict:
     # STEP 4: Video compilation
     # ─────────────────────────────────────────────────────────────────────────
     logger.info("STEP 4/5 — Compiling video…")
-    video_path = video_compiler.compile_video(
-        broll_paths  = broll_paths,
-        audio_meta   = audio_meta,
-        seo_data     = script_data["seo"],
-        output_stem  = stem,
+video_path = video_compiler.compile_video(
+    media_paths     = media_paths,  
+    voiceover_data  = voiceover_data,
+    output_stem     = stem,
+)
     )
     logger.info(f"Video ready → {video_path}")
 
