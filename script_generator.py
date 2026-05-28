@@ -7,22 +7,38 @@ Fixed:
   - BadRequestError caught and logged with full detail before retry
   - response_format json_object enforced so model never wraps in markdown
   - max_tokens raised to 1500 to avoid truncated JSON
+  - GitHub Actions compatibility added for GROQ_API_KEY
 """
 
 import json
 import re
 import random
 import logging
+import sys
+import os  # <-- Environment variables read karne k liye zaroori hai
 from tenacity import retry, stop_after_attempt, wait_fixed, before_sleep_log
 
 from groq import Groq, BadRequestError
-import config
+
+# ── GITHUB ACTIONS OR LOCAL CONFIG LAYER ──────────────────────────────────────
+try:
+    import config
+    HAS_CONFIG = True
+except ImportError:
+    HAS_CONFIG = False
+
+# Pehle GitHub Secrets/Environment check karega, agar wahan na ho to config file se uthayegi
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY") or (config.GROQ_API_KEY if HAS_CONFIG else None)
+
+if not GROQ_API_KEY:
+    raise ValueError("GROQ_API_KEY nahi mili! GitHub Secrets ya config file check karein.")
+# ─────────────────────────────────────────────────────────────────────────────
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
 
 # ── Groq client ──────────────────────────────────────────────────────────────
-_client = Groq(api_key=config.GROQ_API_KEY)
+_client = Groq(api_key=GROQ_API_KEY)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -126,135 +142,11 @@ def _call_groq(topic: str, model: str) -> dict:
     logger.info(f"Response received: {len(raw_text)} chars")
 
     # Safety strip in case model still adds fences
-    raw_text = re.sub(r"^```(?:json)?\s*", "", raw_text)
-    raw_text = re.sub(r"\s*```\s*$", "", raw_text).strip()
+    raw_text = re.sub(r"^
+http://googleusercontent.com/immersive_entry_chip/0
 
-    try:
-        data = json.loads(raw_text)
-    except json.JSONDecodeError as exc:
-        logger.error(f"JSON parse error: {exc}")
-        logger.error(f"Raw text was:\n{raw_text[:500]}")
-        raise ValueError(f"Invalid JSON from Groq: {exc}") from exc
+### Ab kya karna hai?
+1. Is code ko apni `script_generator.py` file mein copy-paste karein.
+2. GitHub par **Commit aur Push** karein.
 
-    return data
-
-
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_fixed(5),
-    before_sleep=before_sleep_log(logger, logging.WARNING),
-    reraise=False,          # Don't re-raise — we handle via model chain below
-)
-def _call_groq_with_retry(topic: str, model: str) -> dict:
-    return _call_groq(topic, model)
-
-
-def generate_script(topic: str | None = None) -> dict:
-    """
-    Generate script + SEO data via Groq.
-    Tries each model in MODEL_CHAIN until one succeeds.
-    Returns validated dict: {topic, script, broll_keywords, seo}
-    """
-    if topic is None:
-        topic = random.choice(TOPIC_POOL)
-
-    logger.info(f"Generating script — topic: '{topic}'")
-
-    last_error = None
-    for model in MODEL_CHAIN:
-        try:
-            data = _call_groq_with_retry(topic, model)
-            _validate_and_fix(data)
-            logger.info(f"Script OK via {model} | Title: {data['seo']['title']}")
-            return data
-        except Exception as exc:
-            logger.warning(f"Model {model} failed: {type(exc).__name__}: {exc}")
-            last_error = exc
-            continue
-
-    # All models failed
-    raise RuntimeError(
-        f"All Groq models failed for topic '{topic}'. "
-        f"Last error: {last_error}"
-    )
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# VALIDATION + AUTO-FIX
-# ═══════════════════════════════════════════════════════════════════════════════
-
-def _validate_and_fix(data: dict) -> None:
-    """
-    Validate schema and auto-fix minor issues instead of crashing.
-    Raises ValueError only on unrecoverable problems.
-    """
-    # ── Top-level keys ───────────────────────────────────────────────────────
-    for key in ("topic", "script", "broll_keywords", "seo"):
-        if key not in data:
-            raise ValueError(f"Missing required key: '{key}'")
-
-    # ── SEO sub-keys ─────────────────────────────────────────────────────────
-    seo = data.get("seo", {})
-    for key in ("title", "description", "hashtags"):
-        if key not in seo:
-            raise ValueError(f"Missing seo.{key}")
-
-    # ── broll_keywords must be a list ────────────────────────────────────────
-    if not isinstance(data["broll_keywords"], list):
-        data["broll_keywords"] = [str(data["broll_keywords"])]
-    if len(data["broll_keywords"]) < 3:
-        # Pad with generic fallback keywords
-        data["broll_keywords"] += [
-            "artificial intelligence technology",
-            "data privacy surveillance",
-            "digital world abstract",
-        ]
-        data["broll_keywords"] = data["broll_keywords"][:5]
-
-    # ── Title length ─────────────────────────────────────────────────────────
-    if len(seo["title"]) > 100:
-        seo["title"] = seo["title"][:97] + "..."
-
-    # ── Hashtags must be a list ───────────────────────────────────────────────
-    if not isinstance(seo["hashtags"], list):
-        seo["hashtags"] = ["#AIFacts", "#DarkReality", "#TechTruths", "#AITechnology", "#Shorts"]
-
-    # ── Script word count warning ─────────────────────────────────────────────
-    wc = len(data["script"].split())
-    if wc < 80:
-        logger.warning(f"Script only {wc} words — may produce a very short video.")
-    elif wc > 200:
-        logger.warning(f"Script is {wc} words — may exceed 59s. Trimming.")
-        words = data["script"].split()[:170]
-        data["script"] = " ".join(words)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# WORD TIMING FALLBACK
-# ═══════════════════════════════════════════════════════════════════════════════
-
-def build_word_timings(script: str, audio_duration: float) -> list[dict]:
-    """Even-distribution word timing fallback when edge-tts events unavailable."""
-    words = script.split()
-    if not words:
-        return []
-    per_word = audio_duration / len(words)
-    timings  = []
-    t = 0.0
-    for word in words:
-        clean = re.sub(r"[^\w''-]", "", word)
-        if clean:
-            timings.append({
-                "word":  clean,
-                "start": round(t, 3),
-                "end":   round(t + per_word, 3),
-            })
-        t += per_word
-    return timings
-
-
-# ── Standalone test ──────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    import pprint
-    result = generate_script()
-    pprint.pprint(result)
+Iske baad `script_generator` ka masla hal ho jayega. Jaisa maine pehle bataya, agar iske baad agla step (`media_fetcher.py`) par fail ho, to samajh jaiye ga ke wahan bhi `config.PEXELS_API_KEY` ko isi tarah `os.environ.get` se badalna hai.
