@@ -32,38 +32,62 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
 
 async def _synthesise(script: str, out_mp3: Path, out_timings: Path) -> list[dict]:
     """
-    Async synthesis via edge-tts.
+    Async synthesis via edge-tts with a robust Retry mechanism for GitHub Actions 403 errors.
     Returns list of {word, start, end} dicts (seconds, float).
     """
-    communicate = edge_tts.Communicate(
-        text   = script,
-        voice  = config.TTS_VOICE,
-        rate   = config.TTS_RATE,
-        volume = config.TTS_VOLUME,
-    )
-
     raw_words: list[dict] = []   # Collected from word-boundary events
+    max_retries = 5
+    retry_delay = 5  # Seconds to wait before retrying
 
-    # ── Stream audio + word boundary events ─────────────────────────────────
-    with open(out_mp3, "wb") as audio_file:
-        async for chunk in communicate.stream():
-            if chunk["type"] == "audio":
-                audio_file.write(chunk["data"])
-            elif chunk["type"] == "WordBoundary":
-                # edge-tts provides offset in 100-nanosecond ticks
-                offset_ticks   = chunk.get("offset", 0)
-                duration_ticks = chunk.get("duration", 0)
-                start_sec = offset_ticks   / 1e7
-                end_sec   = (offset_ticks + duration_ticks) / 1e7
-                word      = chunk.get("text", "").strip()
-                if word:
-                    raw_words.append({
-                        "word":  re.sub(r"[^\w''-]", "", word),  # strip punctuation
-                        "start": round(start_sec, 3),
-                        "end":   round(end_sec,   3),
-                    })
+    for attempt in range(1, max_retries + 1):
+        # Naya communicate object har attempt par banana zaroori hai connection refresh karne ke liye
+        communicate = edge_tts.Communicate(
+            text   = script,
+            voice  = config.TTS_VOICE,
+            rate   = config.TTS_RATE,
+            volume = config.TTS_VOLUME,
+        )
+        
+        # Har attempt se pehle purani kharab ya partial file ko saaf karein
+        if out_mp3.exists():
+            out_mp3.unlink()
+        raw_words.clear()
 
-    logger.info(f"TTS synthesis complete → {out_mp3.name}  |  {len(raw_words)} word events")
+        try:
+            logger.info(f"TTS Connection Attempt {attempt}/{max_retries}...")
+            
+            # Streaming open karein 'wb' mode mein taake clean write ho
+            with open(out_mp3, "wb") as audio_file:
+                async for chunk in communicate.stream():
+                    if chunk["type"] == "audio":
+                        audio_file.write(chunk["data"])
+                    elif chunk["type"] == "WordBoundary":
+                        # edge-tts provides offset in 100-nanosecond ticks
+                        offset_ticks   = chunk.get("offset", 0)
+                        duration_ticks = chunk.get("duration", 0)
+                        start_sec = offset_ticks   / 1e7
+                        end_sec   = (offset_ticks + duration_ticks) / 1e7
+                        word      = chunk.get("text", "").strip()
+                        if word:
+                            raw_words.append({
+                                "word":  re.sub(r"[^\w''-]", "", word),  # strip punctuation
+                                "start": round(start_sec, 3),
+                                "end":   round(end_sec,   3),
+                            })
+            
+            # Agar streaming bina kisi error ke mukammal ho jaye to loop se break kar jayein
+            logger.info(f"TTS synthesis complete → {out_mp3.name}  |  {len(raw_words)} word events")
+            break
+
+        except Exception as exc:
+            logger.warning(f"TTS Attempt {attempt} failed with error: {exc}")
+            
+            if attempt == max_retries:
+                logger.error("All TTS retry attempts exhausted. Moving to fallback or raising error.")
+                raise exc
+            
+            logger.info(f"Waiting {retry_delay} seconds before next attempt...")
+            await asyncio.sleep(retry_delay)
 
     # ── Persist timings sidecar ──────────────────────────────────────────────
     out_timings.write_text(json.dumps(raw_words, indent=2), encoding="utf-8")
@@ -76,7 +100,7 @@ def _get_audio_duration_sec(mp3_path: Path) -> float:
         result = subprocess.run(
             [
                 "ffprobe", "-v", "error",
-                "-show_entries", "format=duration",
+                " -show_entries", "format=duration",
                 "-of",           "default=noprint_wrappers=1:nokey=1",
                 str(mp3_path),
             ],
