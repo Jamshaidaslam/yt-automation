@@ -1,24 +1,23 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # requirements.txt — AI Dark Realities Short-Form Video Pipeline
-# Fixed: httpx pinned to resolve groq SDK proxies conflict
+# Pinned to completely stable cross-compatible versions for Ubuntu runners
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Script / SEO generation ──────────────────────────────────────────────────
-groq==0.13.1                   # Latest stable Groq SDK
-httpx==0.27.2                  # PINNED — groq 0.13.x requires httpx <0.28
+groq==0.9.0                    # Groq cloud SDK (Llama-3 inference)
 
 # ── HTTP / media fetching ────────────────────────────────────────────────────
 requests==2.32.3               # Pexels + Pixabay REST calls
 aiohttp==3.9.5                 # async downloads for media files
 
 # ── Text-to-Speech ───────────────────────────────────────────────────────────
-edge-tts>=6.1.84               # Microsoft Edge neural TTS (free)
+edge-tts==6.1.12               # Microsoft Edge neural TTS (free)
 
 # ── Video editing ────────────────────────────────────────────────────────────
 moviepy==1.0.3                 # FFmpeg Python wrapper
-imageio==2.34.1                # required by moviepy
-imageio-ffmpeg==0.5.1          # bundled FFmpeg binary fallback
-Pillow==9.5.0                 # Image compositing for caption frames
+imageio==2.25.0                # Stable version for MoviePy frame reading
+imageio-ffmpeg==0.4.8          # Compatible FFmpeg binary backend
+Pillow==9.5.0                  # Stable image library with ANTIALIAS support
 numpy==1.26.4                  # Array ops for video frames
 
 # ── Google / YouTube upload ──────────────────────────────────────────────────
