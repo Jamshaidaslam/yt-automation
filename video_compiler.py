@@ -1,5 +1,5 @@
 """
-video_compiler.py — Core Video Rendering Engine (FAST-CUTTING, BOTTOM 3-WORD CAPTIONS)
+video_compiler.py — Core Video Rendering Engine (FAST-CUTTING, BOTTOM 3-WORD CAPTIONS - CLOUD OPTIMIZED)
 AI Dark Realities · Short-Form Video Pipeline
 ──────────────────────────────────────────────
 """
@@ -52,7 +52,6 @@ def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarr
     # 🟢 3-WORD GROUPING ENGINE: Find current active word index
     for idx, item in enumerate(word_timings):
         if item["start"] <= t <= item["end"]:
-            # Pick a block of 3 words starting from current index or slightly adjusted
             start_chunk = max(0, idx - (idx % 3))
             end_chunk = min(len(word_timings), start_chunk + 3)
             
@@ -64,10 +63,9 @@ def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarr
         return np.array(img)
 
     font = _get_font(FONT_SIZE)
-    # Wrap text cleanly if lines get too wide
     wrapped_lines = textwrap.wrap(active_phrase, width=18)
     
-    # 🟢 POSITION FIX: Middle sa hata kar Lower Third (Screen k 75% niche) pr shift kiya ha
+    # 🟢 POSITION FIX: Lower Third (Screen k 75% niche) pr shift kiya ha
     current_y = int(H * 0.75)
     
     for line in wrapped_lines:
@@ -103,6 +101,7 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
         # Retention optimization: Max 2.5 seconds per clip
         MAX_CLIP_DURATION = 2.5
 
+        # 🟢 SPEED & MEMORY FIX: Har clip processing k baad files auto-close hongi RAM free krne k liye
         while current_time < total_dur:
             path_str = media_paths[media_index % len(media_paths)]
             media_index += 1
@@ -111,34 +110,38 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
             if not clip_path.exists():
                 continue
 
-            clip = VideoFileClip(str(clip_path), audio=False)
+            raw_clip = VideoFileClip(str(clip_path), audio=False)
             rem_dur = total_dur - current_time
-            clip_duration = min(clip.duration, rem_dur, MAX_CLIP_DURATION)
+            clip_duration = min(raw_clip.duration, rem_dur, MAX_CLIP_DURATION)
             
             if clip_duration <= 0.3:
-                clip.close()
+                raw_clip.close()
                 continue
                 
-            clip = clip.subclip(0, clip_duration)
-            clip_w, clip_h = clip.size
+            sub_clip = raw_clip.subclip(0, clip_duration)
+            clip_w, clip_h = sub_clip.size
             target_ratio = W / H  
             current_ratio = clip_w / clip_h
 
             if current_ratio > target_ratio:
                 new_w = int(clip_h * target_ratio)
-                clip = crop(clip, x_center=clip_w // 2, width=new_w, height=clip_h)
+                sub_clip = crop(sub_clip, x_center=clip_w // 2, width=new_w, height=clip_h)
             elif current_ratio < target_ratio:
                 new_h = int(clip_w / target_ratio)
-                clip = crop(clip, y_center=clip_h // 2, width=clip_w, height=new_h)
+                sub_clip = crop(sub_clip, y_center=clip_h // 2, width=clip_w, height=new_h)
 
-            clip = resize(clip, newsize=(W, H))
-            video_clips.append(clip)
+            processed_clip = resize(sub_clip, newsize=(W, H))
+            video_clips.append(processed_clip)
+            
+            # Foran main file handles ko close kiya freeze bachane k liye
+            raw_clip.close()
             current_time += clip_duration
 
         if not video_clips:
             raise RuntimeError("No visual media clips were processed successfully.")
 
-        video_sequence = concatenate_videoclips(video_clips, method="chain")
+        # 🟢 SPEED FIX 1: method="compose" use kiya jo pixel mapping bypass kr k clips ko instantly jor deta ha
+        video_sequence = concatenate_videoclips(video_clips, method="compose")
         
         audio_clip = AudioFileClip(voiceover_data["audio_path"])
         video_sequence = video_sequence.set_audio(audio_clip)
@@ -151,36 +154,4 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
             frame = _render_caption_frame_cached(t, word_timings)
             return frame[:, :, 3] / 255.0
 
-        caption_clip = VideoClip(make_caption_frame, duration=total_dur).set_fps(FPS)
-        caption_mask = VideoClip(make_caption_mask, ismask=True, duration=total_dur).set_fps(FPS)
-        caption_clip = caption_clip.set_mask(caption_mask)
-
-        final_video = CompositeVideoClip([video_sequence, caption_clip], size=(W, H))
-        final_video = final_video.set_duration(total_dur)
-
-        logger.info(f"Rendering compressed fast-cut short output file to -> {final_path}")
-        
-        # Quality Target & Size Compression Parameters
-        final_video.write_videofile(
-            str(final_path),
-            fps=FPS,
-            codec="libx264",
-            audio_codec="aac",
-            bitrate="3000k",          
-            audio_bitrate="128k",     
-            preset="fast",            
-            threads=4,
-            logger=None,
-        )
-
-        return str(final_path)
-
-    finally:
-        for c in video_clips:
-            try: c.close()
-            except Exception: pass
-        for name in ("video_sequence", "caption_clip", "caption_mask", "final_video", "audio_clip"):
-            obj = locals().get(name)
-            if obj is not None:
-                try: obj.close()
-                except Exception: pass
+        caption_clip = VideoClip(make_caption_frame, duration=total_dur).set_fps(
