@@ -1,0 +1,32 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# requirements.txt — AI Dark Realities Short-Form Video Pipeline
+# Pinned to stable versions tested on Ubuntu GitHub-hosted runners
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Script / SEO generation ──────────────────────────────────────────────────
+groq==0.9.0                    # Groq cloud SDK (Llama-3 inference)
+
+# ── HTTP / media fetching ────────────────────────────────────────────────────
+requests==2.32.3               # Pexels + Pixabay REST calls
+aiohttp==3.9.5                 # async downloads for media files
+
+# ── Text-to-Speech ───────────────────────────────────────────────────────────
+edge-tts==6.1.12               # Microsoft Edge neural TTS (free)
+
+# ── Video editing ────────────────────────────────────────────────────────────
+moviepy==1.0.3                 # FFmpeg Python wrapper
+imageio==2.34.1                # required by moviepy
+imageio-ffmpeg==0.5.1          # bundled FFmpeg binary fallback
+Pillow==10.3.0                 # Image compositing for caption frames
+numpy==1.26.4                  # Array ops for video frames
+
+# ── Google / YouTube upload ──────────────────────────────────────────────────
+google-api-python-client==2.131.0
+google-auth==2.29.0
+google-auth-oauthlib==1.2.0
+google-auth-httplib2==0.2.0
+
+# ── Misc utilities ───────────────────────────────────────────────────────────
+python-dotenv==1.0.1           # Local .env support during development
+tenacity==8.3.0                # Retry decorator for API calls
+tqdm==4.66.4                   # Progress bars (CI-friendly)
