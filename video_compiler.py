@@ -1,5 +1,5 @@
 """
-video_compiler.py — Core Video Rendering Engine (FIXED NUMPY CRASH)
+video_compiler.py — Core Video Rendering Engine (FIXED CONFIG KEYS CRASH)
 AI Dark Realities · Short-Form Video Pipeline
 ──────────────────────────────────────────────
 """
@@ -33,15 +33,22 @@ W  = config.VIDEO_WIDTH   # 1080
 H  = config.VIDEO_HEIGHT  # 1920
 FPS = config.VIDEO_FPS    # 30
 
+# HARDCODED STYLES FOR CAPTIONS (To completely prevent config key missing errors)
+FONT_SIZE = 70
+CAPTION_TEXT_COLOR = (255, 255, 0)      # Bright Yellow for High Retention
+CAPTION_STROKE_COLOR = (0, 0, 0)        # Black Border/Outline for Readability
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # HELPER FUNCTIONS FOR RENDERING CAPTION IMAGES
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def _get_font(size: int) -> ImageFont.FreeTypeFont:
-    """Load the global configured font or fallback to default."""
+    """Load font using available keys from config or fallback gracefully."""
     try:
-        font_path = config.FONTS_DIR / config.FONT_NAME
+        # Checking dynamic variants of font name in config
+        font_name = getattr(config, "FONT_NAME", None) or getattr(config, "FONT_FILE", "Impact.ttf")
+        font_path = config.FONTS_DIR / font_name
         if font_path.exists():
             return ImageFont.truetype(str(font_path), size)
         return ImageFont.load_default()
@@ -66,9 +73,9 @@ def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarr
     if not active_word:
         return np.array(img.convert("RGB"))
 
-    font = _get_font(config.FONT_SIZE)
+    font = _get_font(FONT_SIZE)
     wrapped_lines = textwrap.wrap(active_word, width=12)
-    current_y = H // 2 - (len(wrapped_lines) * config.FONT_SIZE) // 2
+    current_y = H // 2 - (len(wrapped_lines) * FONT_SIZE) // 2
     
     for line in wrapped_lines:
         bbox = draw.textbbox((0, 0), line, font=font)
@@ -76,10 +83,12 @@ def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarr
         text_h = bbox[3] - bbox[1]
         x = (W - text_w) // 2
         
+        # Draw text outline/stroke
         for adj_x, adj_y in [(-4,-4), (4,-4), (-4,4), (4,4), (-2,0), (2,0), (0,-2), (0,2)]:
-            draw.text((x + adj_x, current_y + adj_y), line, font=font, fill=config.CAPTION_STROKE_COLOR)
+            draw.text((x + adj_x, current_y + adj_y), line, font=font, fill=CAPTION_STROKE_COLOR)
             
-        draw.text((x, current_y), line, font=font, fill=config.CAPTION_TEXT_COLOR)
+        # Draw main text
+        draw.text((x, current_y), line, font=font, fill=CAPTION_TEXT_COLOR)
         current_y += text_h + 20
 
     return np.array(img.convert("RGB"))
@@ -143,7 +152,7 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
                 new_h = int(clip_w / target_ratio)
                 clip = crop(clip, y_center=clip_h // 2, width=clip_w, height=new_h)
 
-            # FIX: STRICT RESOLUTION RESIZE - No dynamic lambda functions to prevent NumPy int+NoneType crashes
+            # STRICT RESOLUTION RESIZE - No dynamic lambda functions to prevent NumPy crashes
             clip = resize(clip, newsize=(W, H))
 
             video_clips.append(clip)
