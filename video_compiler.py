@@ -1,5 +1,5 @@
 """
-video_compiler.py — Core Video Rendering Engine (FAST-CUTTING, BOTTOM 3-WORD CAPTIONS - CLOUD OPTIMIZED)
+video_compiler.py — Core Video Rendering Engine (FIXED SYNTAX BRACKET & CLOUD OPTIMIZED)
 AI Dark Realities · Short-Form Video Pipeline
 ──────────────────────────────────────────────
 """
@@ -49,7 +49,6 @@ def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarr
     draw = ImageDraw.Draw(img)
 
     active_phrase = ""
-    # 🟢 3-WORD GROUPING ENGINE: Find current active word index
     for idx, item in enumerate(word_timings):
         if item["start"] <= t <= item["end"]:
             start_chunk = max(0, idx - (idx % 3))
@@ -64,9 +63,7 @@ def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarr
 
     font = _get_font(FONT_SIZE)
     wrapped_lines = textwrap.wrap(active_phrase, width=18)
-    
-    # 🟢 POSITION FIX: Lower Third (Screen k 75% niche) pr shift kiya ha
-    current_y = int(H * 0.75)
+    current_y = int(H * 0.75)  # Lower Third Position
     
     for line in wrapped_lines:
         bbox = draw.textbbox((0, 0), line, font=font)
@@ -74,11 +71,9 @@ def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarr
         text_h = bbox[3] - bbox[1]
         x = (W - text_w) // 2
         
-        # Heavy 8-axis border stroke for text visibility over fast clips
         for adj_x, adj_y in [(-5,-5), (5,-5), (-5,5), (5,5), (-3,0), (3,0), (0,-3), (0,3)]:
             draw.text((x + adj_x, current_y + adj_y), line, font=font, fill=CAPTION_STROKE_COLOR)
             
-        # Main vibrant text layer
         draw.text((x, current_y), line, font=font, fill=CAPTION_TEXT_COLOR)
         current_y += text_h + 20
 
@@ -101,7 +96,6 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
         # Retention optimization: Max 2.5 seconds per clip
         MAX_CLIP_DURATION = 2.5
 
-        # 🟢 SPEED & MEMORY FIX: Har clip processing k baad files auto-close hongi RAM free krne k liye
         while current_time < total_dur:
             path_str = media_paths[media_index % len(media_paths)]
             media_index += 1
@@ -133,14 +127,13 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
             processed_clip = resize(sub_clip, newsize=(W, H))
             video_clips.append(processed_clip)
             
-            # Foran main file handles ko close kiya freeze bachane k liye
             raw_clip.close()
             current_time += clip_duration
 
         if not video_clips:
             raise RuntimeError("No visual media clips were processed successfully.")
 
-        # 🟢 SPEED FIX 1: method="compose" use kiya jo pixel mapping bypass kr k clips ko instantly jor deta ha
+        # Speed Fix: method="compose" for quick merging
         video_sequence = concatenate_videoclips(video_clips, method="compose")
         
         audio_clip = AudioFileClip(voiceover_data["audio_path"])
@@ -154,4 +147,37 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
             frame = _render_caption_frame_cached(t, word_timings)
             return frame[:, :, 3] / 255.0
 
-        caption_clip = VideoClip(make_caption_frame, duration=total_dur).set_fps(
+        # 🟢 SYNTAX FIXED HERE: Bracket cleanly closed now
+        caption_clip = VideoClip(make_caption_frame, duration=total_dur).set_fps(FPS)
+        caption_mask = VideoClip(make_caption_mask, ismask=True, duration=total_dur).set_fps(FPS)
+        caption_clip = caption_clip.set_mask(caption_mask)
+
+        final_video = CompositeVideoClip([video_sequence, caption_clip], size=(W, H))
+        final_video = final_video.set_duration(total_dur)
+
+        logger.info(f"Rendering compressed fast-cut short output file to -> {final_path}")
+        
+        # GitHub Cloud Optimized parameters
+        final_video.write_videofile(
+            str(final_path),
+            fps=FPS,
+            codec="libx264",
+            audio_codec="aac",
+            bitrate="2500k",          
+            audio_bitrate="128k",     
+            preset="ultrafast",       
+            threads=2,                
+            logger=None,
+        )
+
+        return str(final_path)
+
+    finally:
+        for c in video_clips:
+            try: c.close()
+            except Exception: pass
+        for name in ("video_sequence", "caption_clip", "caption_mask", "final_video", "audio_clip"):
+            obj = locals().get(name)
+            if obj is not None:
+                try: obj.close()
+                except Exception: pass
