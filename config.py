@@ -10,8 +10,12 @@ AUDIO_DIR = BASE_DIR / "output" / "audio"
 FINAL_VIDEOS_DIR = BASE_DIR / "output" / "final_videos"
 FONTS_DIR = BASE_DIR / "fonts"
 
+# CRITICAL FIX: Media fetcher is looking for MEDIA_DIR or VIDEO_DIR
+MEDIA_DIR = BASE_DIR / "output" / "media"
+VIDEO_DIR = BASE_DIR / "output" / "media"
+
 # Automatic directory creation taake FileNotFoundError na aaye
-for d in [SCRIPTS_DIR, AUDIO_DIR, FINAL_VIDEOS_DIR, FONTS_DIR]:
+for d in [SCRIPTS_DIR, AUDIO_DIR, FINAL_VIDEOS_DIR, FONTS_DIR, MEDIA_DIR, VIDEO_DIR]:
     d.mkdir(parents=True, exist_ok=True)
 
 # ==========================================
@@ -56,7 +60,6 @@ YOUTUBE_SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 # ==========================================
 # 6. SECURE API KEYS CONFIGURATION (GitHub Secrets)
 # ==========================================
-# Yeh structure cloud environments aur local donon ke liye 100% safe hai
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "YOUR_GROQ_KEY_HERE")
 PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY", "YOUR_PEXELS_KEY_HERE")
 PIXABAY_API_KEY = os.environ.get("PIXABAY_API_KEY", "YOUR_PIXABAY_KEY_HERE")
