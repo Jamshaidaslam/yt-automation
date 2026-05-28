@@ -1,10 +1,11 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # requirements.txt — AI Dark Realities Short-Form Video Pipeline
-# Pinned to stable versions tested on Ubuntu GitHub-hosted runners
+# Fixed: httpx pinned to resolve groq SDK proxies conflict
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Script / SEO generation ──────────────────────────────────────────────────
-groq==0.9.0                    # Groq cloud SDK (Llama-3 inference)
+groq==0.13.1                   # Latest stable Groq SDK
+httpx==0.27.2                  # PINNED — groq 0.13.x requires httpx <0.28
 
 # ── HTTP / media fetching ────────────────────────────────────────────────────
 requests==2.32.3               # Pexels + Pixabay REST calls
