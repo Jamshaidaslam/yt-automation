@@ -1,5 +1,5 @@
 """
-video_compiler.py — Core Video Rendering Engine (FIXED CONFIG KEYS CRASH)
+video_compiler.py — Core Video Rendering Engine (FIXED CONFIG KEYS + NUMPY)
 AI Dark Realities · Short-Form Video Pipeline
 ──────────────────────────────────────────────
 """
@@ -33,20 +33,13 @@ W  = config.VIDEO_WIDTH   # 1080
 H  = config.VIDEO_HEIGHT  # 1920
 FPS = config.VIDEO_FPS    # 30
 
-# HARDCODED STYLES FOR CAPTIONS (To completely prevent config key missing errors)
+# HARDCODED STYLES FOR CAPTIONS (Safe from config key errors)
 FONT_SIZE = 70
-CAPTION_TEXT_COLOR = (255, 255, 0)      # Bright Yellow for High Retention
-CAPTION_STROKE_COLOR = (0, 0, 0)        # Black Border/Outline for Readability
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# HELPER FUNCTIONS FOR RENDERING CAPTION IMAGES
-# ═══════════════════════════════════════════════════════════════════════════════
+CAPTION_TEXT_COLOR = (255, 255, 0)      # High Retention Yellow
+CAPTION_STROKE_COLOR = (0, 0, 0)        # Black Border
 
 def _get_font(size: int) -> ImageFont.FreeTypeFont:
-    """Load font using available keys from config or fallback gracefully."""
     try:
-        # Checking dynamic variants of font name in config
         font_name = getattr(config, "FONT_NAME", None) or getattr(config, "FONT_FILE", "Impact.ttf")
         font_path = config.FONTS_DIR / font_name
         if font_path.exists():
@@ -55,12 +48,7 @@ def _get_font(size: int) -> ImageFont.FreeTypeFont:
     except Exception:
         return ImageFont.load_default()
 
-
 def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarray:
-    """
-    Renders a single frame of text overlay based on current timestamp `t`.
-    Returns an RGB numpy array (required by MoviePy).
-    """
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
@@ -83,16 +71,13 @@ def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarr
         text_h = bbox[3] - bbox[1]
         x = (W - text_w) // 2
         
-        # Draw text outline/stroke
         for adj_x, adj_y in [(-4,-4), (4,-4), (-4,4), (4,4), (-2,0), (2,0), (0,-2), (0,2)]:
             draw.text((x + adj_x, current_y + adj_y), line, font=font, fill=CAPTION_STROKE_COLOR)
             
-        # Draw main text
         draw.text((x, current_y), line, font=font, fill=CAPTION_TEXT_COLOR)
         current_y += text_h + 20
 
     return np.array(img.convert("RGB"))
-
 
 def _build_caption_clip(word_timings: list[dict], total_duration: float):
     def make_frame(t):
@@ -101,16 +86,7 @@ def _build_caption_clip(word_timings: list[dict], total_duration: float):
     clip = VideoClip(make_frame, duration=total_duration)
     return clip.set_fps(FPS)
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# CORE VIDEO COMPILER PIPELINE
-# ═══════════════════════════════════════════════════════════════════════════════
-
 def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str) -> str:
-    """
-    Assembles local vertical MP4 combining visual media streams, TTS vocals,
-    synchronized captions overlay, and background ambiance loops.
-    """
     logger.info("Starting video compilation engine...")
     final_path = config.FINAL_VIDEOS_DIR / f"{output_stem}.mp4"
     total_dur  = voiceover_data["duration_sec"]
@@ -140,7 +116,6 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
                 continue
                 
             clip = clip.subclip(0, clip_duration)
-
             clip_w, clip_h = clip.size
             target_ratio = W / H  
             current_ratio = clip_w / clip_h
@@ -152,17 +127,14 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
                 new_h = int(clip_w / target_ratio)
                 clip = crop(clip, y_center=clip_h // 2, width=clip_w, height=new_h)
 
-            # STRICT RESOLUTION RESIZE - No dynamic lambda functions to prevent NumPy crashes
             clip = resize(clip, newsize=(W, H))
-
             video_clips.append(clip)
             current_time += clip_duration
 
         if not video_clips:
-            raise RuntimeError("No visual media clips were successfully processed for rendering.")
+            raise RuntimeError("No visual media clips were processed successfully.")
 
         video_sequence = concatenate_videoclips(video_clips, method="compose")
-
         audio_clip = AudioFileClip(voiceover_data["audio_path"])
         video_sequence = video_sequence.set_audio(audio_clip)
 
@@ -186,14 +158,10 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
 
     finally:
         for c in video_clips:
-            try:
-                c.close()
-            except Exception:
-                pass
+            try: c.close()
+            except Exception: pass
         for name in ("video_sequence", "caption_clip", "final_video", "audio_clip"):
             obj = locals().get(name)
             if obj is not None:
-                try:
-                    obj.close()
-                except Exception:
-                    pass
+                try: obj.close()
+                except Exception: pass
