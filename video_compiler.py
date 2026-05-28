@@ -1,5 +1,5 @@
 """
-video_compiler.py — Core Video Rendering Engine (FIXED SYNTAX BRACKET & CLOUD OPTIMIZED)
+video_compiler.py — Core Video Rendering Engine (FIXED NONETYPE GET_FRAME & SPEED OPTIMIZED)
 AI Dark Realities · Short-Form Video Pipeline
 ──────────────────────────────────────────────
 """
@@ -89,11 +89,11 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
         raise ValueError("Cannot compile video because the list of media paths is empty.")
 
     video_clips = []
+    allocated_raw_clips = [] # 🟢 Keep tracks of all open handles safely
     current_time = 0.0
     media_index = 0
 
     try:
-        # Retention optimization: Max 2.5 seconds per clip
         MAX_CLIP_DURATION = 2.5
 
         while current_time < total_dur:
@@ -105,11 +105,12 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
                 continue
 
             raw_clip = VideoFileClip(str(clip_path), audio=False)
+            allocated_raw_clips.append(raw_clip) # 🟢 Store here, don't close inside loop!
+            
             rem_dur = total_dur - current_time
             clip_duration = min(raw_clip.duration, rem_dur, MAX_CLIP_DURATION)
             
             if clip_duration <= 0.3:
-                raw_clip.close()
                 continue
                 
             sub_clip = raw_clip.subclip(0, clip_duration)
@@ -127,13 +128,12 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
             processed_clip = resize(sub_clip, newsize=(W, H))
             video_clips.append(processed_clip)
             
-            raw_clip.close()
             current_time += clip_duration
 
         if not video_clips:
             raise RuntimeError("No visual media clips were processed successfully.")
 
-        # Speed Fix: method="compose" for quick merging
+        # Speed Fix: method="compose" bypassing heavy tracking layers
         video_sequence = concatenate_videoclips(video_clips, method="compose")
         
         audio_clip = AudioFileClip(voiceover_data["audio_path"])
@@ -147,7 +147,6 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
             frame = _render_caption_frame_cached(t, word_timings)
             return frame[:, :, 3] / 255.0
 
-        # 🟢 SYNTAX FIXED HERE: Bracket cleanly closed now
         caption_clip = VideoClip(make_caption_frame, duration=total_dur).set_fps(FPS)
         caption_mask = VideoClip(make_caption_mask, ismask=True, duration=total_dur).set_fps(FPS)
         caption_clip = caption_clip.set_mask(caption_mask)
@@ -173,8 +172,12 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
         return str(final_path)
 
     finally:
+        # 🟢 CLEAN UP EVERYTHING AT THE VERY END: No crash, zero memory leak
         for c in video_clips:
             try: c.close()
+            except Exception: pass
+        for rc in allocated_raw_clips:
+            try: rc.close()
             except Exception: pass
         for name in ("video_sequence", "caption_clip", "caption_mask", "final_video", "audio_clip"):
             obj = locals().get(name)
