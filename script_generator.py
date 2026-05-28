@@ -31,7 +31,7 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s | %(message)s')
 # Groq client initialization
 _client = Groq(api_key=GROQ_API_KEY)
 
-# 🟢 NEW VIRAL TOPIC POOL: USA/UK High-Retention Psychology & Body Mysteries
+# NEW VIRAL TOPIC POOL: USA/UK High-Retention Psychology & Body Mysteries
 TOPIC_POOL = [
     'Dark psychology trick to read anyone instantly by watching their eyes',
     'What happens to your brain when you secretly stare at someone',
@@ -50,7 +50,7 @@ TOPIC_POOL = [
     'Why your brain sometimes creates false memories that never happened'
 ]
 
-# 🟢 SYSTEM PROMPT OPTIMIZATION: Injected Magical Hooks & Premium Tone Control
+# SYSTEM PROMPT OPTIMIZATION: Injected Magical Hooks & Premium Tone Control
 SYSTEM_PROMPT = (
     'You are an expert short-form video scriptwriter specializing in Dark Psychology, '
     'Body Science, and Hidden Human Behavior Mysteries. Target audience: curious adults aged 18-45 in the USA and UK. '
@@ -90,7 +90,7 @@ def _call_groq(topic: str, model: str) -> dict:
     response = _client.chat.completions.create(
         model=model,
         max_tokens=1500,
-        temperature=0.85,  # Slightly higher for creative and dramatic hooks
+        temperature=0.85,
         response_format={'type': 'json_object'},
         messages=[
             {'role': 'system', 'content': SYSTEM_PROMPT},
@@ -102,8 +102,7 @@ def _call_groq(topic: str, model: str) -> dict:
     
     if raw_text.startswith('```'):
         raw_text = raw_text.split('\n', 1)[1]
-    if raw_text.endswith('
-```'):
+    if raw_text.endswith('```'):
         raw_text = raw_text.rsplit('\n', 1)[0]
     raw_text = raw_text.strip()
     
@@ -138,7 +137,6 @@ def _validate_and_fix(data: dict) -> None:
     for key in ('title', 'description', 'hashtags'):
         if key not in seo: seo[key] = 'Missing seo data'
     
-    # 🟢 NEW STABLE DEFAULT KEYWORDS: If model fails, fetch dark mysterious aesthetic stock videos
     if not isinstance(data['broll_keywords'], list):
         data['broll_keywords'] = ['dark aesthetic', 'mysterious cinematography', 'shadowy figure']
         
