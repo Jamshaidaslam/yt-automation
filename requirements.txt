@@ -1,31 +1,16 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# requirements.txt — AI Dark Realities Short-Form Video Pipeline
-# ─────────────────────────────────────────────────────────────────────────────
-
-# ── Script / SEO generation ──────────────────────────────────────────────────
 groq==0.18.0
-
-# ── HTTP / media fetching ────────────────────────────────────────────────────
 requests==2.32.3
 aiohttp==3.9.5
-
-# ── Text-to-Speech ───────────────────────────────────────────────────────────
-gTTS==2.5.1                    # Free Google Voice (No Blocks Ever)
-
-# ── Video editing ────────────────────────────────────────────────────────────
+gTTS==2.5.1
 moviepy==1.0.3
 imageio==2.25.0
 imageio-ffmpeg==0.4.8
 Pillow==9.5.0
 numpy==1.26.4
-
-# ── Google / YouTube upload ──────────────────────────────────────────────────
 google-api-python-client==2.131.0
 google-auth==2.29.0
 google-auth-oauthlib==1.2.0
 google-auth-httplib2==0.2.0
-
-# ── Misc utilities ───────────────────────────────────────────────────────────
 python-dotenv==1.0.1
 tenacity==8.3.0
 tqdm==4.66.4
