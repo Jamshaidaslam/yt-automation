@@ -52,7 +52,8 @@ API_TIMEOUT_SEC = 30
 # ==========================================
 # 5. YOUTUBE AUTOMATION & BRANDING FALLBACKS
 # ==========================================
-FONT_NAME = "Impact.ttf"  # Fallback font name
+# Visual Branding Fallback
+FONT_NAME = "AmericanCaptain-MdEY.otf"  # Fallback font name
 
 # STRICT YOUTUBE OAUTH SCOPES (Fixes bad request invalid_scope)
 YOUTUBE_SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
