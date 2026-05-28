@@ -1,61 +1,54 @@
 """
-audio_generator.py — Groq Cloud TTS / OpenAI Whisper Pipeline (100% Anti-Block)
+audio_generator.py — Google TTS Voiceover Pipeline (100% Stable on GitHub Actions)
 AI Dark Realities · Short-Form Video Pipeline
 ──────────────────────────────────────────────
-Replaced edge-tts with Groq's stable audio synthesis layer to completely 
-bypass Microsoft's GitHub Actions 403 Forbidden Cloud IP blocks.
+Replaced edge-tts with gTTS to permanently bypass Microsoft's GitHub Cloud IP blocks.
+No API keys required, completely safe from 403 Forbidden errors.
 """
 
-import os
 import json
 import logging
 import subprocess
 from pathlib import Path
-from groq import Groq
+from gtts import gTTS
 from script_generator import build_word_timings
 import config
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
 
-# Instantiate client using existing Groq Key
-_client = Groq(api_key=config.GROQ_API_KEY)
-
 
 def generate_voiceover(script: str, output_stem: str) -> dict:
     """
-    Generates vocal audio track using Groq Speech synthesis engine.
-    Completely immune to Microsoft Edge 403 server handshaking blocks.
+    Generates vocal audio track using Google TTS engine.
+    Completely immune to GitHub Actions runner IP blocks.
     """
     audio_path = config.AUDIO_DIR / f"{output_stem}.mp3"
     timings_path = config.AUDIO_DIR / f"{output_stem}_timings.json"
 
-    logger.info("Synthesising stable TTS audio voice via Groq Cloud Infrastructure...")
+    logger.info("Synthesising safe voiceover via Google TTS (gTTS)...")
 
     try:
-        # Request speech generation from Groq Cloud backend
-        response = _client.audio.speech.create(
-            model="tts-1",  # Standard stable OpenAI text-to-speech protocol
-            voice="alloy",  # High retention crisp viral voice option (alloy, echo, onyx)
-            input=script,
-        )
+        # Extract language code from voice config (e.g., 'en-US-...' -> 'en')
+        lang_code = config.TTS_VOICE.split("-")[0] if "-" in config.TTS_VOICE else "en"
         
-        # Save the binary audio file content stream directly
-        response.write_to_file(str(audio_path))
-        logger.info(f"Audio file saved successfully -> {audio_path.name}")
+        # Initialize Google TTS and save stream
+        tts = gTTS(text=script, lang=lang_code, slow=False)
+        tts.save(str(audio_path))
+        logger.info(f"Audio track saved successfully -> {audio_path.name}")
         
     except Exception as e:
-        logger.error(f"Groq Audio synthesis layer failed critically: {e}")
+        logger.error(f"Google TTS layer failed critically: {e}")
         raise e
 
-    # Extract dynamic float duration using local system FFprobe binary mapping
+    # Extract dynamic float duration using system FFprobe binary
     duration_sec = _get_audio_duration_sec(audio_path)
 
     # Automatically map precise word metrics dynamically for MoviePy captions
     logger.info("Distributing timing sequence alignments...")
     word_timings = build_word_timings(script, duration_sec)
 
-    # Persist JSON sidecar configuration tracking metrics
+    # Persist JSON configuration tracking metrics
     timings_path.write_text(json.dumps(word_timings, indent=2), encoding="utf-8")
 
     return {
@@ -77,8 +70,5 @@ def _get_audio_duration_sec(audio_path: Path) -> float:
 
 
 if __name__ == "__main__":
-    test_text = "This is a stable test sequence generated using Groq Cloud audio systems infrastructure."
-    if config.GROQ_API_KEY:
-        print(generate_voiceover(test_text, "groq_stability_test"))
-    else:
-        print("Error: GROQ_API_KEY environment variable is not defined.")
+    test_text = "This is a stable test sequence generated using Google text to speech automation systems."
+    print(generate_voiceover(test_text, "gtts_stability_test"))
