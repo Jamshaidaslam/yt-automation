@@ -1,5 +1,5 @@
 """
-video_compiler.py — Core Video Rendering Engine (FIXED MASK_COLOR CRASH)
+video_compiler.py — Core Video Rendering Engine (FIXED MASK_COLOR CRASH & COMPRESSED SIZE)
 AI Dark Realities · Short-Form Video Pipeline
 ──────────────────────────────────────────────
 """
@@ -45,7 +45,6 @@ def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarr
     Renders a transparent RGBA PIL image frame, then converts it safely 
     to an RGB array for MoviePy compatibility.
     """
-    # 1. Start with a completely transparent frame (0, 0, 0, 0)
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
@@ -56,11 +55,11 @@ def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarr
             break
 
     if not active_word:
-        return np.array(img)  # Returns empty transparent frame array
+        return np.array(img)
 
     font = _get_font(FONT_SIZE)
     wrapped_lines = textwrap.wrap(active_word, width=10)
-    current_y = (H // 2) - 100  # Centered perfectly for Shorts retention
+    current_y = (H // 2) - 100
     
     for line in wrapped_lines:
         bbox = draw.textbbox((0, 0), line, font=font)
@@ -68,11 +67,9 @@ def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarr
         text_h = bbox[3] - bbox[1]
         x = (W - text_w) // 2
         
-        # Heavy 8-axis solid border stroke
         for adj_x, adj_y in [(-5,-5), (5,-5), (-5,5), (5,5), (-3,0), (3,0), (0,-3), (0,3)]:
             draw.text((x + adj_x, current_y + adj_y), line, font=font, fill=CAPTION_STROKE_COLOR)
             
-        # Main neon yellow text layer
         draw.text((x, current_y), line, font=font, fill=CAPTION_TEXT_COLOR)
         current_y += text_h + 25
 
@@ -126,21 +123,16 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
         if not video_clips:
             raise RuntimeError("No visual media clips were processed successfully.")
 
-        # Combined visual chain layout sequences
         video_sequence = concatenate_videoclips(video_clips, method="chain")
         
         audio_clip = AudioFileClip(voiceover_data["audio_path"])
         video_sequence = video_sequence.set_audio(audio_clip)
 
-        # 2. FIX: Generate transparent frame sequence using VideoClip with 'ismask=False'
-        # and handling transparency through the clip's native configuration
         def make_caption_frame(t):
-            # Return RGB components of our frame
             frame = _render_caption_frame_cached(t, word_timings)
             return frame[:, :, :3]
 
         def make_caption_mask(t):
-            # Extract the Alpha channel (index 3) to use as the exact visibility mask
             frame = _render_caption_frame_cached(t, word_timings)
             return frame[:, :, 3] / 255.0
 
@@ -148,17 +140,20 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
         caption_mask = VideoClip(make_caption_mask, ismask=True, duration=total_dur).set_fps(FPS)
         caption_clip = caption_clip.set_mask(caption_mask)
 
-        # 3. Composite video generation without broken .mask_color attribute calls
         final_video = CompositeVideoClip([video_sequence, caption_clip], size=(W, H))
         final_video = final_video.set_duration(total_dur)
 
-        logger.info(f"Rendering final short output file to -> {final_path}")
+        logger.info(f"Rendering compressed final short output file to -> {final_path}")
+        
+        # 🟢 COMPRESSION & QUALITY TARGET FIXES
         final_video.write_videofile(
             str(final_path),
             fps=FPS,
             codec="libx264",
             audio_codec="aac",
-            preset="ultrafast",  
+            bitrate="3000k",          # Video size ko 15MB-25MB tak lane k liye speed limiter
+            audio_bitrate="128k",     # Audio data clean rakhne k liye Bina space zaya kiye
+            preset="fast",            # Fast preset balance bnaye rkhta ha performance or size me
             threads=4,
             logger=None,
         )
