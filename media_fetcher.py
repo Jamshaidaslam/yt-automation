@@ -12,10 +12,24 @@ All downloads are skipped if the target file already exists (caching for re-runs
 """
 
 import os
+"""
+media_fetcher.py — B-Roll Media Downloader
+AI Dark Realities · Short-Form Video Pipeline
+──────────────────────────────────────────────
+Strategy:
+  1. Query Pexels Videos API for each keyword.
+  2. Shuffle results to maintain high visual diversity and stop scene repetition.
+  3. If Pexels returns 0 usable results → automatically fall back to Pixabay.
+  4. Download each clip to ./output/media/<slug>.mp4
+  5. Return ordered list of local file paths for the video compiler.
+"""
+
+import os
 import re
 import hashlib
 import logging
 import requests
+import random  # 🌟 Added for randomness and diversity
 from pathlib import Path
 from tenacity import retry, stop_after_attempt, wait_fixed
 
@@ -29,7 +43,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
 # PEXELS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def _search_pexels(keyword: str, per_page: int = 15) -> list[dict]:
+def _search_pexels(keyword: str, per_page: int = 30) -> list[dict]:  # Increased per_page to 30 for more choice
     """
     Call Pexels Videos search API.
     Returns list of video metadata dicts with keys: id, url, width, height, duration.
@@ -54,23 +68,20 @@ def _search_pexels(keyword: str, per_page: int = 15) -> list[dict]:
         if not (config.MEDIA_MIN_DURATION <= duration <= config.MEDIA_MAX_DURATION):
             continue  # Skip clips that are too short or too long
 
-        # Prefer HD (1280+ width) but accept anything portrait
         files = v.get("video_files", [])
-        # Sort by width descending, prefer portrait files
         files_sorted = sorted(
             [f for f in files if f.get("file_type") == "video/mp4"],
             key=lambda f: f.get("width", 0),
             reverse=True,
         )
 
-        # Take the first file ≤ 1920px wide to avoid unnecessarily large downloads
         chosen = None
         for f in files_sorted:
             if f.get("width", 9999) <= 1920:
                 chosen = f
                 break
         if chosen is None and files_sorted:
-            chosen = files_sorted[-1]  # Fallback to smallest
+            chosen = files_sorted[-1]
 
         if chosen and chosen.get("link"):
             results.append({
@@ -82,7 +93,9 @@ def _search_pexels(keyword: str, per_page: int = 15) -> list[dict]:
                 "source":   "pexels",
             })
 
-    logger.info(f"Pexels '{keyword}': {len(results)} usable clips found.")
+    # 🌟 Shuffle the results so we don't pick the exact same top clips every time
+    random.shuffle(results)
+    logger.info(f"Pexels '{keyword}': {len(results)} usable clips found & shuffled.")
     return results
 
 
@@ -90,7 +103,7 @@ def _search_pexels(keyword: str, per_page: int = 15) -> list[dict]:
 # PIXABAY  (fallback)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def _search_pixabay(keyword: str, per_page: int = 15) -> list[dict]:
+def _search_pixabay(keyword: str, per_page: int = 30) -> list[dict]:  # Increased per_page to 30 for more choice
     """
     Call Pixabay Videos API.
     Returns list of video metadata dicts (same schema as _search_pexels).
@@ -112,7 +125,6 @@ def _search_pixabay(keyword: str, per_page: int = 15) -> list[dict]:
 
     for h in hits:
         videos = h.get("videos", {})
-        # Preference order: large → medium → small
         clip = (
             videos.get("large")
             or videos.get("medium")
@@ -138,7 +150,9 @@ def _search_pixabay(keyword: str, per_page: int = 15) -> list[dict]:
             "source":   "pixabay",
         })
 
-    logger.info(f"Pixabay '{keyword}': {len(results)} usable clips found.")
+    # 🌟 Shuffle Pixabay results too
+    random.shuffle(results)
+    logger.info(f"Pixabay '{keyword}': {len(results)} usable clips found & shuffled.")
     return results
 
 
@@ -162,7 +176,7 @@ def _download_clip(url: str, dest_path: Path) -> bool:
         r.raise_for_status()
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         with open(dest_path, "wb") as f:
-            for chunk in r.iter_content(chunk_size=1 << 20):  # 1 MB chunks
+            for chunk in r.iter_content(chunk_size=1 << 20):
                 f.write(chunk)
     logger.info(f"Saved → {dest_path.name} ({dest_path.stat().st_size // 1024} KB)")
     return True
@@ -182,19 +196,12 @@ def fetch_broll_clips(keywords: list[str], clips_per_keyword: int = None) -> lis
     For each keyword: try Pexels → fallback to Pixabay if 0 results.
     Downloads up to `clips_per_keyword` clips per keyword.
     Returns a de-duplicated list of local file paths (str) ready for the compiler.
-
-    Parameters
-    ----------
-    keywords : list[str]
-        Search keywords from the Groq script output.
-    clips_per_keyword : int
-        Override config.MEDIA_PER_KEYWORD.
     """
     if clips_per_keyword is None:
         clips_per_keyword = config.MEDIA_PER_KEYWORD
 
     all_paths: list[str] = []
-    seen_ids: set[str]   = set()  # Dedup by source+id
+    seen_ids: set[str]   = set()
 
     for keyword in keywords:
         # ── 1. Try Pexels ────────────────────────────────────────────────────
@@ -227,7 +234,6 @@ def fetch_broll_clips(keywords: list[str], clips_per_keyword: int = None) -> lis
                 continue
             seen_ids.add(dedup_key)
 
-            # Build a deterministic filename from keyword + clip id
             fname = f"{_slug(keyword)}_{clip['source']}_{clip['id']}.mp4"
             dest  = config.MEDIA_DIR / fname
 
@@ -243,7 +249,6 @@ def fetch_broll_clips(keywords: list[str], clips_per_keyword: int = None) -> lis
     return all_paths
 
 
-# ── Standalone test ──────────────────────────────────────────────────────────
 if __name__ == "__main__":
     test_keywords = ["surveillance camera city", "hacker dark room", "data center servers"]
     paths = fetch_broll_clips(test_keywords, clips_per_keyword=2)
