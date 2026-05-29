@@ -1,5 +1,5 @@
 """
-video_compiler.py — Core Video Rendering Engine (FIXED NONETYPE GET_FRAME & SPEED OPTIMIZED)
+video_compiler.py — Core Video Rendering Engine (HIGH-RETENTION USA/UK CAPTIONS STYLE)
 AI Dark Realities · Short-Form Video Pipeline
 ──────────────────────────────────────────────
 """
@@ -26,9 +26,10 @@ W  = config.VIDEO_WIDTH   # 1080
 H  = config.VIDEO_HEIGHT  # 1920
 FPS = config.VIDEO_FPS    # 30
 
-FONT_SIZE = 70
-CAPTION_TEXT_COLOR = (255, 255, 0, 255)      # Bright Yellow with Full Alpha
-CAPTION_STROKE_COLOR = (0, 0, 0, 255)        # Black Outline with Full Alpha
+FONT_SIZE = 95  # 🌟 Increased font size for better readability on mobile screens
+CAPTION_YELLOW_COLOR = (255, 255, 0, 255)    # Bright Yellow
+CAPTION_GREEN_COLOR = (57, 255, 20, 255)     # 🌟 Neon Green for highlighted keywords
+CAPTION_STROKE_COLOR = (0, 0, 0, 255)      # Deep Black Outline
 
 def _get_font(size: int) -> ImageFont.FreeTypeFont:
     try:
@@ -42,40 +43,41 @@ def _get_font(size: int) -> ImageFont.FreeTypeFont:
 
 def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarray:
     """
-    Renders a transparent RGBA PIL image frame, displaying a chunk of 3 words
-    synced to the current audio timestamp at the lower third of the screen.
+    Renders a transparent RGBA PIL image frame displaying exactly ONE word at a time
+    synced to the audio timestamp in the safe upper-middle zone of the screen.
     """
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    active_phrase = ""
-    for idx, item in enumerate(word_timings):
+    active_word = ""
+    for item in word_timings:
         if item["start"] <= t <= item["end"]:
-            start_chunk = max(0, idx - (idx % 3))
-            end_chunk = min(len(word_timings), start_chunk + 3)
-            
-            chunk_words = [word_timings[i]["word"].upper() for i in range(start_chunk, end_chunk)]
-            active_phrase = " ".join(chunk_words)
+            active_word = item["word"].upper().strip()
             break
 
-    if not active_phrase:
+    if not active_word:
         return np.array(img)
 
     font = _get_font(FONT_SIZE)
-    wrapped_lines = textwrap.wrap(active_phrase, width=18)
-    current_y = int(H * 0.75)  # Lower Third Position
     
-    for line in wrapped_lines:
-        bbox = draw.textbbox((0, 0), line, font=font)
-        text_w = bbox[2] - bbox[0]
-        text_h = bbox[3] - bbox[1]
-        x = (W - text_w) // 2
+    # 🌟 UPPER-MIDDLE ZONE (0.45 of Height) - Perfect for USA/UK Shorts Interface Safe Zones
+    current_y = int(H * 0.45)  
+    
+    # Calculate perfect dimensions and center coordinates
+    bbox = draw.textbbox((0, 0), active_word, font=font)
+    text_w = bbox[2] - bbox[0]
+    text_h = bbox[3] - bbox[1]
+    x = (W - text_w) // 2
+    
+    # 🌟 High retention coloring rule: Long or unique words get Neon Green, others Bright Yellow
+    text_color = CAPTION_GREEN_COLOR if len(active_word) > 5 else CAPTION_YELLOW_COLOR
+
+    # Heavy professional 6-axis outline mapping to stop blending with bright b-roll backgrounds
+    for adj_x, adj_y in [(-6,-6), (6,-6), (-6,6), (6,6), (-4,0), (4,0), (0,-4), (0,4)]:
+        draw.text((x + adj_x, current_y + adj_y), active_word, font=font, fill=CAPTION_STROKE_COLOR)
         
-        for adj_x, adj_y in [(-5,-5), (5,-5), (-5,5), (5,5), (-3,0), (3,0), (0,-3), (0,3)]:
-            draw.text((x + adj_x, current_y + adj_y), line, font=font, fill=CAPTION_STROKE_COLOR)
-            
-        draw.text((x, current_y), line, font=font, fill=CAPTION_TEXT_COLOR)
-        current_y += text_h + 20
+    # Main foreground text drop
+    draw.text((x, current_y), active_word, font=font, fill=text_color)
 
     return np.array(img)
 
@@ -89,7 +91,7 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
         raise ValueError("Cannot compile video because the list of media paths is empty.")
 
     video_clips = []
-    allocated_raw_clips = [] # 🟢 Keep tracks of all open handles safely
+    allocated_raw_clips = [] 
     current_time = 0.0
     media_index = 0
 
@@ -105,7 +107,7 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
                 continue
 
             raw_clip = VideoFileClip(str(clip_path), audio=False)
-            allocated_raw_clips.append(raw_clip) # 🟢 Store here, don't close inside loop!
+            allocated_raw_clips.append(raw_clip) 
             
             rem_dur = total_dur - current_time
             clip_duration = min(raw_clip.duration, rem_dur, MAX_CLIP_DURATION)
@@ -133,7 +135,6 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
         if not video_clips:
             raise RuntimeError("No visual media clips were processed successfully.")
 
-        # Speed Fix: method="compose" bypassing heavy tracking layers
         video_sequence = concatenate_videoclips(video_clips, method="compose")
         
         audio_clip = AudioFileClip(voiceover_data["audio_path"])
@@ -156,7 +157,6 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
 
         logger.info(f"Rendering compressed fast-cut short output file to -> {final_path}")
         
-        # GitHub Cloud Optimized parameters
         final_video.write_videofile(
             str(final_path),
             fps=FPS,
@@ -172,7 +172,6 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
         return str(final_path)
 
     finally:
-        # 🟢 CLEAN UP EVERYTHING AT THE VERY END: No crash, zero memory leak
         for c in video_clips:
             try: c.close()
             except Exception: pass
