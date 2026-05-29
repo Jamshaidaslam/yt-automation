@@ -1,5 +1,5 @@
 """
-video_compiler.py — Core Video Rendering Engine (HIGH-RETENTION USA/UK CAPTIONS STYLE)
+video_compiler.py — Core Video Rendering Engine (HIGH-RETENTION USA/UK CAPTIONS STYLE - SYNC FIXED)
 AI Dark Realities · Short-Form Video Pipeline
 ──────────────────────────────────────────────
 """
@@ -50,8 +50,12 @@ def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarr
     draw = ImageDraw.Draw(img)
 
     active_word = ""
+    
+    # 🌟 AUDIO SYNC OFFSET: Captions ko voice se 0.18 seconds advance/fast chalane ke liye
+    adjusted_time = t + 0.18
+    
     for item in word_timings:
-        if item["start"] <= t <= item["end"]:
+        if item["start"] <= adjusted_time <= item["end"]:
             active_word = item["word"].upper().strip()
             break
 
