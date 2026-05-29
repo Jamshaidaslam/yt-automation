@@ -2,7 +2,9 @@ name: Automated Video Production Pipeline
 
 on:
   schedule:
-    - cron: '0 */8 * * *'
+    - cron: '0 12 * * *'  # Video 1: Pakistan Time 5:00 PM (USA Morning / UK Lunch)
+    - cron: '0 16 * * *'  # Video 2: Pakistan Time 9:00 PM (USA Mid-day / UK Evening)
+    - cron: '0 21 * * *'  # Video 3: Pakistan Time 2:00 AM (USA Prime Time)
   workflow_dispatch:
     inputs:
       topic:
