@@ -19,7 +19,6 @@ try:
 except ImportError:
     HAS_CONFIG = False
 
-# GitHub Secrets ya local config se API Key uthane ka setup
 GROQ_API_KEY = os.environ.get('GROQ_API_KEY') or (config.GROQ_API_KEY if HAS_CONFIG else None)
 
 if not GROQ_API_KEY:
@@ -28,16 +27,12 @@ if not GROQ_API_KEY:
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format='%(levelname)s | %(message)s')
 
-# Groq client initialization
 _client = Groq(api_key=GROQ_API_KEY)
 
 # ═══════════════════════════════════════════════════════════════════
-# ULTRA-VIRAL TOPIC POOL v2.0
-# Formula: Forbidden Knowledge + Personal Threat + Instant Payoff
+# ULTRA-VIRAL TOPIC POOL v2.5 — MAXIMUM HUMAN EMOTION HOOKS
 # ═══════════════════════════════════════════════════════════════════
 TOPIC_POOL = [
-
-    # ── DARK PSYCHOLOGY: Control & Manipulation ──────────────────
     "The one sentence a narcissist uses right before they destroy you",
     "Psychologists discovered a trick that makes anyone trust you in 7 seconds",
     "The silent manipulation tactic toxic people use that you can't even detect",
@@ -48,8 +43,6 @@ TOPIC_POOL = [
     "Why highly intelligent people are easier to manipulate than average ones",
     "The body language micro-signal that tells you someone is lying right now",
     "How cults use a single psychological technique to trap educated people",
-
-    # ── HUMAN BEHAVIOR: Hidden & Shocking ────────────────────────
     "Scientists confirmed the exact moment your brain decides to trust a stranger",
     "The terrifying psychological reason why kind people attract abusers",
     "Your brain literally erases memories it finds too painful — here's which ones",
@@ -60,8 +53,6 @@ TOPIC_POOL = [
     "The hidden reason you feel drained after being around certain people",
     "Why your brain bonds faster with someone who hurt you than someone who helped",
     "The psychological trick used in every viral ad to make you spend money instantly",
-
-    # ── BRAIN & BODY SCIENCE: Fear, Mystery, Awe ─────────────────
     "The terrifying reason your brain generates a full dream in the last 2 minutes of sleep",
     "Scientists still can't explain why the human brain can predict death 7 days early",
     "What physically happens inside your skull when you feel someone watching you",
@@ -72,8 +63,6 @@ TOPIC_POOL = [
     "The documented phenomenon where humans develop a second personality under stress",
     "Why your brain sometimes hears your name called when no one is there",
     "The scientific reason certain people can sense danger before it happens",
-
-    # ── SOCIAL DYNAMICS: Power, Status, Envy ─────────────────────
     "The dark psychological reason successful people are hated by their closest friends",
     "How to instantly detect a fake friend using one simple psychological test",
     "The silent war psychology: what highly secure people never do in arguments",
@@ -82,8 +71,6 @@ TOPIC_POOL = [
     "What happens to your brain chemistry when someone ignores you on purpose",
     "The dark truth about why genuinely confident people speak less",
     "The psychological reason people sabotage relationships right before they succeed",
-
-    # ── IDENTITY & SELF: Eerie Self-Discovery ─────────────────────
     "The unsettling truth about what your recurring nightmare is actually warning you about",
     "Psychology confirms most people are living a life chosen by someone else entirely",
     "The terrifying documented case where a person woke up speaking a foreign language",
@@ -93,84 +80,53 @@ TOPIC_POOL = [
 ]
 
 # ═══════════════════════════════════════════════════════════════════
-# SYSTEM PROMPT v3.0 — MAXIMUM SCROLL-STOP ENGINEERING
+# SYSTEM PROMPT v4.0 — ANTI-SPAM & MAXIMUM RETENTION CODES
 # ═══════════════════════════════════════════════════════════════════
 SYSTEM_PROMPT = (
-    "You are a world-class short-form video scriptwriter. You specialize in Dark Psychology, "
-    "Hidden Brain Science, and Forbidden Human Behavior — engineered for maximum scroll-stop retention "
-    "on TikTok, YouTube Shorts, and Instagram Reels. Your audience: curious, skeptical adults aged 18-45 in the USA and UK.\n\n"
+    "You are an elite short-form video scriptwriter specializing in Dark Psychology and Human Behavior. "
+    "Your goal is to write a script that forces a 100%+ retention rate on YouTube Shorts and Instagram Reels. "
+    "Target Audience: Mature, curious individuals in the USA and UK who love mysteries.\n\n"
 
-    "ABSOLUTE RULES:\n"
-    "1. TOTAL WORD COUNT: 110-140 words ONLY. This equals exactly 45-58 seconds of speech. Count strictly.\n"
-    "2. VOICE: Always second-person. Use 'you', 'your', 'you've', 'you're' to make it feel personal.\n"
-    "3. TONE: Mysterious. Clinical. Dark. Authoritative. Like a forensic psychologist exposing hidden truths.\n"
-    "4. NO FILLER: Zero generic openers. Never say 'welcome', 'today we', 'in this video', or 'hey guys'.\n\n"
-
-    "HOOK FORMULA — The first 1-2 sentences are THE ENTIRE GAME:\n"
-    "The hook MUST do ONE of these:\n"
-    "  A) STATE A FORBIDDEN FACT:  'Psychologists confirmed something about you that no one is allowed to say publicly.'\n"
-    "  B) ISSUE A PERSONAL THREAT: 'Someone in your life is using this exact technique on you right now.'\n"
-    "  C) TRIGGER IDENTITY SHOCK:  'The person you think you are does not actually exist — here is the proof.'\n"
-    "  D) CREATE URGENT CURIOSITY: 'There are 7 seconds left before your brain makes a decision you cannot reverse.'\n"
-    "Use POWER WORDS: 'confirmed', 'documented', 'forbidden', 'classified', 'terrifying', 'they never told you'.\n"
-    "The hook must feel like a secret the viewer was never supposed to know.\n\n"
-
-    "SCRIPT STRUCTURE:\n"
-    "  [HOOK]   — 1-2 sentences. Scroll-stop. Identity shock. Forbidden knowledge.\n"
-    "  [REVEAL] — 3-4 sentences. The dark mechanism or psychology explained clinically.\n"
-    "  [PROOF]  — 2-3 sentences. A real documented case, study, or chilling example.\n"
-    "  [IMPACT] — 1-2 sentences. What this means for the viewer personally right now.\n"
-    "  [CTA]    — 1 sentence. Sharp command to follow for more classified dark psychology.\n\n"
-
-    "BROLL KEYWORDS:\n"
-    "Provide exactly 4 dark, cinematic, aesthetic search terms for stock footage.\n"
-    "Examples: 'extreme close-up human eye pupil dilation', 'dark silhouette empty corridor 4K',\n"
-    "'brain scan glowing neural activity', 'hands shadow psychological thriller'.\n\n"
-
-    "SEO PACKAGE:\n"
-    "  Title: Under 60 characters. Include a power word and a curiosity gap.\n"
-    "  Description: 150-200 words. Dense with searchable psychology and neuroscience keywords.\n"
-    "  Hashtags: Exactly 8 hashtags — mix of viral (#Psychology) and niche (#DarkPsychologyFacts).\n\n"
-
+    "CRITICAL INPUT CRITERIA:\n"
+    "1. SCRIPT LENGTH: Strictly between 100 and 125 words. Too long will kill the loop pacing.\n"
+    "2. THE HOOK: The first sentence must be short, punchy, and make the viewer feel exposed. No pleasantries.\n"
+    "3. HUMAN LANGUAGE: Avoid generic AI transitions like 'Moreover', 'Furthermore', 'In conclusion'. Speak like a real human whispering an unsettling secret.\n"
+    "4. SEO OPTIMIZATION: Keep descriptions short (2-3 sentences), highly engaging, and use exactly 3-4 viral hashtags. Do NOT overload tags, as YouTube flags it as metadata spam.\n\n"
+    
     "OUTPUT FORMAT:\n"
-    "Return ONLY a valid JSON object. No markdown. No explanation. No extra text.\n"
+    "Return ONLY a clean JSON object. No markdown code blocks, no extra text.\n"
     "{\n"
     '  "topic": "string",\n'
-    '  "script": "string — 110 to 140 words, opens with a massive scroll-stopping hook",\n'
+    '  "script": "string — Under 125 words, high pacing second-person narrative",\n'
     '  "broll_keywords": ["keyword1", "keyword2", "keyword3", "keyword4"],\n'
     '  "seo": {\n'
-    '    "title": "string under 60 characters with power word",\n'
-    '    "description": "string 150-200 words packed with psychology keywords",\n'
-    '    "hashtags": ["#tag1", "#tag2", "#tag3", "#tag4", "#tag5", "#tag6", "#tag7", "#tag8"]\n'
-    "  }\n"
+    '    "title": "string under 55 characters with high curiosity gap",\n'
+    '    "description": "string around 60-80 words, natural description that hooks readers",\n'
+    '    "hashtags": ["#Shorts", "#DarkPsychology", "#PsychologyFacts"]\n'
+    '  }\n'
     "}"
 )
 
-# ═══════════════════════════════════════════════════════════════════
-# MODEL CHAIN — Fastest to most reliable fallback
-# ═══════════════════════════════════════════════════════════════════
 MODEL_CHAIN = [
-    'llama-3.3-70b-versatile',   # Primary: Best quality + speed
-    'llama-3.1-8b-instant',      # Fallback 1: Ultra-fast
-    'gemma2-9b-it'               # Fallback 2: Safety net
+    'llama-3.3-70b-versatile',
+    'llama-3.1-8b-instant',
+    'gemma2-9b-it'
 ]
-
 
 def _call_groq(topic: str, model: str) -> dict:
     user_message = (
         f'Generate a complete dark psychology short-form video package for this topic:\n\n'
         f'TOPIC: {topic}\n\n'
-        f'CRITICAL INSTRUCTIONS:\n'
-        f'— The first sentence MUST be a scroll-stopping hook using the forbidden knowledge or identity threat formula.\n'
-        f'— Use "you" and "your" throughout. Make the viewer feel personally exposed.\n'
-        f'— Script must be 110-140 words. Count carefully.\n'
-        f'— Return ONLY the JSON object. No extra text.'
+        f'CRITICAL:\n'
+        f'— Script word count: 100-125 words strictly.\n'
+        f'— Maximum 3 to 4 hashtags in SEO block to prevent YouTube spam flagging.\n'
+        f'— Make the language gritty, raw, and highly human.'
     )
     logger.info(f'Calling Groq model: {model}')
     response = _client.chat.completions.create(
         model=model,
-        max_tokens=1500,
-        temperature=0.88,
+        max_tokens=1000,
+        temperature=0.82,  # Slightly lower temperature for better JSON compliance
         response_format={'type': 'json_object'},
         messages=[
             {'role': 'system', 'content': SYSTEM_PROMPT},
@@ -178,9 +134,7 @@ def _call_groq(topic: str, model: str) -> dict:
         ]
     )
     raw_text = response.choices[0].message.content.strip()
-    logger.info(f'Response received: {len(raw_text)} chars')
 
-    # Strip accidental markdown fences
     if raw_text.startswith('```'):
         raw_text = re.sub(r'^```[a-zA-Z]*\n?', '', raw_text)
         raw_text = re.sub(r'```$', '', raw_text)
@@ -193,12 +147,7 @@ def _call_groq(topic: str, model: str) -> dict:
         raise ValueError(f'Invalid JSON from Groq: {exc}') from exc
     return data
 
-
 def generate_script(topic: str | None = None) -> dict:
-    """
-    Main entry point. Pass a topic string or leave None for random selection.
-    Returns a validated dict with keys: topic, script, broll_keywords, seo.
-    """
     if topic is None:
         topic = random.choice(TOPIC_POOL)
     logger.info(f'Selected topic: "{topic}"')
@@ -218,9 +167,7 @@ def generate_script(topic: str | None = None) -> dict:
 
     raise RuntimeError(f'All Groq models failed. Last error: {last_error}')
 
-
 def _validate_and_fix(data: dict) -> None:
-    """Ensure all required keys exist and types are correct."""
     for key in ('topic', 'script', 'broll_keywords', 'seo'):
         if key not in data:
             data[key] = 'Missing data'
@@ -232,7 +179,6 @@ def _validate_and_fix(data: dict) -> None:
         if key not in seo:
             seo[key] = 'Missing seo data'
 
-    # broll_keywords must be a list of 4
     if not isinstance(data['broll_keywords'], list):
         data['broll_keywords'] = [
             'dark aesthetic cinematic',
@@ -241,50 +187,27 @@ def _validate_and_fix(data: dict) -> None:
             'eye close-up macro thriller'
         ]
     if len(data['broll_keywords']) < 4:
-        defaults = ['dark corridor 4K', 'psychological thriller shadow',
-                    'human brain scan', 'closeup eye fear']
+        defaults = ['dark corridor 4K', 'psychological thriller shadow', 'human brain scan', 'closeup eye fear']
         data['broll_keywords'].extend(defaults[:4 - len(data['broll_keywords'])])
 
-    # Title character limit
-    if isinstance(seo.get('title'), str) and len(seo['title']) > 100:
-        seo['title'] = seo['title'][:95] + '...'
+    if isinstance(seo.get('title'), str) and len(seo['title']) > 60:
+        seo['title'] = seo['title'][:55] + '...'
 
-    # Hashtags must be a list of exactly 8
-    if not isinstance(seo.get('hashtags'), list):
-        seo['hashtags'] = [
-            '#DarkPsychology', '#PsychologyFacts', '#MindControl',
-            '#HumanBehavior', '#BrainScience', '#MindMysteries',
-            '#NeuralPsychology', '#ForbiddenKnowledge'
-        ]
-    elif len(seo['hashtags']) < 8:
-        padding = ['#Psychology', '#Behavior', '#MindHacks', '#BrainFacts']
-        seo['hashtags'].extend(padding[:8 - len(seo['hashtags'])])
-
+    # Fixed hashtags structure to avoid overload spam
+    if not isinstance(seo.get('hashtags'), list) or len(seo['hashtags']) > 4:
+        seo['hashtags'] = ['#Shorts', '#DarkPsychology', '#PsychologyFacts']
 
 def _log_quality_check(data: dict) -> None:
-    """Quick quality audit of the generated script."""
     script = data.get('script', '')
     word_count = len(script.split())
     has_you = 'you' in script.lower()
     title_len = len(data.get('seo', {}).get('title', ''))
 
-    logger.info(f'  Word count : {word_count} (target: 110-140)')
+    logger.info(f'  Word count : {word_count} (target: 100-125)')
     logger.info(f'  Uses "you" : {has_you}')
     logger.info(f'  Title len  : {title_len} chars (limit: 60)')
 
-    if word_count < 100:
-        logger.warning('  Script may be too short!')
-    elif word_count > 150:
-        logger.warning('  Script may be too long — check pacing.')
-    if not has_you:
-        logger.warning('  Script lacks second-person voice — hook may be weak.')
-
-
 def build_word_timings(script: str, audio_duration: float) -> list[dict]:
-    """
-    Distribute words evenly across audio_duration.
-    Returns list of {word, start, end} dicts for subtitle/caption sync.
-    """
     words = script.split()
     if not words:
         return []
@@ -302,16 +225,11 @@ def build_word_timings(script: str, audio_duration: float) -> list[dict]:
         t += per_word
     return timings
 
-
-# ── Quick test run ───────────────────────────────────────────────
 if __name__ == '__main__':
     import pprint
     print('\n' + '=' * 60)
-    print('  DARK PSYCHOLOGY VIDEO SCRIPT GENERATOR')
-    print('  AI Dark Realities · Short-Form Pipeline v2.0')
+    print('  ANTI-SPAM DARK PSYCHOLOGY GENERATOR')
+    print('  AI Dark Realities · Short-Form Pipeline v2.5')
     print('=' * 60 + '\n')
     result = generate_script()
     pprint.pprint(result, width=80)
-    print('\n' + '=' * 60)
-    print(f'  Done | Word count: {len(result.get("script", "").split())}')
-    print('=' * 60)
