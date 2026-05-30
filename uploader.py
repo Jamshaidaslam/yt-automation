@@ -1,5 +1,5 @@
 """
-uploader.py — Secure Channel Publisher Engine (FIXED FOR DIRECT BINARY UPLOAD & LIVE META)
+uploader.py — Secure Channel Publisher Engine (FIXED FOR DIRECT BINARY UPLOAD & DEVELOPMENT MODE BYPASS)
 AI Dark Realities · Short-Form Video Pipeline
 ─────────────────────────────────────────────────────────────────────────────────────
 """
@@ -34,6 +34,8 @@ def _get_youtube_service():
     """Authenticates and constructs the YouTube API service with auto-refresh layers."""
     creds = None
     scopes = ["https://www.googleapis.com/auth/youtube.upload"]
+    
+    # 1. GitHub Actions Cloud Secrets checking layer
     if os.environ.get("YOUTUBE_TOKEN_JSON"):
         try:
             token_data = json.loads(os.environ.get("YOUTUBE_TOKEN_JSON"))
@@ -41,6 +43,7 @@ def _get_youtube_service():
         except Exception as exc:
             logger.warning(f"Cloud credentials parsing failed: {exc}")
 
+    # 2. Local token file checking layer (For initial login generation)
     token_file_path = Path("token.json")
     if not creds and token_file_path.exists():
         try:
@@ -48,6 +51,7 @@ def _get_youtube_service():
         except Exception as exc:
             logger.warning(f"Local token file parsing failed: {exc}")
 
+    # 3. Auto-Refresh expired sessions silently
     if creds and creds.expired and creds.refresh_token:
         try:
             logger.info("YouTube session expired. Attemping background auto-refresh...")
@@ -59,6 +63,7 @@ def _get_youtube_service():
             logger.error(f"Failed to refresh access token automatically: {rex}")
             creds = None
 
+    # 4. Fallback authentication trigger
     if not creds:
         secret_path = Path("client_secrets.json")
         if secret_path.exists():
@@ -82,6 +87,7 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
     description = seo.get("description", "A documentary discovery about human behavior.")
     hashtags = seo.get("hashtags", ["#Shorts", "#DarkPsychology", "#Mysteries"])
     
+    # Algo optimization: Append #Shorts to title explicitly
     if "#Shorts" not in title and "#shorts" not in title:
         title = f"{title[:50]} #Shorts"
         
@@ -104,7 +110,7 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
                     "title": title[:100],
                     "description": full_description,
                     "tags": [tag.replace("#", "") for tag in hashtags],
-                    "categoryId": "24"  # Entertainment
+                    "categoryId": "24"  # Entertainment category
                 },
                 "status": {
                     "privacyStatus": "public",
@@ -142,10 +148,9 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
     else:
         logger.warning("Facebook automation skipped: Missing token or Page ID secrets.")
 
-    # 2. Instagram Reels Publisher (Requires URL - Routed via Clean Mirror)
+    # 2. Instagram Reels Publisher (Requires Clean Ingestion URL Wrapper)
     if META_TOKEN and IG_ACCT_ID and youtube_id:
         logger.info("Initiating Instagram Business publishing sequence...")
-        # External bypass stream to fix the transcoding 'ftyp' error
         stream_clean_url = f"https://www.youtube.com/watch?v={youtube_id}"
         ig_res = post_to_instagram(stream_clean_url, meta_caption)
         results["instagram"] = ig_res
@@ -155,7 +160,7 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
     return results
 
 def post_to_facebook_direct(video_path: str, caption: str) -> str:
-    """Uploads the local video file binary directly to Facebook Page via secure chunks."""
+    """Uploads the local video file binary directly to Facebook Page via secure chunks to bypass App limits."""
     try:
         file_size = os.path.getsize(video_path)
         url = f"https://graph.facebook.com/v20.0/{FB_PAGE_ID}/videos"
@@ -177,7 +182,7 @@ def post_to_facebook_direct(video_path: str, caption: str) -> str:
             }
             requests.post(url, data=upload_payload, files={'video_file_chunk': f})
 
-        # Step C: Close Session & Publish
+        # Step C: Close Session & Publish to Feed
         finish_payload = {
             'upload_phase': 'finish', 'upload_session_id': session_id,
             'access_token': META_TOKEN, 'description': caption, 'title': caption[:30]
@@ -195,12 +200,14 @@ def post_to_facebook_direct(video_path: str, caption: str) -> str:
         return f"failed_exception: {str(e)}"
 
 def post_to_instagram(video_url: str, caption: str) -> str:
-    """Injects and publishes the video directly as an Instagram Reel."""
+    """Injects and publishes the video directly as an Instagram Reel using stream embed wrapping."""
     try:
         container_url = f"https://graph.facebook.com/v20.0/{IG_ACCT_ID}/media"
+        # Bypassing raw watch links by mapping clean embed streams for development graphs
+        embed_url = video_url.replace("watch?v=", "embed/")
         payload = {
             'media_type': 'REELS',
-            'video_url': video_url,
+            'video_url': embed_url,
             'caption': caption,
             'access_token': META_TOKEN
         }
