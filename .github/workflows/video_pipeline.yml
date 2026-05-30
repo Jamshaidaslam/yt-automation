@@ -49,7 +49,7 @@ jobs:
           YOUTUBE_CLIENT_SECRET:     ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_TOKEN_JSON:        ${{ secrets.YOUTUBE_TOKEN_JSON }}
           META_ACCESS_TOKEN:         ${{ secrets.META_ACCESS_TOKEN }}
-          INSTAGRAM_ACCOUNT_ID:      ${{ secrets.INSTAGRAM_ACCOUNT_ID }}
+          INSTAGRAM_BUSINESS_ID:     ${{ secrets.INSTAGRAM_BUSINESS_ID }}  # CRITICAL FIX: Matched with GitHub Secrets
           FACEBOOK_PAGE_ID:          ${{ secrets.FACEBOOK_PAGE_ID }}
         run: |
           TOPIC="${{ github.event.inputs.topic }}"
