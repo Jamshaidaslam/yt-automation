@@ -64,11 +64,11 @@ jobs:
 
       - name: Archive Production Videos
         uses: actions/upload-artifact@v4
+        if: always()  # Agar upload fail bhi ho jaye, tab bhi video backup save ho sake
         with:
           name: compiled-shorts-${{ github.run_id }}
           path: |
-            output/final_videos/
-            output/videos/
-            *.mp4
+            output/final_videos/*.mp4
+            output/videos/*.mp4
           if-no-files-found: warn
           retention-days: 7
