@@ -1,5 +1,5 @@
 """
-uploader.py — Secure Channel Publisher Engine (FIXED FOR DIRECT BINARY UPLOAD & DEVELOPMENT MODE BYPASS)
+uploader.py — Secure Channel Publisher Engine (FINAL BULLETPROOF HYBRID UPLOAD)
 AI Dark Realities · Short-Form Video Pipeline
 ─────────────────────────────────────────────────────────────────────────────────────
 """
@@ -25,19 +25,15 @@ except ImportError:
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
 
-# ─────────────────────────────────────────────────────────────────────────────────────
-# CRITICAL FIX: GitHub Environment Secrets Mapping (Matched exactly with GitHub Secrets)
-# ─────────────────────────────────────────────────────────────────────────────────────
 META_TOKEN = os.environ.get("META_ACCESS_TOKEN")
 FB_PAGE_ID = os.environ.get("FACEBOOK_PAGE_ID")
-IG_ACCT_ID = os.environ.get("INSTAGRAM_BUSINESS_ID")  # Fixed variable name mapping
+IG_ACCT_ID = os.environ.get("INSTAGRAM_BUSINESS_ID")
 
 def _get_youtube_service():
     """Authenticates and constructs the YouTube API service with auto-refresh layers."""
     creds = None
     scopes = ["https://www.googleapis.com/auth/youtube.upload"]
     
-    # 1. GitHub Actions Cloud Secrets checking layer
     if os.environ.get("YOUTUBE_TOKEN_JSON"):
         try:
             token_data = json.loads(os.environ.get("YOUTUBE_TOKEN_JSON"))
@@ -45,7 +41,6 @@ def _get_youtube_service():
         except Exception as exc:
             logger.warning(f"Cloud credentials parsing failed: {exc}")
 
-    # 2. Local token file checking layer (For initial login generation)
     token_file_path = Path("token.json")
     if not creds and token_file_path.exists():
         try:
@@ -53,7 +48,6 @@ def _get_youtube_service():
         except Exception as exc:
             logger.warning(f"Local token file parsing failed: {exc}")
 
-    # 3. Auto-Refresh expired sessions silently
     if creds and creds.expired and creds.refresh_token:
         try:
             logger.info("YouTube session expired. Attemping background auto-refresh...")
@@ -65,7 +59,6 @@ def _get_youtube_service():
             logger.error(f"Failed to refresh access token automatically: {rex}")
             creds = None
 
-    # 4. Fallback authentication trigger
     if not creds:
         secret_path = Path("client_secrets.json")
         if secret_path.exists():
@@ -89,21 +82,16 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
     description = seo.get("description", "A documentary discovery about human behavior.")
     hashtags = seo.get("hashtags", ["#Shorts", "#DarkPsychology", "#Mysteries"])
     
-    # Algo optimization: Append #Shorts to title explicitly
     if "#Shorts" not in title and "#shorts" not in title:
         title = f"{title[:50]} #Shorts"
         
     full_description = f"{description}\n\n" + " ".join(hashtags)
     results = {"youtube": "skipped", "facebook": "skipped", "instagram": "skipped"}
     
-    # ----------------------------------------------------
     # PHASE 1: YOUTUBE DEPLOYMENT
-    # ----------------------------------------------------
     youtube = _get_youtube_service()
-    youtube_id = None
-    
     if not youtube:
-        logger.warning("YouTube API service initialization skipped (No tokens found). Video saved locally.")
+        logger.warning("YouTube API service initialization skipped. Video saved locally.")
         results["youtube"] = "saved_locally_without_upload"
     else:
         try:
@@ -112,14 +100,13 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
                     "title": title[:100],
                     "description": full_description,
                     "tags": [tag.replace("#", "") for tag in hashtags],
-                    "categoryId": "24"  # Entertainment category
+                    "categoryId": "24"
                 },
                 "status": {
                     "privacyStatus": "public",
                     "selfDeclaredMadeForKids": False
                 }
             }
-            
             media = MediaFileUpload(str(video_path), chunksize=1024 * 1024 * 2, resumable=True, mimetype="video/mp4")
             request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
             
@@ -134,15 +121,13 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
             logger.info(f"✅ YouTube Upload Successful! Video ID: {youtube_id}")
             results["youtube"] = f"success_id_{youtube_id}"
         except Exception as err:
-            logger.error(f"YouTube upload failed with API exception: {err}")
+            logger.error(f"YouTube upload failed: {err}")
             results["youtube"] = f"failed: {str(err)}"
 
-    # ----------------------------------------------------
-    # PHASE 2: META AUTOMATION LAYER (DIRECT BINARY & COMPATIBLE STREAMS)
-    # ----------------------------------------------------
+    # PHASE 2: META AUTOMATION LAYER
     meta_caption = f"{title}\n\n{full_description}"
 
-    # 1. Facebook Page Publisher (DIRECT FILE CHUNK UPLOAD - NO URL REQUIRED)
+    # 1. Facebook Page Publisher (Direct Chunk Upload)
     if META_TOKEN and FB_PAGE_ID:
         logger.info("Initiating Facebook Page Direct Binary Upload engine...")
         fb_res = post_to_facebook_direct(str(video_path), meta_caption)
@@ -150,24 +135,43 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
     else:
         logger.warning("Facebook automation skipped: Missing token or Page ID secrets.")
 
-    # 2. Instagram Reels Publisher (Requires Clean Ingestion URL Wrapper)
-    if META_TOKEN and IG_ACCT_ID and youtube_id:
-        logger.info("Initiating Instagram Business publishing sequence...")
-        stream_clean_url = f"https://www.youtube.com/watch?v={youtube_id}"
-        ig_res = post_to_instagram(stream_clean_url, meta_caption)
-        results["instagram"] = ig_res
+    # 2. Instagram Reels Publisher (Temporary Direct URL Ingestion Bridge)
+    if META_TOKEN and IG_ACCT_ID:
+        logger.info("Generating temporary direct ingestion URL for Instagram...")
+        temp_url = generate_temporary_url(video_path)
+        if temp_url:
+            logger.info(f"Temporary URL generated successfully: {temp_url}")
+            ig_res = post_to_instagram_via_url(temp_url, meta_caption)
+            results["instagram"] = ig_res
+        else:
+            results["instagram"] = "failed_temp_url_generation"
     else:
-        logger.warning("Instagram automation skipped: Missing secrets or source YouTube ID.")
+        logger.warning("Instagram automation skipped: Missing token or Instagram Business ID.")
 
     return results
 
+def generate_temporary_url(video_path: str) -> str:
+    """Uploads the file to a free anonymous file host to get a temporary direct .mp4 URL for Meta Ingestion."""
+    try:
+        url = "https://catbox.moe/user/api.php"
+        payload = {'reqtype': 'fileupload'}
+        with open(video_path, 'rb') as video_file:
+            files = {'fileToUpload': video_file}
+            response = requests.post(url, data=payload, files=files)
+        if response.status_code == 200 and response.text.startswith("https"):
+            return response.text.strip()
+        logger.error(f"Temporary host injection failed: {response.text}")
+        return None
+    except Exception as e:
+        logger.error(f"Error creating ingestion URL link: {e}")
+        return None
+
 def post_to_facebook_direct(video_path: str, caption: str) -> str:
-    """Uploads the local video file binary directly to Facebook Page via secure chunks to bypass App limits."""
+    """Uploads the local video file binary directly to Facebook Page via secure chunks."""
     try:
         file_size = os.path.getsize(video_path)
         url = f"https://graph.facebook.com/v20.0/{FB_PAGE_ID}/videos"
         
-        # Step A: Initialize Resumable Session
         init_payload = {'upload_phase': 'start', 'access_token': META_TOKEN, 'file_size': file_size}
         init_res = requests.post(url, data=init_payload).json()
         session_id = init_res.get('upload_session_id')
@@ -176,7 +180,6 @@ def post_to_facebook_direct(video_path: str, caption: str) -> str:
             logger.error(f"Facebook Chunk init failed: {init_res}")
             return f"failed_init: {json.dumps(init_res)}"
             
-        # Step B: Transfer Binary Data Chunks
         with open(video_path, 'rb') as f:
             upload_payload = {
                 'upload_phase': 'transfer', 'start_offset': '0',
@@ -184,7 +187,6 @@ def post_to_facebook_direct(video_path: str, caption: str) -> str:
             }
             requests.post(url, data=upload_payload, files={'video_file_chunk': f})
 
-        # Step C: Close Session & Publish to Feed
         finish_payload = {
             'upload_phase': 'finish', 'upload_session_id': session_id,
             'access_token': META_TOKEN, 'description': caption, 'title': caption[:30]
@@ -192,8 +194,9 @@ def post_to_facebook_direct(video_path: str, caption: str) -> str:
         finish_res = requests.post(url, data=finish_payload).json()
         
         if finish_res.get('success') or "id" in finish_res:
-            logger.info("✅ Facebook Page Direct File Upload Successful!")
-            return f"success_id_{finish_res.get('id', 'published')}"
+            fb_id = finish_res.get('id', 'published')
+            logger.info(f"✅ Facebook Page Direct File Upload Successful! ID: {fb_id}")
+            return f"success_id_{fb_id}"
         
         logger.error(f"Facebook Chunk finish failed: {finish_res}")
         return f"failed_finish: {json.dumps(finish_res)}"
@@ -201,15 +204,13 @@ def post_to_facebook_direct(video_path: str, caption: str) -> str:
         logger.error(f"Facebook direct upload exception: {e}")
         return f"failed_exception: {str(e)}"
 
-def post_to_instagram(video_url: str, caption: str) -> str:
-    """Injects and publishes the video directly as an Instagram Reel using stream embed wrapping."""
+def post_to_instagram_via_url(video_url: str, caption: str) -> str:
+    """Injects and publishes the video directly as an Instagram Reel using a working clean stream url."""
     try:
         container_url = f"https://graph.facebook.com/v20.0/{IG_ACCT_ID}/media"
-        # Bypassing raw watch links by mapping clean embed streams for development graphs
-        embed_url = video_url.replace("watch?v=", "embed/")
         payload = {
             'media_type': 'REELS',
-            'video_url': embed_url,
+            'video_url': video_url,
             'caption': caption,
             'access_token': META_TOKEN
         }
@@ -221,8 +222,8 @@ def post_to_instagram(video_url: str, caption: str) -> str:
             logger.error(f"Instagram container creation rejected: {res_data}")
             return f"failed_container_creation: {json.dumps(res_data)}"
 
-        logger.info("Instagram ingestion active. Sleeping 45 seconds for cloud processing...")
-        time.sleep(45)
+        logger.info("Instagram ingestion link active. Sleeping 50 seconds for cloud processing...")
+        time.sleep(50)
 
         publish_url = f"https://graph.facebook.com/v20.0/{IG_ACCT_ID}/media_publish"
         res = requests.post(publish_url, data={'creation_id': creation_id, 'access_token': META_TOKEN})
