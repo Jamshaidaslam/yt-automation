@@ -1,11 +1,12 @@
 """
-video_compiler.py — Core Video Rendering Engine (HIGH-RETENTION USA/UK CAPTIONS STYLE - SYNC FIXED)
+video_compiler.py — Core Video Rendering Engine (ANTI-SPAM BACKGROUND MUSIC & HIGH RETENTION)
 AI Dark Realities · Short-Form Video Pipeline
 ──────────────────────────────────────────────
 """
 
 import logging
 import textwrap
+import random
 from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
@@ -15,6 +16,7 @@ from moviepy.editor import (
     AudioFileClip,
     CompositeVideoClip,
     concatenate_videoclips,
+    CompositeAudioClip,
 )
 from moviepy.video.fx.all import crop, resize
 import config
@@ -26,10 +28,14 @@ W  = config.VIDEO_WIDTH   # 1080
 H  = config.VIDEO_HEIGHT  # 1920
 FPS = config.VIDEO_FPS    # 30
 
-FONT_SIZE = 95  # 🌟 Increased font size for better readability on mobile screens
-CAPTION_YELLOW_COLOR = (255, 255, 0, 255)    # Bright Yellow
-CAPTION_GREEN_COLOR = (57, 255, 20, 255)     # 🌟 Neon Green for highlighted keywords
-CAPTION_STROKE_COLOR = (0, 0, 0, 255)      # Deep Black Outline
+FONT_SIZE = 95  
+CAPTION_YELLOW_COLOR = (255, 255, 0, 255)    
+CAPTION_GREEN_COLOR = (57, 255, 20, 255)     
+CAPTION_STROKE_COLOR = (0, 0, 0, 255)      
+
+# Music directories setup
+MUSIC_DIR = Path("assets/music")
+MUSIC_DIR.mkdir(parents=True, exist_ok=True)
 
 def _get_font(size: int) -> ImageFont.FreeTypeFont:
     try:
@@ -42,16 +48,10 @@ def _get_font(size: int) -> ImageFont.FreeTypeFont:
         return ImageFont.load_default()
 
 def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarray:
-    """
-    Renders a transparent RGBA PIL image frame displaying exactly ONE word at a time
-    synced to the audio timestamp in the safe upper-middle zone of the screen.
-    """
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
     active_word = ""
-    
-    # 🌟 AUDIO SYNC OFFSET: Captions ko voice se 0.18 seconds advance/fast chalane ke liye
     adjusted_time = t + 0.18
     
     for item in word_timings:
@@ -63,26 +63,19 @@ def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarr
         return np.array(img)
 
     font = _get_font(FONT_SIZE)
-    
-    # 🌟 UPPER-MIDDLE ZONE (0.45 of Height) - Perfect for USA/UK Shorts Interface Safe Zones
     current_y = int(H * 0.45)  
     
-    # Calculate perfect dimensions and center coordinates
     bbox = draw.textbbox((0, 0), active_word, font=font)
     text_w = bbox[2] - bbox[0]
     text_h = bbox[3] - bbox[1]
     x = (W - text_w) // 2
     
-    # 🌟 High retention coloring rule: Long or unique words get Neon Green, others Bright Yellow
     text_color = CAPTION_GREEN_COLOR if len(active_word) > 5 else CAPTION_YELLOW_COLOR
 
-    # Heavy professional 6-axis outline mapping to stop blending with bright b-roll backgrounds
     for adj_x, adj_y in [(-6,-6), (6,-6), (-6,6), (6,6), (-4,0), (4,0), (0,-4), (0,4)]:
         draw.text((x + adj_x, current_y + adj_y), active_word, font=font, fill=CAPTION_STROKE_COLOR)
         
-    # Main foreground text drop
     draw.text((x, current_y), active_word, font=font, fill=text_color)
-
     return np.array(img)
 
 def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str) -> str:
@@ -133,7 +126,6 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
 
             processed_clip = resize(sub_clip, newsize=(W, H))
             video_clips.append(processed_clip)
-            
             current_time += clip_duration
 
         if not video_clips:
@@ -141,8 +133,33 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
 
         video_sequence = concatenate_videoclips(video_clips, method="compose")
         
-        audio_clip = AudioFileClip(voiceover_data["audio_path"])
-        video_sequence = video_sequence.set_audio(audio_clip)
+        # 🎙️ AUDIO MULTI-LAYERING PROCESSING
+        voice_audio = AudioFileClip(voiceover_data["audio_path"])
+        
+        # Look for custom music track files inside the repo assets folder
+        music_tracks = list(MUSIC_DIR.glob("*.mp3")) + list(MUSIC_DIR.glob("*.wav"))
+        
+        if music_tracks:
+            selected_track = random.choice(music_tracks)
+            logger.info(f"🎵 Anti-Spam Layer: Injecting background music track: {selected_track.name}")
+            bg_audio = AudioFileClip(str(selected_track))
+            
+            # Loop or subclip music to fit exact voice track length safely
+            if bg_audio.duration < total_dur:
+                bg_audio = bg_audio.fx(lambda c: c.loop(duration=total_dur))
+            else:
+                bg_audio = bg_audio.subclip(0, total_dur)
+                
+            # Set background music volume down to 12% to make voice clear yet sound organic
+            bg_audio = bg_audio.volumex(0.12)
+            
+            # Combine raw voice and ambient audio together
+            final_audio = CompositeAudioClip([voice_audio, bg_audio])
+        else:
+            logger.warning("No music files found in assets/music/. Rendering raw dry speech voice only.")
+            final_audio = voice_audio
+
+        video_sequence = video_sequence.set_audio(final_audio)
 
         def make_caption_frame(t):
             frame = _render_caption_frame_cached(t, word_timings)
@@ -182,7 +199,7 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
         for rc in allocated_raw_clips:
             try: rc.close()
             except Exception: pass
-        for name in ("video_sequence", "caption_clip", "caption_mask", "final_video", "audio_clip"):
+        for name in ("video_sequence", "caption_clip", "caption_mask", "final_video", "voice_audio", "bg_audio", "final_audio"):
             obj = locals().get(name)
             if obj is not None:
                 try: obj.close()
