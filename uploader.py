@@ -25,10 +25,12 @@ except ImportError:
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
 
-# Meta Platform Credentials loading from GitHub Environment
+# ─────────────────────────────────────────────────────────────────────────────────────
+# CRITICAL FIX: GitHub Environment Secrets Mapping (Matched exactly with GitHub Secrets)
+# ─────────────────────────────────────────────────────────────────────────────────────
 META_TOKEN = os.environ.get("META_ACCESS_TOKEN")
 FB_PAGE_ID = os.environ.get("FACEBOOK_PAGE_ID")
-IG_ACCT_ID = os.environ.get("INSTAGRAM_ACCOUNT_ID")
+IG_ACCT_ID = os.environ.get("INSTAGRAM_BUSINESS_ID")  # Fixed variable name mapping
 
 def _get_youtube_service():
     """Authenticates and constructs the YouTube API service with auto-refresh layers."""
