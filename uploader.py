@@ -1,5 +1,5 @@
 """
-uploader.py — Secure Channel Publisher Engine (FINAL BULLETPROOF HYBRID UPLOAD)
+uploader.py — Secure Channel Publisher Engine (FINAL BULLETPROOF HYBRID UPLOAD - AI LABEL FIXED)
 AI Dark Realities · Short-Form Video Pipeline
 ─────────────────────────────────────────────────────────────────────────────────────
 """
@@ -88,7 +88,9 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
     full_description = f"{description}\n\n" + " ".join(hashtags)
     results = {"youtube": "skipped", "facebook": "skipped", "instagram": "skipped"}
     
-    # PHASE 1: YOUTUBE DEPLOYMENT
+    # ----------------------------------------------------
+    # PHASE 1: YOUTUBE DEPLOYMENT (WITH AI LABEL & CORRECT CATEGORY)
+    # ----------------------------------------------------
     youtube = _get_youtube_service()
     if not youtube:
         logger.warning("YouTube API service initialization skipped. Video saved locally.")
@@ -100,11 +102,12 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
                     "title": title[:100],
                     "description": full_description,
                     "tags": [tag.replace("#", "") for tag in hashtags],
-                    "categoryId": "24"
+                    "categoryId": "22"  # 🟢 CHANGED: Set strictly to 'People & Blogs' (Hala k pehle 24 tha)
                 },
                 "status": {
                     "privacyStatus": "public",
-                    "selfDeclaredMadeForKids": False
+                    "selfDeclaredMadeForKids": False,
+                    "selfDeclaredMadeWithAI": True  # 🟢 FIXED: Automatically applies YouTube's Altered/Synthetic Content (AI Label)
                 }
             }
             media = MediaFileUpload(str(video_path), chunksize=1024 * 1024 * 2, resumable=True, mimetype="video/mp4")
@@ -118,13 +121,15 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
                     logger.info(f"YouTube Upload Progress: {int(status.progress() * 100)}%")
                     
             youtube_id = response.get('id')
-            logger.info(f"✅ YouTube Upload Successful! Video ID: {youtube_id}")
+            logger.info(f"✅ YouTube Upload Successful with AI Label! Video ID: {youtube_id}")
             results["youtube"] = f"success_id_{youtube_id}"
         except Exception as err:
             logger.error(f"YouTube upload failed: {err}")
             results["youtube"] = f"failed: {str(err)}"
 
+    # ----------------------------------------------------
     # PHASE 2: META AUTOMATION LAYER
+    # ----------------------------------------------------
     meta_caption = f"{title}\n\n{full_description}"
 
     # 1. Facebook Page Publisher (Direct Chunk Upload)
