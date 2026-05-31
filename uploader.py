@@ -1,5 +1,5 @@
 """
-uploader.py — Secure Channel Publisher Engine (FINAL - FULL CLOUDINARY OPTIMIZED)
+uploader.py — Secure Channel Publisher Engine (WITH SAFE STORAGE CLEANUP)
 AI Dark Realities · Short-Form Video Pipeline
 ─────────────────────────────────────────────────────────────────────────────────────
 """
@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
 
 META_TOKEN = os.environ.get("META_ACCESS_TOKEN")
+FB_PAGE_ID = os.environ.get("FACEBOOK_PAGE_ID")
 IG_ACCT_ID = os.environ.get("INSTAGRAM_BUSINESS_ID")
 
 # Cloudinary Configuration
@@ -117,7 +118,7 @@ def generate_thumbnail_url(public_id: str) -> str:
             resource_type="video",
             format="jpg",
             transformation=[
-                {"width": 1280, "height": 720, "crop": "fill"},
+                {"width": 1080, "height": 1920, "crop": "fill"},
                 {"quality": "auto"},
                 {"effect": "sharpen"}
             ]
@@ -132,7 +133,7 @@ def generate_thumbnail_url(public_id: str) -> str:
 def set_youtube_thumbnail(youtube, video_id: str, thumbnail_url: str):
     """Download thumbnail from Cloudinary and set on YouTube."""
     try:
-        logger.info("Downloading thumbnail from Cloudinary...")
+        logger.info("Downloading thumbnail from Cloudinary for YouTube...")
         with urllib.request.urlopen(thumbnail_url) as response:
             thumbnail_data = response.read()
 
@@ -150,10 +151,10 @@ def set_youtube_thumbnail(youtube, video_id: str, thumbnail_url: str):
 
 
 def cleanup_cloudinary(public_id: str):
-    """Delete video from Cloudinary after all uploads complete."""
+    """Delete video from Cloudinary to keep storage load 0%."""
     try:
         cloudinary.uploader.destroy(public_id, resource_type="video")
-        logger.info(f"✅ Cloudinary cleanup done: {public_id}")
+        logger.info(f"🗑️ Cloudinary Space Cleared Successfully: {public_id}")
     except Exception as e:
         logger.error(f"Cloudinary cleanup error: {e}")
 
@@ -170,7 +171,7 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
         title = f"{title[:50]} #Shorts"
 
     full_description = f"{description}\n\n" + " ".join(hashtags)
-    results = {"youtube": "skipped", "facebook": "disabled", "instagram": "skipped"}
+    results = {"youtube": "skipped", "facebook": "skipped", "instagram": "skipped"}
 
     # ------------------------------------------------
     # STEP 1: CLOUDINARY UPLOAD
@@ -180,7 +181,7 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
     cloudinary_public_id = cloudinary_data["public_id"]
 
     if not cloudinary_url:
-        logger.error("Cloudinary upload failed — aborting Instagram. YouTube will still proceed.")
+        logger.error("Cloudinary upload failed — aborting Meta Streams.")
 
     # ------------------------------------------------
     # STEP 2: GENERATE THUMBNAIL
@@ -190,7 +191,7 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
         thumbnail_url = generate_thumbnail_url(cloudinary_public_id)
 
     # ------------------------------------------------
-    # PHASE 1: YOUTUBE UPLOAD + THUMBNAIL
+    # PHASE 1: YOUTUBE UPLOAD
     # ------------------------------------------------
     youtube = _get_youtube_service()
     if not youtube:
@@ -218,14 +219,11 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
             response = None
             while response is None:
                 status, response = request.next_chunk()
-                if status:
-                    logger.info(f"YouTube Upload Progress: {int(status.progress() * 100)}%")
 
             youtube_id = response.get('id')
             logger.info(f"✅ YouTube Upload Successful! Video ID: {youtube_id}")
             results["youtube"] = f"success_id_{youtube_id}"
 
-            # Set thumbnail on YouTube
             if thumbnail_url and youtube_id:
                 set_youtube_thumbnail(youtube, youtube_id, thumbnail_url)
 
@@ -234,41 +232,67 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
             results["youtube"] = f"failed: {str(err)}"
 
     # ------------------------------------------------
-    # PHASE 2: FACEBOOK — DISABLED
+    # PHASE 2: FACEBOOK REELS
     # ------------------------------------------------
-    logger.info("Facebook upload skipped — pending Meta app permissions fix.")
-    results["facebook"] = "disabled_pending_fix"
+    meta_caption = f"{title}\n\n{full_description}"
+
+    if META_TOKEN and FB_PAGE_ID and cloudinary_url:
+        fb_res = post_to_facebook_via_url(cloudinary_url, thumbnail_url, meta_caption)
+        results["facebook"] = fb_res
+    else:
+        logger.warning("Facebook skipped.")
 
     # ------------------------------------------------
     # PHASE 3: INSTAGRAM REELS
     # ------------------------------------------------
-    meta_caption = f"{title}\n\n{full_description}"
-
     if META_TOKEN and IG_ACCT_ID and cloudinary_url:
         ig_res = post_to_instagram_via_url(cloudinary_url, meta_caption)
         results["instagram"] = ig_res
     else:
-        logger.warning("Instagram skipped: Missing token, ID, or Cloudinary URL.")
+        logger.warning("Instagram skipped.")
 
     # ------------------------------------------------
-    # STEP 3: CLOUDINARY CLEANUP
+    # STEP 3: SAFE DELAYED CLEANUP (Wipes Cloudinary Load)
     # ------------------------------------------------
     if cloudinary_public_id:
-        logger.info("Cleaning up Cloudinary storage...")
+        # Meta servers ko background fetch karne ke liye 20 mins ka delay dena lazmi hai
+        logger.info("⏳ Holding pipeline for 20 minutes to allow Meta servers to process the video stream...")
+        time.sleep(1200)  # 1200 seconds = 20 minutes
+        
+        logger.info("Wiping video from Cloudinary storage to keep server load clean...")
         cleanup_cloudinary(cloudinary_public_id)
-
+    
     return results
 
 
-def post_to_instagram_via_url(video_url: str, caption: str) -> str:
-    """Publishes video as Instagram Reel via Meta Graph API."""
+def post_to_facebook_via_url(video_url: str, thumb_url: str, caption: str) -> str:
     try:
-        # Step 1: Create media container
+        url = f"https://graph.facebook.com/v20.0/{FB_PAGE_ID}/videos"
+        payload = {
+            'description': caption,
+            'file_url': video_url,
+            'access_token': META_TOKEN
+        }
+        if thumb_url:
+            payload['thumb'] = thumb_url
+
+        res = requests.post(url, data=payload, timeout=60).json()
+        if "id" in res:
+            logger.info(f"✅ Facebook Page Upload Successful! ID: {res['id']}")
+            return f"success_id_{res['id']}"
+        return f"failed: {json.dumps(res)}"
+    except Exception as e:
+        return f"failed_exception: {str(e)}"
+
+
+def post_to_instagram_via_url(video_url: str, caption: str) -> str:
+    try:
         container_url = f"https://graph.facebook.com/v20.0/{IG_ACCT_ID}/media"
         payload = {
             'media_type': 'REELS',
             'video_url': video_url,
             'caption': caption,
+            'cover_frame_time': 0,
             'access_token': META_TOKEN
         }
         req = requests.post(container_url, data=payload, timeout=60)
@@ -276,29 +300,18 @@ def post_to_instagram_via_url(video_url: str, caption: str) -> str:
         creation_id = res_data.get('id')
 
         if not creation_id:
-            logger.error(f"Instagram container creation failed: {res_data}")
             return f"failed_container_creation: {json.dumps(res_data)}"
 
-        # Step 2: Wait for Instagram processing
-        logger.info("Waiting 60 seconds for Instagram to process video...")
+        logger.info("Waiting 60 seconds for Instagram processing...")
         time.sleep(60)
 
-        # Step 3: Publish
         publish_url = f"https://graph.facebook.com/v20.0/{IG_ACCT_ID}/media_publish"
-        res = requests.post(
-            publish_url,
-            data={'creation_id': creation_id, 'access_token': META_TOKEN},
-            timeout=60
-        )
+        res = requests.post(publish_url, data={'creation_id': creation_id, 'access_token': META_TOKEN}, timeout=60)
         pub_data = res.json()
 
         if "id" in pub_data:
             logger.info(f"✅ Instagram Reel Published! ID: {pub_data['id']}")
             return f"success_id_{pub_data['id']}"
-        else:
-            logger.error(f"Instagram publish failed: {pub_data}")
-            return f"failed_publish_error: {json.dumps(pub_data)}"
-
+        return f"failed_publish_error: {json.dumps(pub_data)}"
     except Exception as e:
-        logger.error(f"Instagram upload exception: {e}")
         return f"failed_exception: {str(e)}"
