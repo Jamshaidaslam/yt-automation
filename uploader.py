@@ -1,5 +1,5 @@
 """
-uploader.py — Secure Channel Publisher Engine (WITH SAFE STORAGE CLEANUP & FORCED AI LABEL)
+uploader.py — Secure Channel Publisher Engine (FIXED META PROTOCOL — NO DELAY)
 AI Dark Realities · Short-Form Video Pipeline
 ─────────────────────────────────────────────────────────────────────────────────────
 """
@@ -191,7 +191,7 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
         thumbnail_url = generate_thumbnail_url(cloudinary_public_id)
 
     # ------------------------------------------------
-    # PHASE 1: YOUTUBE UPLOAD (FIXED FOR AI LABEL & SPEED INDEXING)
+    # PHASE 1: YOUTUBE UPLOAD (AI LABEL & SPEED INDEXING ACTIVE)
     # ------------------------------------------------
     youtube = _get_youtube_service()
     if not youtube:
@@ -205,21 +205,20 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
                     "description": full_description,
                     "tags": [tag.replace("#", "") for tag in hashtags],
                     "categoryId": "22",
-                    "defaultAudioLanguage": "en-US",  # Goli Speed Indexing Signal 1
-                    "defaultLanguage": "en-US"         # Goli Speed Indexing Signal 2
+                    "defaultAudioLanguage": "en-US",
+                    "defaultLanguage": "en-US"
                 },
                 "status": {
                     "privacyStatus": "public",
                     "selfDeclaredMadeForKids": False,
-                    "selfDeclaredMadeWithAI": True     # Forces the AI Label
+                    "selfDeclaredMadeWithAI": True
                 },
                 "recordingDetails": {
-                    "locationDescription": "United States" # Target Country Force
+                    "locationDescription": "United States"
                 }
             }
             media = MediaFileUpload(str(video_path), chunksize=1024 * 1024 * 2, resumable=True, mimetype="video/mp4")
             
-            # CRITICAL FIX: part parameter must contain 'status' and 'recordingDetails' to apply those properties!
             request = youtube.videos().insert(
                 part="snippet,status,recordingDetails", 
                 body=body, 
@@ -243,7 +242,7 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
             results["youtube"] = f"failed: {str(err)}"
 
     # ------------------------------------------------
-    # PHASE 2: FACEBOOK REELS
+    # PHASE 2: FACEBOOK REELS (RUNS INSTANTLY NOW)
     # ------------------------------------------------
     meta_caption = f"{title}\n\n{full_description}"
 
@@ -254,7 +253,7 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
         logger.warning("Facebook skipped.")
 
     # ------------------------------------------------
-    # PHASE 3: INSTAGRAM REELS
+    # PHASE 3: INSTAGRAM REELS (RUNS INSTANTLY NOW)
     # ------------------------------------------------
     if META_TOKEN and IG_ACCT_ID and cloudinary_url:
         ig_res = post_to_instagram_via_url(cloudinary_url, meta_caption)
@@ -263,13 +262,11 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
         logger.warning("Instagram skipped.")
 
     # ------------------------------------------------
-    # STEP 3: SAFE DELAYED CLEANUP (Wipes Cloudinary Load)
+    # STEP 3: IMMEDIATE CLEANUP (FIXED BOTTLENECK)
     # ------------------------------------------------
     if cloudinary_public_id:
-        logger.info("⏳ Holding pipeline for 20 minutes to allow Meta servers to process the video stream...")
-        time.sleep(1200)  # 20 minutes delay
-        
-        logger.info("Wiping video from Cloudinary storage to keep server load clean...")
+        # 20 mins ka sleep hata diya hai taake GitHub script ko hang samajh kar kill na kare
+        logger.info("Wiping video from Cloudinary storage instantly after Meta/YT handshakes...")
         cleanup_cloudinary(cloudinary_public_id)
     
     return results
@@ -312,8 +309,8 @@ def post_to_instagram_via_url(video_url: str, caption: str) -> str:
         if not creation_id:
             return f"failed_container_creation: {json.dumps(res_data)}"
 
-        logger.info("Waiting 60 seconds for Instagram processing...")
-        time.sleep(60)
+        logger.info("Waiting 45 seconds for Instagram processing container...")
+        time.sleep(45)
 
         publish_url = f"https://graph.facebook.com/v20.0/{IG_ACCT_ID}/media_publish"
         res = requests.post(publish_url, data={'creation_id': creation_id, 'access_token': META_TOKEN}, timeout=60)
