@@ -1,6 +1,6 @@
 """
-script_generator.py — Groq Script & SEO Generation (DARK PSYCHOLOGY & BRAIN MYSTERIES)
-AI Dark Realities · Short-Form Video Pipeline
+script_generator.py — Groq Script & SEO Generation (COGNITIVE DARK PSYCHOLOGY)
+AI Dark Realities · Short-Form Video Pipeline (ULTRA-FAST INDEXING ENHANCED)
 ────────────────────────────────────────────────────────────────────────────────────
 """
 
@@ -30,46 +30,46 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s | %(message)s')
 _client = Groq(api_key=GROQ_API_KEY)
 
 # ═══════════════════════════════════════════════════════════════════
-# ULTRA-VIRAL TOPIC POOL v2.5 — MAXIMUM HUMAN EMOTION HOOKS
+# ULTRA-VIRAL TOPIC POOL v3.0 — COGNITIVE DARK SELECTION
 # ═══════════════════════════════════════════════════════════════════
 TOPIC_POOL = [
-    "The one sentence a narcissist uses right before they destroy you",
-    "Psychologists discovered a trick that makes anyone trust you in 7 seconds",
-    "The silent manipulation tactic toxic people use that you can't even detect",
-    "How dark triad personalities choose their victims — you may already be targeted",
-    "The reverse psychology trap that forces someone to confess the truth",
-    "What happens in your brain the moment someone gaslights you successfully",
-    "The forbidden NLP trick that plants a thought into someone's mind invisibly",
-    "Why highly intelligent people are easier to manipulate than average ones",
-    "The body language micro-signal that tells you someone is lying right now",
-    "How cults use a single psychological technique to trap educated people",
-    "Scientists confirmed the exact moment your brain decides to trust a stranger",
-    "The terrifying psychological reason why kind people attract abusers",
-    "Your brain literally erases memories it finds too painful — here's which ones",
-    "The dark reason you feel empty after getting everything you ever wanted",
-    "Why your subconscious mind has already made every decision before you do",
+    "The Cognitive Dark technique that makes anyone regret leaving you",
+    "Psychologists discovered a cognitive bias that makes anyone trust you in 7 seconds",
+    "The silent manipulation tactic toxic people use that your subconscious can't detect",
+    "How dark triad personalities hijack your brain's neural trust pathways",
+    "The reverse psychology trap that forces a liar's brain to confess the truth",
+    "What physically happens in your prefrontal cortex when someone gaslights you successfully",
+    "The forbidden NLP trick that plants a suggestion into someone's subconscious invisibly",
+    "Why highly intelligent brains are easier to cognitively manipulate than average ones",
+    "The body language micro-expression that tells you someone is lying right now",
+    "How cults use cognitive dissonance to trap highly educated people",
+    "Scientists confirmed the exact millisecond your brain decides to trust a stranger",
+    "The terrifying psychological reason why empathetic people attract narcissists",
+    "Your brain literally erases memories it finds too painful through cognitive shielding",
+    "The dark neurological reason you feel empty after getting everything you ever wanted",
+    "Why your subconscious mind makes every life decision 7 seconds before you realize it",
     "The psychological phenomenon that makes you fall in love with someone dangerous",
-    "What your sleeping position secretly reveals about your hidden personality",
-    "The hidden reason you feel drained after being around certain people",
-    "Why your brain bonds faster with someone who hurt you than someone who helped",
-    "The psychological trick used in every viral ad to make you spend money instantly",
+    "What your sleeping position secretly reveals about your dark triad traits",
+    "The hidden reason your energy fields feel drained after being around certain people",
+    "Why your brain bonds faster with someone who hurt you through trauma-looping",
+    "The psychological trick used in every viral ad to hijack your dopamine levels",
     "The terrifying reason your brain generates a full dream in the last 2 minutes of sleep",
-    "Scientists still can't explain why the human brain can predict death 7 days early",
+    "Scientists still can't explain why the human brain predicts death 7 days early",
     "What physically happens inside your skull when you feel someone watching you",
-    "The biological reason eye contact with a stranger can trigger a panic response",
-    "Your body starts dying in a specific sequence — and your brain hides it from you",
-    "The real reason deja vu happens — and why it should terrify you",
-    "What your brain does in the 6 minutes after your heart stops beating",
-    "The documented phenomenon where humans develop a second personality under stress",
+    "The biological reason eye contact with a stranger triggers a neural panic response",
+    "Your body starts dying in a specific sequence and your brain deliberately hides it",
+    "The real reason deja vu happens and why it indicates a glitch in memory storage",
+    "What your brain chemistry does in the 6 minutes after your heart stops beating",
+    "The documented phenomenon where humans develop a defensive split personality under stress",
     "Why your brain sometimes hears your name called when no one is there",
-    "The scientific reason certain people can sense danger before it happens",
+    "The scientific reason certain people can sense danger before it physically happens",
     "The dark psychological reason successful people are hated by their closest friends",
-    "How to instantly detect a fake friend using one simple psychological test",
+    "How to instantly detect a fake friend using one clinical psychological test",
     "The silent war psychology: what highly secure people never do in arguments",
     "Why people who were humiliated in public become the most dangerous enemies",
     "The psychological reason your enemies smile the widest at your success",
     "What happens to your brain chemistry when someone ignores you on purpose",
-    "The dark truth about why genuinely confident people speak less",
+    "The dark truth about why genuinely confident people use conversational silence",
     "The psychological reason people sabotage relationships right before they succeed",
     "The unsettling truth about what your recurring nightmare is actually warning you about",
     "Psychology confirms most people are living a life chosen by someone else entirely",
@@ -80,29 +80,32 @@ TOPIC_POOL = [
 ]
 
 # ═══════════════════════════════════════════════════════════════════
-# SYSTEM PROMPT v4.0 — ANTI-SPAM & MAXIMUM RETENTION CODES
+# SYSTEM PROMPT v5.0 — FAST ALGORITHM INDEXING FORCE CODES
 # ═══════════════════════════════════════════════════════════════════
 SYSTEM_PROMPT = (
-    "You are an elite short-form video scriptwriter specializing in Dark Psychology and Human Behavior. "
-    "Your goal is to write a script that forces a 100%+ retention rate on YouTube Shorts and Instagram Reels. "
-    "Target Audience: Mature, curious individuals in the USA and UK who love mysteries.\n\n"
+    "You are an expert elite clinical psychological scriptwriter specializing in Cognitive Dark Psychology and human manipulation. "
+    "Your core objective is to write a short-form script that forces an instantaneous 100%+ retention loop. "
+    "Target Audience: High-intellect, curious viewers in the USA and United Kingdom.\n\n"
 
-    "CRITICAL INPUT CRITERIA:\n"
-    "1. SCRIPT LENGTH: Strictly between 100 and 125 words. Too long will kill the loop pacing.\n"
-    "2. THE HOOK: The first sentence must be short, punchy, and make the viewer feel exposed. No pleasantries.\n"
-    "3. HUMAN LANGUAGE: Avoid generic AI transitions like 'Moreover', 'Furthermore', 'In conclusion'. Speak like a real human whispering an unsettling secret.\n"
-    "4. SEO OPTIMIZATION: Keep descriptions short (2-3 sentences), highly engaging, and use exactly 3-4 viral hashtags. Do NOT overload tags, as YouTube flags it as metadata spam.\n\n"
+    "ALGORITHM INDEXING CRITERIA (GOLI SPEED FORCE):\n"
+    "1. HIGH-OCTANE HOOK: The very first sentence MUST contain an intense, advanced psychological term "
+    "(e.g., Cognitive Dark, Dark Triad, Neural Loop, Subconscious Hack, Cognitive Dissonance). This forces "
+    "the YouTube OCR and transcript AI to categorize the niche within minutes of uploading.\n"
+    "2. GEOGRAPHIC PHRASEOLOGY: Use distinct, clean American/British English vocabulary. Speak like a professional "
+    "whispering an intense, dangerous clinical secret. Avoid all generic AI fluff words ('Moreover', 'Furthermore', 'Imagine this', 'In conclusion').\n"
+    "3. SCRIPT LENGTH: Strictly between 100 and 120 words. No exceptions. Pacing must be aggressive and direct.\n"
+    "4. SEO BLOCK: Keep descriptions extremely tight and punchy (no more than 2 sentences). Use exactly 3-4 viral, niche-specific hashtags.\n\n"
     
     "OUTPUT FORMAT:\n"
-    "Return ONLY a clean JSON object. No markdown code blocks, no extra text.\n"
+    "Return ONLY a valid, clean JSON object. No markdown wrappers, no backticks, no prose.\n"
     "{\n"
     '  "topic": "string",\n'
-    '  "script": "string — Under 125 words, high pacing second-person narrative",\n'
+    '  "script": "string — Under 120 words, raw second-person narrative starting with a heavy terms hook",\n'
     '  "broll_keywords": ["keyword1", "keyword2", "keyword3", "keyword4"],\n'
     '  "seo": {\n'
-    '    "title": "string under 55 characters with high curiosity gap",\n'
-    '    "description": "string around 60-80 words, natural description that hooks readers",\n'
-    '    "hashtags": ["#Shorts", "#DarkPsychology", "#PsychologyFacts"]\n'
+    '    "title": "string under 55 characters with massive curiosity gap",\n'
+    '    "description": "string under 50 words forcing rapid semantic indexing",\n'
+    '    "hashtags": ["#Shorts", "#DarkPsychology", "#CognitiveDark"]\n'
     '  }\n'
     "}"
 )
@@ -115,18 +118,18 @@ MODEL_CHAIN = [
 
 def _call_groq(topic: str, model: str) -> dict:
     user_message = (
-        f'Generate a complete dark psychology short-form video package for this topic:\n\n'
+        f'Generate an elite cognitive psychology short package for this topic:\n\n'
         f'TOPIC: {topic}\n\n'
-        f'CRITICAL:\n'
-        f'— Script word count: 100-125 words strictly.\n'
-        f'— Maximum 3 to 4 hashtags in SEO block to prevent YouTube spam flagging.\n'
-        f'— Make the language gritty, raw, and highly human.'
+        f'CRITICAL INDEXING REQS:\n'
+        f'— Script word count: 100-120 words strictly.\n'
+        f'— Hook must start with high-volume psychological vocabulary.\n'
+        f'— Exactly 3 to 4 hashtags in SEO block to completely prevent metadata spam flagging.'
     )
     logger.info(f'Calling Groq model: {model}')
     response = _client.chat.completions.create(
         model=model,
         max_tokens=1000,
-        temperature=0.82,  # Slightly lower temperature for better JSON compliance
+        temperature=0.78,  # Optimized for rock-solid JSON extraction
         response_format={'type': 'json_object'},
         messages=[
             {'role': 'system', 'content': SYSTEM_PROMPT},
@@ -181,21 +184,21 @@ def _validate_and_fix(data: dict) -> None:
 
     if not isinstance(data['broll_keywords'], list):
         data['broll_keywords'] = [
-            'dark aesthetic cinematic',
-            'mysterious silhouette shadow',
-            'brain neural activity glow',
-            'eye close-up macro thriller'
+            'dark psychology aesthetic cinematic',
+            'mysterious shadow manipulation',
+            'brain synapse activity abstract',
+            'human macro eye staring thriller'
         ]
     if len(data['broll_keywords']) < 4:
-        defaults = ['dark corridor 4K', 'psychological thriller shadow', 'human brain scan', 'closeup eye fear']
+        defaults = ['dark mind corridor 4K', 'psychological shadow manipulation', 'human brain scanning', 'closeup cold eyes']
         data['broll_keywords'].extend(defaults[:4 - len(data['broll_keywords'])])
 
     if isinstance(seo.get('title'), str) and len(seo['title']) > 60:
-        seo['title'] = seo['title'][:55] + '...'
+        seo['title'] = seo['title'][:52] + '...'
 
-    # Fixed hashtags structure to avoid overload spam
+    # Forced strict tags to instantly map USA/UK feeds without triggering meta-spam blocks
     if not isinstance(seo.get('hashtags'), list) or len(seo['hashtags']) > 4:
-        seo['hashtags'] = ['#Shorts', '#DarkPsychology', '#PsychologyFacts']
+        seo['hashtags'] = ['#Shorts', '#DarkPsychology', '#CognitiveDark']
 
 def _log_quality_check(data: dict) -> None:
     script = data.get('script', '')
@@ -203,7 +206,7 @@ def _log_quality_check(data: dict) -> None:
     has_you = 'you' in script.lower()
     title_len = len(data.get('seo', {}).get('title', ''))
 
-    logger.info(f'  Word count : {word_count} (target: 100-125)')
+    logger.info(f'  Word count : {word_count} (target: 100-120)')
     logger.info(f'  Uses "you" : {has_you}')
     logger.info(f'  Title len  : {title_len} chars (limit: 60)')
 
@@ -228,8 +231,8 @@ def build_word_timings(script: str, audio_duration: float) -> list[dict]:
 if __name__ == '__main__':
     import pprint
     print('\n' + '=' * 60)
-    print('  ANTI-SPAM DARK PSYCHOLOGY GENERATOR')
-    print('  AI Dark Realities · Short-Form Pipeline v2.5')
+    print('  GOLI SPEED COGNITIVE INDEXING ENGINE ACTIVE')
+    print('  AI Dark Realities · Short-Form Pipeline v3.0')
     print('=' * 60 + '\n')
     result = generate_script()
     pprint.pprint(result, width=80)
