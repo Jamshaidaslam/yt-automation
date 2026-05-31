@@ -1,242 +1,109 @@
 """
-script_generator.py — Groq Script & SEO Generation (COGNITIVE DARK PSYCHOLOGY)
-AI Dark Realities · Short-Form Video Pipeline (ULTRA-FAST INDEXING ENHANCED)
-────────────────────────────────────────────────────────────────────────────────────
+script_generator.py — Groq LLM Script Engineering Engine (VIRAL SHORT-FORM RULES v2.8)
+AI Dark Realities · Short-Form Video Pipeline
+──────────────────────────────────────────────
 """
 
-import json
-import re
-import random
-import logging
-import sys
 import os
-
+import json
+import logging
+import random
 from groq import Groq
-
-try:
-    import config
-    HAS_CONFIG = True
-except ImportError:
-    HAS_CONFIG = False
-
-GROQ_API_KEY = os.environ.get('GROQ_API_KEY') or (config.GROQ_API_KEY if HAS_CONFIG else None)
-
-if not GROQ_API_KEY:
-    raise ValueError('GROQ_API_KEY nahi mili! GitHub Secrets ya config file check karein.')
+import config
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format='%(levelname)s | %(message)s')
 
-_client = Groq(api_key=GROQ_API_KEY)
-
-# ═══════════════════════════════════════════════════════════════════
-# ULTRA-VIRAL TOPIC POOL v3.0 — COGNITIVE DARK SELECTION
-# ═══════════════════════════════════════════════════════════════════
-TOPIC_POOL = [
-    "The Cognitive Dark technique that makes anyone regret leaving you",
-    "Psychologists discovered a cognitive bias that makes anyone trust you in 7 seconds",
-    "The silent manipulation tactic toxic people use that your subconscious can't detect",
-    "How dark triad personalities hijack your brain's neural trust pathways",
-    "The reverse psychology trap that forces a liar's brain to confess the truth",
-    "What physically happens in your prefrontal cortex when someone gaslights you successfully",
-    "The forbidden NLP trick that plants a suggestion into someone's subconscious invisibly",
-    "Why highly intelligent brains are easier to cognitively manipulate than average ones",
-    "The body language micro-expression that tells you someone is lying right now",
-    "How cults use cognitive dissonance to trap highly educated people",
-    "Scientists confirmed the exact millisecond your brain decides to trust a stranger",
-    "The terrifying psychological reason why empathetic people attract narcissists",
-    "Your brain literally erases memories it finds too painful through cognitive shielding",
-    "The dark neurological reason you feel empty after getting everything you ever wanted",
-    "Why your subconscious mind makes every life decision 7 seconds before you realize it",
-    "The psychological phenomenon that makes you fall in love with someone dangerous",
-    "What your sleeping position secretly reveals about your dark triad traits",
-    "The hidden reason your energy fields feel drained after being around certain people",
-    "Why your brain bonds faster with someone who hurt you through trauma-looping",
-    "The psychological trick used in every viral ad to hijack your dopamine levels",
-    "The terrifying reason your brain generates a full dream in the last 2 minutes of sleep",
-    "Scientists still can't explain why the human brain predicts death 7 days early",
-    "What physically happens inside your skull when you feel someone watching you",
-    "The biological reason eye contact with a stranger triggers a neural panic response",
-    "Your body starts dying in a specific sequence and your brain deliberately hides it",
-    "The real reason deja vu happens and why it indicates a glitch in memory storage",
-    "What your brain chemistry does in the 6 minutes after your heart stops beating",
-    "The documented phenomenon where humans develop a defensive split personality under stress",
-    "Why your brain sometimes hears your name called when no one is there",
-    "The scientific reason certain people can sense danger before it physically happens",
-    "The dark psychological reason successful people are hated by their closest friends",
-    "How to instantly detect a fake friend using one clinical psychological test",
-    "The silent war psychology: what highly secure people never do in arguments",
-    "Why people who were humiliated in public become the most dangerous enemies",
-    "The psychological reason your enemies smile the widest at your success",
-    "What happens to your brain chemistry when someone ignores you on purpose",
-    "The dark truth about why genuinely confident people use conversational silence",
-    "The psychological reason people sabotage relationships right before they succeed",
-    "The unsettling truth about what your recurring nightmare is actually warning you about",
-    "Psychology confirms most people are living a life chosen by someone else entirely",
-    "The terrifying documented case where a person woke up speaking a foreign language",
-    "What happens to your sense of identity when you go completely silent for 72 hours",
-    "Psychologists say the version of you that exists at 3AM is your true self",
-    "The dark reason highly empathetic people often become emotionally numb over time",
+# Fallback topics agar main pipeline mein topic pass na ho
+FALLBACK_TOPICS = [
+    "How to detect if someone is lying instantly",
+    "The dark psychology of silent treatment",
+    "How to make someone think about you constantly",
+    "A psychological trick to gain instant respect",
+    "The mirror hack to read anyone's hidden thoughts"
 ]
 
-# ═══════════════════════════════════════════════════════════════════
-# SYSTEM PROMPT v5.0 — FAST ALGORITHM INDEXING FORCE CODES
-# ═══════════════════════════════════════════════════════════════════
-SYSTEM_PROMPT = (
-    "You are an expert elite clinical psychological scriptwriter specializing in Cognitive Dark Psychology and human manipulation. "
-    "Your core objective is to write a short-form script that forces an instantaneous 100%+ retention loop. "
-    "Target Audience: High-intellect, curious viewers in the USA and United Kingdom.\n\n"
-
-    "ALGORITHM INDEXING CRITERIA (GOLI SPEED FORCE):\n"
-    "1. HIGH-OCTANE HOOK: The very first sentence MUST contain an intense, advanced psychological term "
-    "(e.g., Cognitive Dark, Dark Triad, Neural Loop, Subconscious Hack, Cognitive Dissonance). This forces "
-    "the YouTube OCR and transcript AI to categorize the niche within minutes of uploading.\n"
-    "2. GEOGRAPHIC PHRASEOLOGY: Use distinct, clean American/British English vocabulary. Speak like a professional "
-    "whispering an intense, dangerous clinical secret. Avoid all generic AI fluff words ('Moreover', 'Furthermore', 'Imagine this', 'In conclusion').\n"
-    "3. SCRIPT LENGTH: Strictly between 100 and 120 words. No exceptions. Pacing must be aggressive and direct.\n"
-    "4. SEO BLOCK: Keep descriptions extremely tight and punchy (no more than 2 sentences). Use exactly 3-4 viral, niche-specific hashtags.\n\n"
-    
-    "OUTPUT FORMAT:\n"
-    "Return ONLY a valid, clean JSON object. No markdown wrappers, no backticks, no prose.\n"
-    "{\n"
-    '  "topic": "string",\n'
-    '  "script": "string — Under 120 words, raw second-person narrative starting with a heavy terms hook",\n'
-    '  "broll_keywords": ["keyword1", "keyword2", "keyword3", "keyword4"],\n'
-    '  "seo": {\n'
-    '    "title": "string under 55 characters with massive curiosity gap",\n'
-    '    "description": "string under 50 words forcing rapid semantic indexing",\n'
-    '    "hashtags": ["#Shorts", "#DarkPsychology", "#CognitiveDark"]\n'
-    '  }\n'
-    "}"
-)
-
-MODEL_CHAIN = [
-    'llama-3.3-70b-versatile',
-    'llama-3.1-8b-instant',
-    'gemma2-9b-it'
-]
-
-def _call_groq(topic: str, model: str) -> dict:
-    user_message = (
-        f'Generate an elite cognitive psychology short package for this topic:\n\n'
-        f'TOPIC: {topic}\n\n'
-        f'CRITICAL INDEXING REQS:\n'
-        f'— Script word count: 100-120 words strictly.\n'
-        f'— Hook must start with high-volume psychological vocabulary.\n'
-        f'— Exactly 3 to 4 hashtags in SEO block to completely prevent metadata spam flagging.'
-    )
-    logger.info(f'Calling Groq model: {model}')
-    response = _client.chat.completions.create(
-        model=model,
-        max_tokens=1000,
-        temperature=0.78,
-        response_format={'type': 'json_object'},
-        messages=[
-            {'role': 'system', 'content': SYSTEM_PROMPT},
-            {'role': 'user',   'content': user_message}
-        ]
-    )
-    raw_text = response.choices[0].message.content.strip()
-
-    if raw_text.startswith('```'):
-        raw_text = re.sub(r'^```[a-zA-Z]*\n?', '', raw_text)
-        raw_text = re.sub(r'```$', '', raw_text)
-    raw_text = raw_text.strip()
-
-    try:
-        data = json.loads(raw_text)
-    except json.JSONDecodeError as exc:
-        logger.error(f'JSON parse error: {exc}\nRaw:\n{raw_text[:300]}')
-        raise ValueError(f'Invalid JSON from Groq: {exc}') from exc
-    return data
 
 def generate_script(topic: str | None = None) -> dict:
-    if topic is None:
-        topic = random.choice(TOPIC_POOL)
-    logger.info(f'Selected topic: "{topic}"')
+    """
+    Groq API ko call karta hai strict viral guidelines ke sath 
+    aur Structured JSON response return karta hai.
+    """
+    logger.info("Initializing Groq AI script writer framework...")
+    
+    api_key = os.getenv("GROQ_API_KEY") or getattr(config, "GROQ_API_KEY", None)
+    if not api_key:
+        raise ValueError("GROQ_API_KEY environment variable is missing!")
 
-    last_error = None
-    for model in MODEL_CHAIN:
-        try:
-            data = _call_groq(topic, model)
-            _validate_and_fix(data, topic)  # Topic pass kiya default backup ke liye
-            _log_quality_check(data)
-            logger.info(f'Script generated via {model}')
-            return data
-        except Exception as exc:
-            logger.warning(f'Model {model} failed: {exc}')
-            last_error = exc
-            continue
+    client = Groq(api_key=api_key)
 
-    raise RuntimeError(f'All Groq models failed. Last error: {last_error}')
+    if not topic:
+        topic = random.choice(FALLBACK_TOPICS)
+        logger.info(f"No specific topic forced. Selected viral fallback: '{topic}'")
+    else:
+        logger.info(f"Generating high-retention script for forced topic: '{topic}'")
 
-def _validate_and_fix(data: dict, selected_topic: str) -> None:
-    # "Missing data" text hata kar real dynamic fallback laga diya
-    if 'topic' not in data or data['topic'] == 'Missing data':
-        data['topic'] = selected_topic
+    # 🔥 VIRAL SYSTEM PROMPT WITH YOUR EXACT RULES
+    system_instruction = (
+        "You are a viral YouTube Shorts script writer for USA audience. Niche: Dark Psychology & Mind Tricks.\n\n"
+        "Rules - Lazmi follow karo:\n"
+        "1. Length: 40-55 seconds when spoken. Max 85 words.\n"
+        "2. First 3 words MUST be one of these exact phrases: 'You', 'Your brain', 'Stop scrolling', '90% people', 'Never do this'. Choose the most fitting one.\n"
+        "3. Tone: Direct, dark, slightly threatening but not banned. Like a smart friend warning you.\n"
+        "4. Structure:\n"
+        "   Hook: 1 line - curiosity gap\n"
+        "   Body: 2-3 mind tricks/facts. Each fact 1 sentence only.\n"
+        "   Pause: Add '...' after every 7-8 words for dramatic effect\n"
+        "   CTA: Last line = 'Follow for part 2' OR 'Save this before you forget' OR 'Comment which one shocked you'\n"
+        "5. Words banned: kill, suicide, murder, blood. Use 'dark trick', 'mind hack', 'psychology' instead.\n"
+        "6. Make it sound human, not Wikipedia. Use the word 'you' at least 5+ times.\n"
+        "7. Add exactly 1 'pattern interrupt' in the middle: 'Wait for it...' OR 'But here's the twist...'\n\n"
+        "CRITICAL: You MUST respond ONLY with a raw JSON object. Do not include any intro, outro, markdown, or chat text outside the JSON. "
+        "The JSON must have these exact keys:\n"
+        '{\n'
+        '  "hook": "The single hook sentence.",\n'
+        '  "script": "The full voiceover script containing max 85 words with ... dramatic pauses.",\n'
+        '  "seo": {\n'
+        '    "title": "A 5 words max title with an emoji.",\n'
+        '    "description": "Short dark description with hashtags: #darkpsychology #mindhacks #psychologyfacts"\n'
+        '  },\n'
+        '  "broll_keywords": ["keyword1", "keyword2", "keyword3"]\n'
+        '}'
+    )
 
-    if 'script' not in data or data['script'] == 'Missing data' or len(data.get('script', '')) < 10:
-        data['script'] = f"Dark Psychology Fact: {selected_topic}. This cognitive shortcut manipulates human perception instantly, forcing the subconscious mind to react before logic can take control. Protect your brain chemistry from these silent neural loops."
+    user_prompt = f"Topic: {topic}\n\nGenerate the complete JSON script now based on the forced rules."
 
-    if 'seo' not in data:
-        data['seo'] = {}
+    try:
+        # LLM Completion Request
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-specdec", # Ultra-fast high quality logic model
+            messages=[
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.75,
+            response_format={"type": "json_object"} # Force valid JSON generation
+        )
+
+        raw_response = completion.choices[0].message.content
+        script_data = json.loads(raw_response)
         
-    seo = data['seo']
-    if 'title' not in seo:
-        seo['title'] = "The Dark Reality They Hide From You"
-    if 'description' not in seo:
-        seo['description'] = "Unlocking elite cognitive dark secrets and viral psychological analysis."
+        logger.info("⚡ Groq script successfully generated and parsed into JSON structure.")
+        
+        # Validation checks to ensure keywords exist for video compiler
+        if "broll_keywords" not in script_data or not script_data["broll_keywords"]:
+            script_data["broll_keywords"] = ["dark psychology shadow", "manipulation brain glow", "mysterious silhouette"]
+            
+        return script_data
 
-    if not isinstance(data.get('broll_keywords'), list):
-        data['broll_keywords'] = [
-            'dark psychology aesthetic cinematic',
-            'mysterious shadow manipulation',
-            'brain synapse activity abstract',
-            'human macro eye staring thriller'
-        ]
-    if len(data['broll_keywords']) < 4:
-        defaults = ['dark mind corridor 4K', 'psychological shadow manipulation', 'human brain scanning', 'closeup cold eyes']
-        data['broll_keywords'].extend(defaults[:4 - len(data['broll_keywords'])])
-
-    if isinstance(seo.get('title'), str) and len(seo['title']) > 60:
-        seo['title'] = seo['title'][:52] + '...'
-
-    if not isinstance(seo.get('hashtags'), list) or len(seo['hashtags']) > 4:
-        seo['hashtags'] = ['#Shorts', '#DarkPsychology', '#CognitiveDark']
-
-def _log_quality_check(data: dict) -> None:
-    script = data.get('script', '')
-    word_count = len(script.split())
-    has_you = 'you' in script.lower()
-    title_len = len(data.get('seo', {}).get('title', ''))
-
-    logger.info(f'  Word count : {word_count} (target: 100-120)')
-    logger.info(f'  Uses "you" : {has_you}')
-    logger.info(f'  Title len  : {title_len} chars (limit: 60)')
-
-def build_word_timings(script: str, audio_duration: float) -> list[dict]:
-    words = script.split()
-    if not words:
-        return []
-    per_word = audio_duration / len(words)
-    timings = []
-    t = 0.0
-    for word in words:
-        clean = ''.join(c for c in word if c.isalnum() or c in "'-")
-        if clean:
-            timings.append({
-                'word':  clean,
-                'start': round(t, 3),
-                'end':   round(t + per_word, 3)
-            })
-        t += per_word
-    return timings
-
-if __name__ == '__main__':
-    import pprint
-    print('\n' + '=' * 60)
-    print('  GOLI SPEED COGNITIVE INDEXING ENGINE ACTIVE')
-    print('  AI Dark Realities · Short-Form Pipeline v3.0')
-    print('=' * 60 + '\n')
-    result = generate_script()
-    pprint.pprint(result, width=80)
+    except Exception as e:
+        logger.error(f"Groq Script generation failed: {e}. Executing emergency hardcoded script.")
+        # Fallback backup response in case API limit hits or crashes
+        return {
+            "hook": "Your brain is keeping a dark secret from you.",
+            "script": "Your brain ... is keeping a dark secret ... from you. 90% of people ... fall into this trap every day. When someone stares ... at your lips ... they are thinking about manipulation. But here's the twist ... you can completely reverse the power. Stare back at their forehead ... to instantly break their focus. Save this before you forget.",
+            "seo": {
+                "title": "Brain Traps Exposed 🧠",
+                "description": "Unlocking the secrets of hidden manipulation. #darkpsychology #mindhacks #psychologyfacts"
+            },
+            "broll_keywords": ["dark aesthetic brain", "mysterious eyes shadow", "glitch neon neural"]
+        }
