@@ -19,6 +19,7 @@ from moviepy.editor import (
     CompositeAudioClip,
 )
 from moviepy.video.fx.all import crop, resize
+import moviepy.audio.fx.all as afx  # 🟢 FIXED: Audio loop and volume control helper explicitly imported
 import config
 
 logger = logging.getLogger(__name__)
@@ -91,6 +92,7 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
     allocated_raw_clips = [] 
     current_time = 0.0
     media_index = 0
+    bg_audio = None
 
     try:
         MAX_CLIP_DURATION = 2.5
@@ -141,17 +143,17 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
         
         if music_tracks:
             selected_track = random.choice(music_tracks)
-            logger.info(f"🎵 Anti-Spam Layer: Injecting background music track: {selected_track.name}")
+            logger.info(f"🎵 Background Music Found! Injecting track: {selected_track.name}")
             bg_audio = AudioFileClip(str(selected_track))
             
             # Loop or subclip music to fit exact voice track length safely
             if bg_audio.duration < total_dur:
-                bg_audio = bg_audio.fx(lambda c: c.loop(duration=total_dur))
+                bg_audio = afx.audio_loop(bg_audio, duration=total_dur)
             else:
                 bg_audio = bg_audio.subclip(0, total_dur)
                 
-            # Set background music volume down to 12% to make voice clear yet sound organic
-            bg_audio = bg_audio.volumex(0.12)
+            # Set background music volume down to 10% to keep dark vibes clear and organic
+            bg_audio = afx.volumex(bg_audio, 0.10)
             
             # Combine raw voice and ambient audio together
             final_audio = CompositeAudioClip([voice_audio, bg_audio])
