@@ -1,5 +1,5 @@
 """
-uploader.py — Secure Channel Publisher Engine (FINAL BULLETPROOF HYBRID UPLOAD - AI LABEL FIXED)
+uploader.py — Secure Channel Publisher Engine (FINAL - FB DISABLED, INSTA FIXED)
 AI Dark Realities · Short-Form Video Pipeline
 ─────────────────────────────────────────────────────────────────────────────────────
 """
@@ -26,11 +26,9 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
 
 META_TOKEN = os.environ.get("META_ACCESS_TOKEN")
-FB_PAGE_ID = os.environ.get("FACEBOOK_PAGE_ID")
 IG_ACCT_ID = os.environ.get("INSTAGRAM_BUSINESS_ID")
 
 def _get_youtube_service():
-    """Authenticates and constructs the YouTube API service with auto-refresh layers."""
     creds = None
     scopes = ["https://www.googleapis.com/auth/youtube.upload"]
     
@@ -50,7 +48,7 @@ def _get_youtube_service():
 
     if creds and creds.expired and creds.refresh_token:
         try:
-            logger.info("YouTube session expired. Attemping background auto-refresh...")
+            logger.info("YouTube session expired. Attempting background auto-refresh...")
             creds.refresh(Request())
             if token_file_path.exists():
                 with open(token_file_path, "w") as tf:
@@ -74,8 +72,8 @@ def _get_youtube_service():
         
     return build("youtube", "v3", credentials=creds)
 
+
 def upload_all_platforms(video_path: str, seo: dict) -> dict:
-    """Core pipeline gateway executing multi-platform automated deployment."""
     logger.info(f"Initiating cloud publisher engine for: {video_path}")
     
     title = seo.get("title", "Dark Realities Shocking Fact")
@@ -86,14 +84,12 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
         title = f"{title[:50]} #Shorts"
         
     full_description = f"{description}\n\n" + " ".join(hashtags)
-    results = {"youtube": "skipped", "facebook": "skipped", "instagram": "skipped"}
+    results = {"youtube": "skipped", "facebook": "disabled", "instagram": "skipped"}
     
-    # ----------------------------------------------------
-    # PHASE 1: YOUTUBE DEPLOYMENT (WITH AI LABEL & CORRECT CATEGORY)
-    # ----------------------------------------------------
+    # PHASE 1: YOUTUBE
     youtube = _get_youtube_service()
     if not youtube:
-        logger.warning("YouTube API service initialization skipped. Video saved locally.")
+        logger.warning("YouTube API service initialization skipped.")
         results["youtube"] = "saved_locally_without_upload"
     else:
         try:
@@ -102,18 +98,18 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
                     "title": title[:100],
                     "description": full_description,
                     "tags": [tag.replace("#", "") for tag in hashtags],
-                    "categoryId": "22"  # People & Blogs
+                    "categoryId": "22"
                 },
                 "status": {
                     "privacyStatus": "public",
                     "selfDeclaredMadeForKids": False,
-                    "selfDeclaredMadeWithAI": True  # AI Label Enabled
+                    "selfDeclaredMadeWithAI": True
                 }
             }
             media = MediaFileUpload(str(video_path), chunksize=1024 * 1024 * 2, resumable=True, mimetype="video/mp4")
             request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
             
-            logger.info(f"Uploading short form video to YouTube Channel: '{title}'")
+            logger.info(f"Uploading to YouTube: '{title}'")
             response = None
             while response is None:
                 status, response = request.next_chunk()
@@ -121,91 +117,54 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
                     logger.info(f"YouTube Upload Progress: {int(status.progress() * 100)}%")
                     
             youtube_id = response.get('id')
-            logger.info(f"✅ YouTube Upload Successful with AI Label! Video ID: {youtube_id}")
+            logger.info(f"✅ YouTube Upload Successful! Video ID: {youtube_id}")
             results["youtube"] = f"success_id_{youtube_id}"
+
         except Exception as err:
             logger.error(f"YouTube upload failed: {err}")
             results["youtube"] = f"failed: {str(err)}"
 
-    # ----------------------------------------------------
-    # PHASE 2: META AUTOMATION LAYER
-    # ----------------------------------------------------
+    # PHASE 2: FACEBOOK — DISABLED
+    logger.info("Facebook upload skipped — pending Meta app permissions fix.")
+    results["facebook"] = "disabled_pending_fix"
+
+    # PHASE 3: INSTAGRAM
     meta_caption = f"{title}\n\n{full_description}"
 
-    # 1. Facebook Page Publisher (Direct Upload with Correct 'source' Key)
-    if META_TOKEN and FB_PAGE_ID:
-        logger.info("Initiating Facebook Page Direct Single-Request Binary Upload engine...")
-        fb_res = post_to_facebook_direct(str(video_path), meta_caption)
-        results["facebook"] = fb_res
-    else:
-        logger.warning("Facebook automation skipped: Missing token or Page ID secrets.")
-
-    # 2. Instagram Reels Publisher (Temporary Direct URL Ingestion Bridge)
     if META_TOKEN and IG_ACCT_ID:
-        logger.info("Generating temporary direct ingestion URL for Instagram...")
+        logger.info("Generating temporary URL for Instagram ingestion...")
         temp_url = generate_temporary_url(video_path)
         if temp_url:
-            logger.info(f"Temporary URL generated successfully: {temp_url}")
+            logger.info(f"Temporary URL ready: {temp_url}")
             ig_res = post_to_instagram_via_url(temp_url, meta_caption)
             results["instagram"] = ig_res
         else:
             results["instagram"] = "failed_temp_url_generation"
     else:
-        logger.warning("Instagram automation skipped: Missing token or Instagram Business ID.")
+        logger.warning("Instagram skipped: Missing META_ACCESS_TOKEN or INSTAGRAM_BUSINESS_ID.")
 
     return results
 
+
 def generate_temporary_url(video_path: str) -> str:
-    """Uploads the file to a free anonymous file host to get a temporary direct .mp4 URL for Meta Ingestion."""
     try:
-        url = "https://catbox.moe/user/api.php"
-        payload = {'reqtype': 'fileupload'}
+        url = "https://file.io/?expires=1h"
         with open(video_path, 'rb') as video_file:
-            files = {'fileToUpload': video_file}
-            response = requests.post(url, data=payload, files=files)
-        if response.status_code == 200 and response.text.startswith("https"):
-            return response.text.strip()
-        logger.error(f"Temporary host injection failed: {response.text}")
+            files = {'file': video_file}
+            response = requests.post(url, files=files, timeout=120)
+        data = response.json()
+        if data.get('success'):
+            link = data.get('link')
+            logger.info(f"file.io URL generated: {link}")
+            return link
+        logger.error(f"file.io upload failed: {data}")
         return None
     except Exception as e:
-        logger.error(f"Error creating ingestion URL link: {e}")
+        logger.error(f"Error generating temporary URL: {e}")
         return None
 
-def post_to_facebook_direct(video_path: str, caption: str) -> str:
-    """Uploads the video file using direct single-request upload via the standard 'source' parameter."""
-    try:
-        url = f"https://graph.facebook.com/v20.0/{FB_PAGE_ID}/videos"
-        
-        logger.info("Dispatching binary file stream directly to Meta servers via source parameter...")
-        with open(video_path, 'rb') as f:
-            response = requests.post(
-                url,
-                data={
-                    'access_token': META_TOKEN,
-                    'description': caption,
-                    'title': caption[:30]
-                },
-                files={
-                    'source': f  # 🟢 FIXED: Using correct key for single direct post requests
-                },
-                timeout=300
-            )
-        
-        result = response.json()
-        
-        if 'id' in result:
-            logger.info(f"✅ Facebook Upload Successful! ID: {result['id']}")
-            return f"success_id_{result['id']}"
-        else:
-            logger.error(f"Facebook upload failed: {result}")
-            return f"failed: {result}"
-            
-    except Exception as e:
-        logger.error(f"Facebook upload error: {e}")
-        return f"failed_exception: {str(e)}"
 
 def post_to_instagram_via_url(video_url: str, caption: str) -> str:
-    """Injects and publishes the video directly as an Instagram Reel using a working clean stream url."""
     try:
         container_url = f"https://graph.facebook.com/v20.0/{IG_ACCT_ID}/media"
         payload = {
@@ -214,28 +173,32 @@ def post_to_instagram_via_url(video_url: str, caption: str) -> str:
             'caption': caption,
             'access_token': META_TOKEN
         }
-        req = requests.post(container_url, data=payload)
+        req = requests.post(container_url, data=payload, timeout=60)
         res_data = req.json()
         creation_id = res_data.get('id')
 
         if not creation_id:
-            logger.error(f"Instagram container creation rejected: {res_data}")
+            logger.error(f"Instagram container creation failed: {res_data}")
             return f"failed_container_creation: {json.dumps(res_data)}"
 
-        logger.info("Instagram ingestion link active. Sleeping 50 seconds for cloud processing...")
-        time.sleep(50)
+        logger.info("Waiting 60 seconds for Instagram to process video...")
+        time.sleep(60)
 
         publish_url = f"https://graph.facebook.com/v20.0/{IG_ACCT_ID}/media_publish"
-        res = requests.post(publish_url, data={'creation_id': creation_id, 'access_token': META_TOKEN})
+        res = requests.post(
+            publish_url,
+            data={'creation_id': creation_id, 'access_token': META_TOKEN},
+            timeout=60
+        )
         pub_data = res.json()
 
         if "id" in pub_data:
-            logger.info(f"✅ Instagram Reel Publish Successful! ID: {pub_data['id']}")
+            logger.info(f"✅ Instagram Reel Published! ID: {pub_data['id']}")
             return f"success_id_{pub_data['id']}"
         else:
-            logger.error(f"Instagram feed dispatch engine error: {pub_data}")
+            logger.error(f"Instagram publish failed: {pub_data}")
             return f"failed_publish_error: {json.dumps(pub_data)}"
 
     except Exception as e:
-        logger.error(f"Instagram request execution failure: {e}")
+        logger.error(f"Instagram upload exception: {e}")
         return f"failed_exception: {str(e)}"
