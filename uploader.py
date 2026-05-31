@@ -102,12 +102,12 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
                     "title": title[:100],
                     "description": full_description,
                     "tags": [tag.replace("#", "") for tag in hashtags],
-                    "categoryId": "22"  # 🟢 CHANGED: Set strictly to 'People & Blogs' (Hala k pehle 24 tha)
+                    "categoryId": "22"  # People & Blogs
                 },
                 "status": {
                     "privacyStatus": "public",
                     "selfDeclaredMadeForKids": False,
-                    "selfDeclaredMadeWithAI": True  # 🟢 FIXED: Automatically applies YouTube's Altered/Synthetic Content (AI Label)
+                    "selfDeclaredMadeWithAI": True  # AI Label Enabled
                 }
             }
             media = MediaFileUpload(str(video_path), chunksize=1024 * 1024 * 2, resumable=True, mimetype="video/mp4")
@@ -132,9 +132,9 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
     # ----------------------------------------------------
     meta_caption = f"{title}\n\n{full_description}"
 
-    # 1. Facebook Page Publisher (Direct Chunk Upload)
+    # 1. Facebook Page Publisher (Direct Upload with Correct 'source' Key)
     if META_TOKEN and FB_PAGE_ID:
-        logger.info("Initiating Facebook Page Direct Binary Upload engine...")
+        logger.info("Initiating Facebook Page Direct Single-Request Binary Upload engine...")
         fb_res = post_to_facebook_direct(str(video_path), meta_caption)
         results["facebook"] = fb_res
     else:
@@ -172,41 +172,36 @@ def generate_temporary_url(video_path: str) -> str:
         return None
 
 def post_to_facebook_direct(video_path: str, caption: str) -> str:
-    """Uploads the local video file binary directly to Facebook Page via secure chunks."""
+    """Uploads the video file using direct single-request upload via the standard 'source' parameter."""
     try:
-        file_size = os.path.getsize(video_path)
         url = f"https://graph.facebook.com/v20.0/{FB_PAGE_ID}/videos"
         
-        init_payload = {'upload_phase': 'start', 'access_token': META_TOKEN, 'file_size': file_size}
-        init_res = requests.post(url, data=init_payload).json()
-        session_id = init_res.get('upload_session_id')
-        
-        if not session_id:
-            logger.error(f"Facebook Chunk init failed: {init_res}")
-            return f"failed_init: {json.dumps(init_res)}"
-            
+        logger.info("Dispatching binary file stream directly to Meta servers via source parameter...")
         with open(video_path, 'rb') as f:
-            upload_payload = {
-                'upload_phase': 'transfer', 'start_offset': '0',
-                'upload_session_id': session_id, 'access_token': META_TOKEN
-            }
-            requests.post(url, data=upload_payload, files={'video_file_chunk': f})
-
-        finish_payload = {
-            'upload_phase': 'finish', 'upload_session_id': session_id,
-            'access_token': META_TOKEN, 'description': caption, 'title': caption[:30]
-        }
-        finish_res = requests.post(url, data=finish_payload).json()
+            response = requests.post(
+                url,
+                data={
+                    'access_token': META_TOKEN,
+                    'description': caption,
+                    'title': caption[:30]
+                },
+                files={
+                    'source': f  # 🟢 FIXED: Using correct key for single direct post requests
+                },
+                timeout=300
+            )
         
-        if finish_res.get('success') or "id" in finish_res:
-            fb_id = finish_res.get('id', 'published')
-            logger.info(f"✅ Facebook Page Direct File Upload Successful! ID: {fb_id}")
-            return f"success_id_{fb_id}"
+        result = response.json()
         
-        logger.error(f"Facebook Chunk finish failed: {finish_res}")
-        return f"failed_finish: {json.dumps(finish_res)}"
+        if 'id' in result:
+            logger.info(f"✅ Facebook Upload Successful! ID: {result['id']}")
+            return f"success_id_{result['id']}"
+        else:
+            logger.error(f"Facebook upload failed: {result}")
+            return f"failed: {result}"
+            
     except Exception as e:
-        logger.error(f"Facebook direct upload exception: {e}")
+        logger.error(f"Facebook upload error: {e}")
         return f"failed_exception: {str(e)}"
 
 def post_to_instagram_via_url(video_url: str, caption: str) -> str:
