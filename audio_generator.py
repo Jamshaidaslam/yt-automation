@@ -8,6 +8,7 @@ import asyncio
 import json
 import logging
 import subprocess
+import html
 from pathlib import Path
 import edge_tts
 from script_generator import build_word_timings
@@ -27,9 +28,9 @@ def generate_voiceover(script: str, output_stem: str) -> dict:
             final_audio_path.unlink()
 
         voice_character = "en-US-ChristopherNeural"
+        clean_script = html.escape(script)  # ← SSML break fix
 
         async def save_voice():
-            # SSML se dark emotional voice — terrified style
             ssml_text = f"""<speak version="1.0" 
             xmlns="http://www.w3.org/2001/10/synthesis"
             xmlns:mstts="http://www.w3.org/2001/mstts"
@@ -37,7 +38,7 @@ def generate_voiceover(script: str, output_stem: str) -> dict:
                 <voice name="en-US-ChristopherNeural">
                     <mstts:express-as style="terrified" styledegree="1.5">
                         <prosody rate="-15%" pitch="-3Hz">
-                            {script}
+                            {clean_script}
                         </prosody>
                     </mstts:express-as>
                 </voice>
@@ -50,7 +51,6 @@ def generate_voiceover(script: str, output_stem: str) -> dict:
         logger.info(f"Natural Male Voice track saved successfully -> {final_audio_path.name}")
 
     except Exception as e:
-        # SSML fail ho toh fallback — normal Edge TTS
         logger.warning(f"SSML failed, falling back to normal Edge TTS: {e}")
         try:
             async def save_voice_fallback():
@@ -85,7 +85,6 @@ def generate_voiceover(script: str, output_stem: str) -> dict:
 
 
 def _get_audio_duration_sec(audio_path: Path) -> float:
-    """ffprobe se audio ki exact duration nikalta hai."""
     cmd = [
         "ffprobe", "-v", "error", "-show_entries", "format=duration",
         "-of", "default=noprint_wrappers=1:nokey=1", str(audio_path)
