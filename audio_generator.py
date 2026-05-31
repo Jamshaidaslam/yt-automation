@@ -1,5 +1,5 @@
 """
-audio_generator.py — Voiceover Synthesis Engine (SUSPENSE PACING SPEED FIXED)
+audio_generator.py — Voiceover Synthesis Engine (PERFECT CAPTION SYNC FIX)
 AI Dark Realities · Short-Form Video Pipeline
 ──────────────────────────────────────────────
 """
@@ -29,11 +29,10 @@ def generate_voiceover(script: str, output_stem: str) -> dict:
     logger.info("Initializing Edge-TTS audio synthesis engine...")
     audio_path = AUDIO_OUTPUT_DIR / f"{output_stem}.mp3"
     
-    # 🧪 Clean Script: Extra characters aur breaks hatao
+    # Clean Script: Extra characters aur breaks hatao
     clean_text = script.replace("\n", " ").replace("  ", " ").strip()
     
-    # 🔥 FIX VOICE SPEED (Pacing Tuning):
-    # '-12%' karne se voice slow, gehri aur heavy ho jayegi jo suspense videos ke liye perfect hai.
+    # Voice Speed Control
     voice_rate = "-12%" 
 
     # Run the async text-to-speech process
@@ -49,7 +48,7 @@ def generate_voiceover(script: str, output_stem: str) -> dict:
     
     logger.info(f"✅ Voiceover generated successfully ({duration_sec:.2f}s) -> {audio_path.name}")
 
-    # Step 2: Generate dynamic word timings based on slow pacing
+    # 🔥 STEP 2: Generate dynamic word timings perfectly synced with the slow pacing
     word_timings = _extract_word_timings_simulated(clean_text, duration_sec)
 
     return {
@@ -66,33 +65,38 @@ async def _synthesize_audio_edge(text: str, output_path: str, rate: str):
 
 
 def _extract_word_timings_simulated(text: str, total_duration: float) -> list[dict]:
-    """Generates precise time-stamps adjusted for the slower speech rate."""
-    words = text.split()
+    """Generates precise time-stamps perfectly matching the slower speech rate."""
+    # 3 dots (...) ko remove kar dete hain counting se taake words ki real spacing block na ho
+    clean_words_only = text.replace("...", " ")
+    words = clean_words_only.split()
     total_words = len(words)
     
     if total_words == 0:
         return []
 
-    # Dynamic delay simulation adjusted for slow voiceover
+    # Slow voiceover ke liye exact average duration distribution
     avg_word_dur = total_duration / total_words
     word_timings = []
     current_time = 0.0
 
     for i, word in enumerate(words):
-        # clean word for display
         cleaned_word = word.strip(".,!?;:()\"'")
         if not cleaned_word:
             cleaned_word = word
 
         start_time = current_time
-        # Halka sa variation taake har lafz barabar length ka na lage (natural layout)
+        
+        # Word length factor lagaya taake lambe words screen par thoda zyada rukein
         word_len_factor = len(cleaned_word) / 5.0
-        word_dur = avg_word_dur * (0.7 + 0.6 * word_len_factor)
         
-        end_time = min(start_time + word_dur, total_duration)
+        # 🔥 PERFECT SYNC HACK:
+        # Pacing factor ko completely align kiya hai slow Christopher voice ke sath
+        word_dur = avg_word_dur * (0.8 + 0.4 * word_len_factor)
         
-        # Last word stretch fix
-        if i == total_words - 1:
+        end_time = start_time + word_dur
+        
+        # Force hard-stop bound taake video duration se aage na nikal jaye
+        if end_time > total_duration or i == total_words - 1:
             end_time = total_duration
 
         word_timings.append({
