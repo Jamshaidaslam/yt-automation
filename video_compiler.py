@@ -1,5 +1,5 @@
 """
-video_compiler.py — Core Video Rendering Engine (FAST-CUT ZOOM + AUDIO MIXING FIX)
+video_compiler.py — Core Video Rendering Engine (FAST-CUT ZOOM + FIXED FFMPEG OUTPUT)
 AI Dark Realities · Short-Form Video Pipeline
 ──────────────────────────────────────────────
 """
@@ -40,7 +40,6 @@ CAPTION_STROKE_COLOR = (0, 0, 0, 255)
 MUSIC_DIR = Path("assets/music")
 MUSIC_DIR.mkdir(parents=True, exist_ok=True)
 
-# Auto Dark Music — Pixabay free tracks (commercial use allowed)
 DARK_MUSIC_URLS = [
     "https://cdn.pixabay.com/download/audio/2022/10/25/audio_946bc6b590.mp3",
     "https://cdn.pixabay.com/download/audio/2023/03/09/audio_c8c8a73467.mp3",
@@ -62,7 +61,6 @@ def _get_font(size: int) -> ImageFont.FreeTypeFont:
 
 
 def _download_random_dark_music(duration: float) -> str | None:
-    """Pixabay se random dark music download karo — har video pe alag."""
     random.shuffle(DARK_MUSIC_URLS)
     for url in DARK_MUSIC_URLS:
         try:
@@ -80,12 +78,10 @@ def _download_random_dark_music(duration: float) -> str | None:
         except Exception as e:
             logger.warning(f"Music download failed, trying next: {e}")
             continue
-    logger.warning("All music downloads failed — using local track if available.")
     return None
 
 
 def _get_music_track(duration: float) -> str | None:
-    """Pehle local tracks check karo, phir online download karo."""
     local_tracks = [
         f for f in list(MUSIC_DIR.glob("*.mp3")) + list(MUSIC_DIR.glob("*.wav"))
         if not f.name.startswith("tmp")
@@ -187,7 +183,7 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
 
             processed_clip = resize(sub_clip, newsize=(W, H))
 
-            # 🔥 FAST ZOOM EFFECT
+            # FAST ZOOM EFFECT
             processed_clip = processed_clip.resize(lambda t: 1.0 + 0.12 * t)
 
             video_clips.append(processed_clip)
@@ -244,8 +240,8 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
 
         logger.info(f"Rendering compressed fast-cut short output file to -> {final_path}")
 
-        # 🔥 FFMPEG HARDWARE MIXING FILTER INJECTED
-        # Yeh parameters audio tracks ko drop hone se rokenge aur completely mix karenge Linux runners par
+        # 🔥 FIXED WRITE_VIDEOFILE PARAMETERS
+        # Ghalat filter_complex params hata diye hain taake FFMPEG pipe crash na kare
         final_video.write_videofile(
             str(final_path),
             fps=FPS,
@@ -255,8 +251,7 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
             audio_bitrate="128k",
             preset="ultrafast",
             threads=2,
-            logger=None,
-            ffmpeg_params=["-filter_complex", "amix=inputs=2:duration=first:dropout_transition=2"] if music_path else None
+            logger=None
         )
 
         return str(final_path)
