@@ -86,7 +86,6 @@ def _download_random_dark_music(duration: float) -> str | None:
 
 def _get_music_track(duration: float) -> str | None:
     """Pehle local tracks check karo, phir online download karo."""
-    # Local tracks check karo
     local_tracks = [
         f for f in list(MUSIC_DIR.glob("*.mp3")) + list(MUSIC_DIR.glob("*.wav"))
         if not f.name.startswith("tmp")
@@ -96,7 +95,6 @@ def _get_music_track(duration: float) -> str | None:
         logger.info(f"🎵 Local music track selected: {selected.name}")
         return str(selected)
 
-    # Online se download karo
     downloaded = _download_random_dark_music(duration)
     if downloaded:
         return downloaded
@@ -198,6 +196,7 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
 
         # AUDIO LAYERING
         voice_audio = AudioFileClip(voiceover_data["audio_path"])
+        voice_audio = afx.volumex(voice_audio, 1.0)  # Voice baseline safe execution
 
         # Music track — local ya online
         music_path = _get_music_track(total_dur)
@@ -205,15 +204,20 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
         if music_path:
             logger.info(f"🎵 Injecting dark music track into video...")
             bg_audio = AudioFileClip(music_path)
-            downloaded_music = music_path if music_path.startswith(str(MUSIC_DIR)) and "tmp" in music_path else None
+            
+            # Setup path details for automatic cleanup
+            if music_path.startswith(str(MUSIC_DIR)) and "tmp" in music_path:
+                downloaded_music = music_path
+            else:
+                downloaded_music = None
 
             if bg_audio.duration < total_dur:
                 bg_audio = afx.audio_loop(bg_audio, duration=total_dur)
             else:
                 bg_audio = bg_audio.subclip(0, total_dur)
 
-            # 10% volume — dark vibe clear rahe
-            bg_audio     = afx.volumex(bg_audio, 0.10)
+            # 🔥 BOOSTED VOLUME: 10% se barha kar 22% kar diya taake clear suspense vibe aaye
+            bg_audio     = afx.volumex(bg_audio, 0.22)
             final_audio  = CompositeAudioClip([voice_audio, bg_audio])
         else:
             logger.warning("No music available — rendering with voice only.")
@@ -265,6 +269,7 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
             if obj is not None:
                 try: obj.close()
                 except Exception: pass
+        
         # Downloaded temp music file cleanup
         if downloaded_music and os.path.exists(downloaded_music):
             try:
