@@ -1,5 +1,5 @@
 """
-uploader.py — Secure Channel Publisher Engine (FINAL - FB DISABLED, INSTA FIXED v2)
+uploader.py — Secure Channel Publisher Engine (FINAL - CLOUDINARY + INSTA FIXED)
 AI Dark Realities · Short-Form Video Pipeline
 ─────────────────────────────────────────────────────────────────────────────────────
 """
@@ -9,6 +9,8 @@ import logging
 import os
 import time
 import requests
+import cloudinary
+import cloudinary.uploader
 from pathlib import Path
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -27,6 +29,14 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
 
 META_TOKEN = os.environ.get("META_ACCESS_TOKEN")
 IG_ACCT_ID = os.environ.get("INSTAGRAM_BUSINESS_ID")
+
+# Cloudinary Configuration
+cloudinary.config(
+    cloud_name=os.environ.get("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.environ.get("CLOUDINARY_API_KEY"),
+    api_secret=os.environ.get("CLOUDINARY_API_SECRET"),
+    secure=True
+)
 
 def _get_youtube_service():
     creds = None
@@ -132,10 +142,10 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
     meta_caption = f"{title}\n\n{full_description}"
 
     if META_TOKEN and IG_ACCT_ID:
-        logger.info("Generating temporary URL for Instagram ingestion...")
+        logger.info("Uploading video to Cloudinary for Instagram ingestion...")
         temp_url = generate_temporary_url(video_path)
         if temp_url:
-            logger.info(f"Temporary URL ready: {temp_url}")
+            logger.info(f"Cloudinary URL ready: {temp_url}")
             ig_res = post_to_instagram_via_url(temp_url, meta_caption)
             results["instagram"] = ig_res
         else:
@@ -148,23 +158,28 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
 
 def generate_temporary_url(video_path: str) -> str:
     try:
-        url = "https://0x0.st"
-        with open(video_path, 'rb') as video_file:
-            files = {'file': video_file}
-            response = requests.post(url, files=files, timeout=120)
-        if response.status_code == 200 and response.text.startswith("https"):
-            link = response.text.strip()
-            logger.info(f"0x0.st URL generated: {link}")
-            return link
-        logger.error(f"0x0.st upload failed: {response.text}")
+        logger.info("Uploading to Cloudinary...")
+        upload_result = cloudinary.uploader.upload(
+            video_path,
+            resource_type="video",
+            folder="yt_automation",
+            overwrite=True,
+            invalidate=True
+        )
+        url = upload_result.get("secure_url")
+        if url:
+            logger.info(f"✅ Cloudinary upload successful: {url}")
+            return url
+        logger.error("Cloudinary upload returned no URL.")
         return None
     except Exception as e:
-        logger.error(f"Error generating temporary URL: {e}")
+        logger.error(f"Cloudinary upload error: {e}")
         return None
 
 
 def post_to_instagram_via_url(video_url: str, caption: str) -> str:
     try:
+        # Step 1: Create media container
         container_url = f"https://graph.facebook.com/v20.0/{IG_ACCT_ID}/media"
         payload = {
             'media_type': 'REELS',
@@ -180,9 +195,11 @@ def post_to_instagram_via_url(video_url: str, caption: str) -> str:
             logger.error(f"Instagram container creation failed: {res_data}")
             return f"failed_container_creation: {json.dumps(res_data)}"
 
+        # Step 2: Wait for processing
         logger.info("Waiting 60 seconds for Instagram to process video...")
         time.sleep(60)
 
+        # Step 3: Publish
         publish_url = f"https://graph.facebook.com/v20.0/{IG_ACCT_ID}/media_publish"
         res = requests.post(
             publish_url,
