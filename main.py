@@ -1,5 +1,5 @@
 """
-main.py — Pipeline Orchestrator (ANTI-SPAM & INTENT ALIGNED v2.5)
+main.py — Pipeline Orchestrator (ANTI-SPAM & INTENT ALIGNED v2.5 - FIXED FOR CRON & BYPASS)
 AI Dark Realities · Short-Form Video Pipeline
 ──────────────────────────────────────────────
 """
@@ -95,7 +95,7 @@ def run_pipeline(topic: str | None = None, skip_upload: bool = False) -> dict:
     )
     logger.info(f"Video composition compiled successfully → {video_path}")
 
-    # STEP 5: Secure Multi-Platform Upload Stream
+    # STEP 5: Secure Multi-Platform Upload Stream (AI LABEL & PEOPLE & BLOGS FLOW)
     upload_results = {}
     if not skip_upload:
         logger.info("STEP 5/5 — Dispatching multi-platform cloud upload sequences…")
