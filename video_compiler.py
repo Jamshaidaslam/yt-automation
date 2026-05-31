@@ -1,5 +1,5 @@
 """
-video_compiler.py — Core Video Rendering Engine (AUTO DARK MUSIC + ANTI-SPAM)
+video_compiler.py — Core Video Rendering Engine (FAST-CUT ZOOM + ANTI-SPAM BGM)
 AI Dark Realities · Short-Form Video Pipeline
 ──────────────────────────────────────────────
 """
@@ -138,7 +138,7 @@ def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarr
 
 
 def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str) -> str:
-    logger.info("Starting video compilation engine...")
+    logger.info("Starting video compilation engine with Fast-Cut Aggressive Zoom...")
     final_path   = config.FINAL_VIDEOS_DIR / f"{output_stem}.mp4"
     total_dur    = voiceover_data["duration_sec"]
     word_timings = voiceover_data["word_timings"]
@@ -178,6 +178,7 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
             target_ratio   = W / H
             current_ratio  = clip_w / clip_h
 
+            # VERTICAL CROP (9:16 Center Aspect Ratio Fix)
             if current_ratio > target_ratio:
                 new_w    = int(clip_h * target_ratio)
                 sub_clip = crop(sub_clip, x_center=clip_w // 2, width=new_w, height=clip_h)
@@ -185,95 +186,18 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
                 new_h    = int(clip_w / target_ratio)
                 sub_clip = crop(sub_clip, y_center=clip_h // 2, width=clip_w, height=new_h)
 
+            # Standard scale mapping
             processed_clip = resize(sub_clip, newsize=(W, H))
+
+            # 🔥 FAST-CUT AGGRESSIVE ZOOM EFFECT (Ken Burns Niche Hack)
+            # 0.05 se badha kar 0.12 kar diya hai taake short duration clips par zoom tezi se aur saaf nazar aaye
+            processed_clip = processed_clip.resize(lambda t: 1.0 + 0.12 * t)
+
             video_clips.append(processed_clip)
             current_time += clip_duration
 
         if not video_clips:
             raise RuntimeError("No visual media clips processed successfully.")
 
-        video_sequence = concatenate_videoclips(video_clips, method="compose")
-
-        # AUDIO LAYERING
-        voice_audio = AudioFileClip(voiceover_data["audio_path"])
-        voice_audio = afx.volumex(voice_audio, 1.0)  # Voice baseline safe execution
-
-        # Music track — local ya online
-        music_path = _get_music_track(total_dur)
-
-        if music_path:
-            logger.info(f"🎵 Injecting dark music track into video...")
-            bg_audio = AudioFileClip(music_path)
-            
-            # Setup path details for automatic cleanup
-            if music_path.startswith(str(MUSIC_DIR)) and "tmp" in music_path:
-                downloaded_music = music_path
-            else:
-                downloaded_music = None
-
-            if bg_audio.duration < total_dur:
-                bg_audio = afx.audio_loop(bg_audio, duration=total_dur)
-            else:
-                bg_audio = bg_audio.subclip(0, total_dur)
-
-            # 🔥 BOOSTED VOLUME: 10% se barha kar 22% kar diya taake clear suspense vibe aaye
-            bg_audio     = afx.volumex(bg_audio, 0.22)
-            final_audio  = CompositeAudioClip([voice_audio, bg_audio])
-        else:
-            logger.warning("No music available — rendering with voice only.")
-            final_audio = voice_audio
-
-        video_sequence = video_sequence.set_audio(final_audio)
-
-        def make_caption_frame(t):
-            frame = _render_caption_frame_cached(t, word_timings)
-            return frame[:, :, :3]
-
-        def make_caption_mask(t):
-            frame = _render_caption_frame_cached(t, word_timings)
-            return frame[:, :, 3] / 255.0
-
-        caption_clip = VideoClip(make_caption_frame, duration=total_dur).set_fps(FPS)
-        caption_mask = VideoClip(make_caption_mask, ismask=True, duration=total_dur).set_fps(FPS)
-        caption_clip = caption_clip.set_mask(caption_mask)
-
-        final_video = CompositeVideoClip([video_sequence, caption_clip], size=(W, H))
-        final_video = final_video.set_duration(total_dur)
-
-        logger.info(f"Rendering compressed fast-cut short output file to -> {final_path}")
-
-        final_video.write_videofile(
-            str(final_path),
-            fps=FPS,
-            codec="libx264",
-            audio_codec="aac",
-            bitrate="2500k",
-            audio_bitrate="128k",
-            preset="ultrafast",
-            threads=2,
-            logger=None,
-        )
-
-        return str(final_path)
-
-    finally:
-        for c in video_clips:
-            try: c.close()
-            except Exception: pass
-        for rc in allocated_raw_clips:
-            try: rc.close()
-            except Exception: pass
-        for name in ("video_sequence", "caption_clip", "caption_mask",
-                     "final_video", "voice_audio", "bg_audio", "final_audio"):
-            obj = locals().get(name)
-            if obj is not None:
-                try: obj.close()
-                except Exception: pass
-        
-        # Downloaded temp music file cleanup
-        if downloaded_music and os.path.exists(downloaded_music):
-            try:
-                os.remove(downloaded_music)
-                logger.info("Temp music file cleaned up.")
-            except Exception:
-                pass
+        # 'compose' method hierarchy dynamic placement ke liye zaroori hai
+        video_sequence = concatenate_videoclips(
