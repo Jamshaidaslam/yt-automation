@@ -10,6 +10,7 @@ import logging
 import sys
 import time
 import os
+import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -81,10 +82,25 @@ def _log_upload(stem: str, results: dict):
         "stem": stem,
         "results": results
     })
-    # Sirf last 100 entries rakho
     if len(log) > 100:
         log = log[-100:]
     _save_upload_log(log)
+
+
+def _cleanup_old_cache_folders():
+    """🔥 REPEAT SCENE FIX: Purane downloaded assets ko pipeline shuru hone se pehle saaf karo."""
+    target_dirs = [Path("output/videos"), Path("assets/videos")]
+    for folder in target_dirs:
+        if folder.exists():
+            logger.info(f"🧹 Cleaning up old video assets cache folder: {folder}")
+            for item in folder.iterdir():
+                try:
+                    if item.is_file():
+                        item.unlink()
+                    elif item.is_dir():
+                        shutil.rmtree(item)
+                except Exception as e:
+                    logger.warning(f"Could not delete {item}: {e}")
 
 
 def run_pipeline(topic: str | None = None, skip_upload: bool = False) -> dict:
@@ -101,6 +117,9 @@ def run_pipeline(topic: str | None = None, skip_upload: bool = False) -> dict:
         logger.info("Pipeline halted — duplicate upload prevention triggered.")
         logger.info("=" * 60)
         sys.exit(0)
+
+    # 🔥 Run folder cleanup to ensure completely fresh stock videos are used
+    _cleanup_old_cache_folders()
 
     # STEP 1: Script Generation
     logger.info("STEP 1/5 — Invoking Groq LLM for script engineering…")
@@ -160,7 +179,6 @@ def run_pipeline(topic: str | None = None, skip_upload: bool = False) -> dict:
             video_path = video_path,
             seo        = script_data.get("seo", {}),
         )
-        # Successful upload log mein save karo
         if "success" in str(upload_results.get("youtube", "")):
             _log_upload(stem, upload_results)
             logger.info("✅ Upload logged for duplicate prevention.")
