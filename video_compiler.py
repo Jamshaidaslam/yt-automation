@@ -1,5 +1,5 @@
 """
-video_compiler.py — Core Video Rendering Engine (FAST-CUT ZOOM + ANTI-SPAM BGM)
+video_compiler.py — Core Video Rendering Engine (FAST-CUT ZOOM + AUDIO MIXING FIX)
 AI Dark Realities · Short-Form Video Pipeline
 ──────────────────────────────────────────────
 """
@@ -178,7 +178,6 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
             target_ratio   = W / H
             current_ratio  = clip_w / clip_h
 
-            # VERTICAL CROP (9:16 Center Aspect Ratio Fix)
             if current_ratio > target_ratio:
                 new_w    = int(clip_h * target_ratio)
                 sub_clip = crop(sub_clip, x_center=clip_w // 2, width=new_w, height=clip_h)
@@ -186,10 +185,9 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
                 new_h    = int(clip_w / target_ratio)
                 sub_clip = crop(sub_clip, y_center=clip_h // 2, width=clip_w, height=new_h)
 
-            # Standard scale mapping
             processed_clip = resize(sub_clip, newsize=(W, H))
 
-            # 🔥 FAST-CUT AGGRESSIVE ZOOM EFFECT (12% Zoom Rate Fixed Syntax)
+            # 🔥 FAST ZOOM EFFECT
             processed_clip = processed_clip.resize(lambda t: 1.0 + 0.12 * t)
 
             video_clips.append(processed_clip)
@@ -198,7 +196,6 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
         if not video_clips:
             raise RuntimeError("No visual media clips processed successfully.")
 
-        # Combined sequence with corrected syntax closure
         video_sequence = concatenate_videoclips(video_clips, method="compose")
 
         # AUDIO PROCESSING
@@ -221,8 +218,8 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
             else:
                 bg_audio = bg_audio.subclip(0, total_dur)
 
-            # Boosted Volume for Crisp Suspense (22%)
-            bg_audio     = afx.volumex(bg_audio, 0.22)
+            # High Retention Suspense Vibe (25% Volume Setup)
+            bg_audio     = afx.volumex(bg_audio, 0.25)
             final_audio  = CompositeAudioClip([voice_audio, bg_audio])
         else:
             logger.warning("No music available — rendering with voice only.")
@@ -247,6 +244,8 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
 
         logger.info(f"Rendering compressed fast-cut short output file to -> {final_path}")
 
+        # 🔥 FFMPEG HARDWARE MIXING FILTER INJECTED
+        # Yeh parameters audio tracks ko drop hone se rokenge aur completely mix karenge Linux runners par
         final_video.write_videofile(
             str(final_path),
             fps=FPS,
@@ -257,6 +256,7 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
             preset="ultrafast",
             threads=2,
             logger=None,
+            ffmpeg_params=["-filter_complex", "amix=inputs=2:duration=first:dropout_transition=2"] if music_path else None
         )
 
         return str(final_path)
