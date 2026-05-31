@@ -1,5 +1,5 @@
 """
-uploader.py — Secure Channel Publisher Engine (WITH SAFE STORAGE CLEANUP)
+uploader.py — Secure Channel Publisher Engine (WITH SAFE STORAGE CLEANUP & FORCED AI LABEL)
 AI Dark Realities · Short-Form Video Pipeline
 ─────────────────────────────────────────────────────────────────────────────────────
 """
@@ -191,7 +191,7 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
         thumbnail_url = generate_thumbnail_url(cloudinary_public_id)
 
     # ------------------------------------------------
-    # PHASE 1: YOUTUBE UPLOAD
+    # PHASE 1: YOUTUBE UPLOAD (FIXED FOR AI LABEL & SPEED INDEXING)
     # ------------------------------------------------
     youtube = _get_youtube_service()
     if not youtube:
@@ -204,16 +204,27 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
                     "title": title[:100],
                     "description": full_description,
                     "tags": [tag.replace("#", "") for tag in hashtags],
-                    "categoryId": "22"
+                    "categoryId": "22",
+                    "defaultAudioLanguage": "en-US",  # Goli Speed Indexing Signal 1
+                    "defaultLanguage": "en-US"         # Goli Speed Indexing Signal 2
                 },
                 "status": {
                     "privacyStatus": "public",
                     "selfDeclaredMadeForKids": False,
-                    "selfDeclaredMadeWithAI": True
+                    "selfDeclaredMadeWithAI": True     # Forces the AI Label
+                },
+                "recordingDetails": {
+                    "locationDescription": "United States" # Target Country Force
                 }
             }
             media = MediaFileUpload(str(video_path), chunksize=1024 * 1024 * 2, resumable=True, mimetype="video/mp4")
-            request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
+            
+            # CRITICAL FIX: part parameter must contain 'status' and 'recordingDetails' to apply those properties!
+            request = youtube.videos().insert(
+                part="snippet,status,recordingDetails", 
+                body=body, 
+                media_body=media
+            )
 
             logger.info(f"Uploading to YouTube: '{title}'")
             response = None
@@ -255,9 +266,8 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
     # STEP 3: SAFE DELAYED CLEANUP (Wipes Cloudinary Load)
     # ------------------------------------------------
     if cloudinary_public_id:
-        # Meta servers ko background fetch karne ke liye 20 mins ka delay dena lazmi hai
         logger.info("⏳ Holding pipeline for 20 minutes to allow Meta servers to process the video stream...")
-        time.sleep(1200)  # 1200 seconds = 20 minutes
+        time.sleep(1200)  # 20 minutes delay
         
         logger.info("Wiping video from Cloudinary storage to keep server load clean...")
         cleanup_cloudinary(cloudinary_public_id)
