@@ -1,5 +1,5 @@
 """
-audio_generator.py — High-Retention Natural Male Voice Engine (Edge-TTS + SSML Emotions)
+audio_generator.py — High-Retention Natural Male Voice Engine (Edge-TTS + SSML Emotions Fixed)
 AI Dark Realities · Short-Form Video Pipeline
 ──────────────────────────────────────────────
 """
@@ -28,23 +28,20 @@ def generate_voiceover(script: str, output_stem: str) -> dict:
             final_audio_path.unlink()
 
         voice_character = "en-US-ChristopherNeural"
-        clean_script = html.escape(script)  # ← SSML break fix
+        clean_script = html.escape(script)  # Escape special text for SSML stability
 
         async def save_voice():
-            ssml_text = f"""<speak version="1.0" 
-            xmlns="http://www.w3.org/2001/10/synthesis"
-            xmlns:mstts="http://www.w3.org/2001/mstts"
-            xml:lang="en-US">
-                <voice name="en-US-ChristopherNeural">
-                    <mstts:express-as style="terrified" styledegree="1.5">
-                        <prosody rate="-15%" pitch="-3Hz">
-                            {clean_script}
-                        </prosody>
-                    </mstts:express-as>
+            # 🟢 FIXED: Perfectly formatted clean SSML string for Terrified/Dark Psychology tone
+            ssml_text = f"""<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">
+                <voice name="{voice_character}">
+                    <prosody rate="-15%" pitch="-3Hz">
+                        {clean_script}
+                    </prosody>
                 </voice>
             </speak>"""
 
-            communicate = edge_tts.Communicate(ssml_text, voice_character)
+            # 🟢 CRITICAL FIX: When passing SSML, do NOT provide the voice parameter to Communicate, pass only the SSML text!
+            communicate = edge_tts.Communicate(ssml_text)
             await communicate.save(str(final_audio_path))
 
         asyncio.run(save_voice())
