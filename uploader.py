@@ -1,5 +1,5 @@
 """
-uploader.py — Secure Channel Publisher Engine (FINAL - FB DISABLED, INSTA FIXED)
+uploader.py — Secure Channel Publisher Engine (FINAL - FB DISABLED, INSTA FIXED v2)
 AI Dark Realities · Short-Form Video Pipeline
 ─────────────────────────────────────────────────────────────────────────────────────
 """
@@ -148,16 +148,15 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
 
 def generate_temporary_url(video_path: str) -> str:
     try:
-        url = "https://file.io/?expires=1h"
+        url = "https://0x0.st"
         with open(video_path, 'rb') as video_file:
             files = {'file': video_file}
             response = requests.post(url, files=files, timeout=120)
-        data = response.json()
-        if data.get('success'):
-            link = data.get('link')
-            logger.info(f"file.io URL generated: {link}")
+        if response.status_code == 200 and response.text.startswith("https"):
+            link = response.text.strip()
+            logger.info(f"0x0.st URL generated: {link}")
             return link
-        logger.error(f"file.io upload failed: {data}")
+        logger.error(f"0x0.st upload failed: {response.text}")
         return None
     except Exception as e:
         logger.error(f"Error generating temporary URL: {e}")
