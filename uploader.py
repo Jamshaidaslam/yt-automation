@@ -1,5 +1,5 @@
 """
-uploader.py — Secure Channel Publisher Engine (FINAL - CLOUDINARY + INSTA FIXED)
+uploader.py — Secure Channel Publisher Engine (FINAL - FULL CLOUDINARY OPTIMIZED)
 AI Dark Realities · Short-Form Video Pipeline
 ─────────────────────────────────────────────────────────────────────────────────────
 """
@@ -11,12 +11,15 @@ import time
 import requests
 import cloudinary
 import cloudinary.uploader
+import cloudinary.utils
 from pathlib import Path
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
+from googleapiclient.http import MediaFileUpload, MediaIoBaseUpload
+import urllib.request
+import io
 
 try:
     import config
@@ -38,10 +41,12 @@ cloudinary.config(
     secure=True
 )
 
+
 def _get_youtube_service():
     creds = None
-    scopes = ["https://www.googleapis.com/auth/youtube.upload"]
-    
+    scopes = ["https://www.googleapis.com/auth/youtube.upload",
+              "https://www.googleapis.com/auth/youtube"]
+
     if os.environ.get("YOUTUBE_TOKEN_JSON"):
         try:
             token_data = json.loads(os.environ.get("YOUTUBE_TOKEN_JSON"))
@@ -79,24 +84,115 @@ def _get_youtube_service():
         else:
             logger.warning("YouTube authentication keys are missing. Skipping deployment engine layer.")
             return None
-        
+
     return build("youtube", "v3", credentials=creds)
 
 
+def upload_to_cloudinary(video_path: str) -> dict:
+    """Upload video to Cloudinary with auto compression. Returns public_id and secure_url."""
+    try:
+        logger.info("Uploading to Cloudinary with auto compression...")
+        upload_result = cloudinary.uploader.upload(
+            video_path,
+            resource_type="video",
+            folder="yt_automation",
+            quality="auto",
+            fetch_format="mp4",
+            overwrite=True,
+            invalidate=True
+        )
+        url = upload_result.get("secure_url")
+        public_id = upload_result.get("public_id")
+        logger.info(f"✅ Cloudinary upload successful: {url}")
+        return {"url": url, "public_id": public_id}
+    except Exception as e:
+        logger.error(f"Cloudinary upload error: {e}")
+        return {"url": None, "public_id": None}
+
+
+def generate_thumbnail_url(public_id: str) -> str:
+    """Generate best-frame thumbnail from Cloudinary video."""
+    try:
+        thumbnail_url, _ = cloudinary.utils.cloudinary_url(
+            public_id,
+            resource_type="video",
+            format="jpg",
+            transformation=[
+                {"width": 1280, "height": 720, "crop": "fill"},
+                {"quality": "auto"},
+                {"effect": "sharpen"}
+            ]
+        )
+        logger.info(f"✅ Thumbnail URL generated: {thumbnail_url}")
+        return thumbnail_url
+    except Exception as e:
+        logger.error(f"Thumbnail generation error: {e}")
+        return None
+
+
+def set_youtube_thumbnail(youtube, video_id: str, thumbnail_url: str):
+    """Download thumbnail from Cloudinary and upload to YouTube."""
+    try:
+        logger.info("Downloading thumbnail from Cloudinary...")
+        with urllib.request.urlopen(thumbnail_url) as response:
+            thumbnail_data = response.read()
+
+        logger.info("Setting thumbnail on YouTube...")
+        youtube.thumbnails().set(
+            videoId=video_id,
+            media_body=MediaIoBaseUpload(
+                io.BytesIO(thumbnail_data),
+                mimetype="image/jpeg"
+            )
+        ).execute()
+        logger.info("✅ YouTube thumbnail set successfully!")
+    except Exception as e:
+        logger.error(f"YouTube thumbnail set failed: {e}")
+
+
+def cleanup_cloudinary(public_id: str):
+    """Delete video from Cloudinary after all uploads complete."""
+    try:
+        cloudinary.uploader.destroy(public_id, resource_type="video")
+        logger.info(f"✅ Cloudinary cleanup done: {public_id}")
+    except Exception as e:
+        logger.error(f"Cloudinary cleanup error: {e}")
+
+
 def upload_all_platforms(video_path: str, seo: dict) -> dict:
+    """Core pipeline gateway executing multi-platform automated deployment."""
     logger.info(f"Initiating cloud publisher engine for: {video_path}")
-    
+
     title = seo.get("title", "Dark Realities Shocking Fact")
     description = seo.get("description", "A documentary discovery about human behavior.")
     hashtags = seo.get("hashtags", ["#Shorts", "#DarkPsychology", "#Mysteries"])
-    
+
     if "#Shorts" not in title and "#shorts" not in title:
         title = f"{title[:50]} #Shorts"
-        
+
     full_description = f"{description}\n\n" + " ".join(hashtags)
     results = {"youtube": "skipped", "facebook": "disabled", "instagram": "skipped"}
-    
-    # PHASE 1: YOUTUBE
+
+    # ------------------------------------------------
+    # STEP 1: CLOUDINARY UPLOAD (One upload, used everywhere)
+    # ------------------------------------------------
+    cloudinary_data = upload_to_cloudinary(video_path)
+    cloudinary_url = cloudinary_data["url"]
+    cloudinary_public_id = cloudinary_data["public_id"]
+
+    if not cloudinary_url:
+        logger.error("Cloudinary upload failed — aborting Instagram. YouTube will still proceed.")
+
+    # ------------------------------------------------
+    # STEP 2: GENERATE THUMBNAIL
+    # ------------------------------------------------
+    thumbnail_url = None
+    if cloudinary_public_id:
+        thumbnail_url = generate_thumbnail_url(cloudinary_public_id)
+
+    # ------------------------------------------------
+    # PHASE 1: YOUTUBE UPLOAD + THUMBNAIL
+    # ------------------------------------------------
     youtube = _get_youtube_service()
     if not youtube:
         logger.warning("YouTube API service initialization skipped.")
@@ -118,66 +214,55 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
             }
             media = MediaFileUpload(str(video_path), chunksize=1024 * 1024 * 2, resumable=True, mimetype="video/mp4")
             request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
-            
+
             logger.info(f"Uploading to YouTube: '{title}'")
             response = None
             while response is None:
                 status, response = request.next_chunk()
                 if status:
                     logger.info(f"YouTube Upload Progress: {int(status.progress() * 100)}%")
-                    
+
             youtube_id = response.get('id')
             logger.info(f"✅ YouTube Upload Successful! Video ID: {youtube_id}")
             results["youtube"] = f"success_id_{youtube_id}"
+
+            # Set thumbnail on YouTube
+            if thumbnail_url and youtube_id:
+                set_youtube_thumbnail(youtube, youtube_id, thumbnail_url)
 
         except Exception as err:
             logger.error(f"YouTube upload failed: {err}")
             results["youtube"] = f"failed: {str(err)}"
 
+    # ------------------------------------------------
     # PHASE 2: FACEBOOK — DISABLED
+    # ------------------------------------------------
     logger.info("Facebook upload skipped — pending Meta app permissions fix.")
     results["facebook"] = "disabled_pending_fix"
 
-    # PHASE 3: INSTAGRAM
+    # ------------------------------------------------
+    # PHASE 3: INSTAGRAM REELS
+    # ------------------------------------------------
     meta_caption = f"{title}\n\n{full_description}"
 
-    if META_TOKEN and IG_ACCT_ID:
-        logger.info("Uploading video to Cloudinary for Instagram ingestion...")
-        temp_url = generate_temporary_url(video_path)
-        if temp_url:
-            logger.info(f"Cloudinary URL ready: {temp_url}")
-            ig_res = post_to_instagram_via_url(temp_url, meta_caption)
-            results["instagram"] = ig_res
-        else:
-            results["instagram"] = "failed_temp_url_generation"
+    if META_TOKEN and IG_ACCT_ID and cloudinary_url:
+        ig_res = post_to_instagram_via_url(cloudinary_url, meta_caption)
+        results["instagram"] = ig_res
     else:
-        logger.warning("Instagram skipped: Missing META_ACCESS_TOKEN or INSTAGRAM_BUSINESS_ID.")
+        logger.warning("Instagram skipped: Missing token, ID, or Cloudinary URL.")
+
+    # ------------------------------------------------
+    # STEP 3: CLOUDINARY CLEANUP
+    # ------------------------------------------------
+    if cloudinary_public_id:
+        logger.info("Cleaning up Cloudinary storage...")
+        cleanup_cloudinary(cloudinary_public_id)
 
     return results
 
 
-def generate_temporary_url(video_path: str) -> str:
-    try:
-        logger.info("Uploading to Cloudinary...")
-        upload_result = cloudinary.uploader.upload(
-            video_path,
-            resource_type="video",
-            folder="yt_automation",
-            overwrite=True,
-            invalidate=True
-        )
-        url = upload_result.get("secure_url")
-        if url:
-            logger.info(f"✅ Cloudinary upload successful: {url}")
-            return url
-        logger.error("Cloudinary upload returned no URL.")
-        return None
-    except Exception as e:
-        logger.error(f"Cloudinary upload error: {e}")
-        return None
-
-
 def post_to_instagram_via_url(video_url: str, caption: str) -> str:
+    """Publishes video as Instagram Reel via Meta Graph API."""
     try:
         # Step 1: Create media container
         container_url = f"https://graph.facebook.com/v20.0/{IG_ACCT_ID}/media"
@@ -195,7 +280,7 @@ def post_to_instagram_via_url(video_url: str, caption: str) -> str:
             logger.error(f"Instagram container creation failed: {res_data}")
             return f"failed_container_creation: {json.dumps(res_data)}"
 
-        # Step 2: Wait for processing
+        # Step 2: Wait for Instagram processing
         logger.info("Waiting 60 seconds for Instagram to process video...")
         time.sleep(60)
 
