@@ -129,7 +129,7 @@ def _call_groq(topic: str, model: str) -> dict:
     response = _client.chat.completions.create(
         model=model,
         max_tokens=1000,
-        temperature=0.78,  # Optimized for rock-solid JSON extraction
+        temperature=0.78,
         response_format={'type': 'json_object'},
         messages=[
             {'role': 'system', 'content': SYSTEM_PROMPT},
@@ -159,7 +159,7 @@ def generate_script(topic: str | None = None) -> dict:
     for model in MODEL_CHAIN:
         try:
             data = _call_groq(topic, model)
-            _validate_and_fix(data)
+            _validate_and_fix(data, topic)  # Topic pass kiya default backup ke liye
             _log_quality_check(data)
             logger.info(f'Script generated via {model}')
             return data
@@ -170,19 +170,24 @@ def generate_script(topic: str | None = None) -> dict:
 
     raise RuntimeError(f'All Groq models failed. Last error: {last_error}')
 
-def _validate_and_fix(data: dict) -> None:
-    for key in ('topic', 'script', 'broll_keywords', 'seo'):
-        if key not in data:
-            data[key] = 'Missing data'
+def _validate_and_fix(data: dict, selected_topic: str) -> None:
+    # "Missing data" text hata kar real dynamic fallback laga diya
+    if 'topic' not in data or data['topic'] == 'Missing data':
+        data['topic'] = selected_topic
 
-    seo = data.get('seo', {})
-    if not isinstance(seo, dict):
-        data['seo'] = seo = {}
-    for key in ('title', 'description', 'hashtags'):
-        if key not in seo:
-            seo[key] = 'Missing seo data'
+    if 'script' not in data or data['script'] == 'Missing data' or len(data.get('script', '')) < 10:
+        data['script'] = f"Dark Psychology Fact: {selected_topic}. This cognitive shortcut manipulates human perception instantly, forcing the subconscious mind to react before logic can take control. Protect your brain chemistry from these silent neural loops."
 
-    if not isinstance(data['broll_keywords'], list):
+    if 'seo' not in data:
+        data['seo'] = {}
+        
+    seo = data['seo']
+    if 'title' not in seo:
+        seo['title'] = "The Dark Reality They Hide From You"
+    if 'description' not in seo:
+        seo['description'] = "Unlocking elite cognitive dark secrets and viral psychological analysis."
+
+    if not isinstance(data.get('broll_keywords'), list):
         data['broll_keywords'] = [
             'dark psychology aesthetic cinematic',
             'mysterious shadow manipulation',
@@ -196,7 +201,6 @@ def _validate_and_fix(data: dict) -> None:
     if isinstance(seo.get('title'), str) and len(seo['title']) > 60:
         seo['title'] = seo['title'][:52] + '...'
 
-    # Forced strict tags to instantly map USA/UK feeds without triggering meta-spam blocks
     if not isinstance(seo.get('hashtags'), list) or len(seo['hashtags']) > 4:
         seo['hashtags'] = ['#Shorts', '#DarkPsychology', '#CognitiveDark']
 
