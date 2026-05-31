@@ -1,4 +1,3 @@
-Yah audio ka code
 """
 audio_generator.py — High-Retention Natural Male Voice Engine (Edge-TTS Sync)
 AI Dark Realities · Short-Form Video Pipeline
