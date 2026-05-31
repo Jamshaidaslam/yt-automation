@@ -44,8 +44,7 @@ cloudinary.config(
 
 def _get_youtube_service():
     creds = None
-    scopes = ["https://www.googleapis.com/auth/youtube.upload",
-              "https://www.googleapis.com/auth/youtube"]
+    scopes = ["https://www.googleapis.com/auth/youtube.upload"]
 
     if os.environ.get("YOUTUBE_TOKEN_JSON"):
         try:
@@ -89,7 +88,7 @@ def _get_youtube_service():
 
 
 def upload_to_cloudinary(video_path: str) -> dict:
-    """Upload video to Cloudinary with auto compression. Returns public_id and secure_url."""
+    """Upload video to Cloudinary with auto compression."""
     try:
         logger.info("Uploading to Cloudinary with auto compression...")
         upload_result = cloudinary.uploader.upload(
@@ -131,7 +130,7 @@ def generate_thumbnail_url(public_id: str) -> str:
 
 
 def set_youtube_thumbnail(youtube, video_id: str, thumbnail_url: str):
-    """Download thumbnail from Cloudinary and upload to YouTube."""
+    """Download thumbnail from Cloudinary and set on YouTube."""
     try:
         logger.info("Downloading thumbnail from Cloudinary...")
         with urllib.request.urlopen(thumbnail_url) as response:
@@ -174,7 +173,7 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
     results = {"youtube": "skipped", "facebook": "disabled", "instagram": "skipped"}
 
     # ------------------------------------------------
-    # STEP 1: CLOUDINARY UPLOAD (One upload, used everywhere)
+    # STEP 1: CLOUDINARY UPLOAD
     # ------------------------------------------------
     cloudinary_data = upload_to_cloudinary(video_path)
     cloudinary_url = cloudinary_data["url"]
