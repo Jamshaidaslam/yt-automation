@@ -46,17 +46,26 @@ def _get_youtube_service():
     creds = None
     scopes = ["https://www.googleapis.com/auth/youtube.upload"]
 
-    if os.environ.get("YOUTUBE_TOKEN_JSON"):
+    # GitHub Environment se direct fresh values uthana
+    client_id = os.environ.get("YOUTUBE_CLIENT_ID")
+    client_secret = os.environ.get("YOUTUBE_CLIENT_SECRET")
+    token_json_str = os.environ.get("YOUTUBE_TOKEN_JSON")
+
+    if token_json_str:
         try:
-            token_data = json.loads(os.environ.get("YOUTUBE_TOKEN_JSON"))
+            token_data = json.loads(token_json_str)
+            refresh_token = token_data.get("refresh_token")
             
-            # AUTOMATIC SECRET RECOVERY LAYER
-            # Agar JSON block mein secret missing ho, to GitHub ke YOUTUBE_CLIENT_SECRET se khud utha laye
-            if "client_secret" not in token_data and os.environ.get("YOUTUBE_CLIENT_SECRET"):
-                token_data["client_secret"] = os.environ.get("YOUTUBE_CLIENT_SECRET")
-                logger.info("Successfully recovered client_secret from GitHub repository environment.")
-                
-            creds = Credentials.from_authorized_user_info(token_data, scopes)
+            if refresh_token and client_id and client_secret:
+                logger.info("Rebuilding fresh credentials object directly from GitHub Secrets...")
+                # Bina purani JSON method par depend kiye direct stable Credentials object build karna
+                creds = Credentials(
+                    token=None,
+                    refresh_token=refresh_token,
+                    token_uri="https://oauth2.googleapis.com/token",
+                    client_id=client_id,
+                    client_secret=client_secret
+                )
         except Exception as exc:
             logger.warning(f"Cloud credentials parsing failed: {exc}")
 
@@ -67,6 +76,7 @@ def _get_youtube_service():
         except Exception as exc:
             logger.warning(f"Local token file parsing failed: {exc}")
 
+    # Access Token auto-refresh mechanism
     if creds and creds.expired and creds.refresh_token:
         try:
             logger.info("YouTube session expired. Attempting background auto-refresh...")
@@ -267,10 +277,6 @@ def post_to_facebook_via_url(video_url: str, caption: str) -> str:
             'file_url': video_url,
             'access_token': META_TOKEN
         }
-        
-        # Facebook URL integration par thumbnail images blocks karta hai.
-        # Isliye facebook khud-ba-khud auto core-frame select karega bina freeze kiye.
-
         res = requests.post(url, data=payload, timeout=60).json()
         if "id" in res:
             logger.info(f"✅ Facebook Page Upload Successful! ID: {res['id']}")
@@ -284,7 +290,6 @@ def post_to_facebook_via_url(video_url: str, caption: str) -> str:
 
 def post_to_instagram_via_url(video_url: str, caption: str) -> str:
     try:
-        # Step 1: Container banao
         container_url = f"https://graph.facebook.com/v20.0/{IG_ACCT_ID}/media"
         payload = {
             'media_type': 'REELS',
@@ -303,7 +308,6 @@ def post_to_instagram_via_url(video_url: str, caption: str) -> str:
 
         logger.info("Checking Instagram processing status...")
 
-        # Step 2: Status check loop — max 10 baar, har 15 second mein
         for i in range(10):
             time.sleep(15)
             status_res = requests.get(
@@ -322,7 +326,6 @@ def post_to_instagram_via_url(video_url: str, caption: str) -> str:
                 logger.error(f"Instagram processing error: {status_res}")
                 return f"failed_processing_error: {json.dumps(status_res)}"
 
-        # Step 3: Publish
         publish_url = f"https://graph.facebook.com/v20.0/{IG_ACCT_ID}/media_publish"
         res = requests.post(
             publish_url,
