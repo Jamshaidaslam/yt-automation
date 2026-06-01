@@ -55,6 +55,7 @@ jobs:
           GROQ_API_KEY:              ${{ secrets.GROQ_API_KEY }}
           PEXELS_API_KEY:            ${{ secrets.PEXELS_API_KEY }}
           PIXABAY_API_KEY:           ${{ secrets.PIXABAY_API_KEY }}
+          YOUTUBE_CLIENT_ID:         ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET:     ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_TOKEN_JSON:        ${{ secrets.YOUTUBE_TOKEN_JSON }}
           META_ACCESS_TOKEN:         ${{ secrets.META_ACCESS_TOKEN }}
@@ -64,8 +65,8 @@ jobs:
           CLOUDINARY_API_KEY:        ${{ secrets.CLOUDINARY_API_KEY }}
           CLOUDINARY_API_SECRET:     ${{ secrets.CLOUDINARY_API_SECRET }}
           
-          # 🔥 NEW LOGIC: Agar schedule Slot 1 hai YA Slot 3 hai YA manual run kiya hai, to YouTube upload 'true' hoga.
-          UPLOAD_TO_YOUTUBE:         ${{ (github.event.schedule == '0 1 * * *' || github.event_schedule == '0 13 * * *' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
+          # 🔥 FIX: github.event_schedule ko github.event.schedule kiya (dot lagaya)
+          UPLOAD_TO_YOUTUBE:         ${{ (github.event.schedule == '0 1 * * *' || github.event.schedule == '0 13 * * *' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
           
         run: |
           TOPIC="${{ github.event.inputs.topic }}"
