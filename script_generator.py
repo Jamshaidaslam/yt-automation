@@ -11,7 +11,7 @@ import random
 from groq import Groq
 import config
 
-logger = logging.getLogger(**name**)
+logger = logging.getLogger(__name__)
 
 # Advanced fallback topics
 
