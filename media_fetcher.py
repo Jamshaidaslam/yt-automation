@@ -1,27 +1,7 @@
 """
-media_fetcher.py — B-Roll Media Downloader
+media_fetcher.py — B-Roll Media & Clickable Thumbnail Downloader
 AI Dark Realities · Short-Form Video Pipeline
 ──────────────────────────────────────────────
-Strategy:
-  1. Query Pexels Videos API for each keyword.
-  2. If Pexels returns 0 usable results → automatically fall back to Pixabay.
-  3. Download each clip to ./output/media/<slug>.mp4
-  4. Return ordered list of local file paths for the video compiler.
-
-All downloads are skipped if the target file already exists (caching for re-runs).
-"""
-
-import os
-"""
-media_fetcher.py — B-Roll Media Downloader
-AI Dark Realities · Short-Form Video Pipeline
-──────────────────────────────────────────────
-Strategy:
-  1. Query Pexels Videos API for each keyword.
-  2. Shuffle results to maintain high visual diversity and stop scene repetition.
-  3. If Pexels returns 0 usable results → automatically fall back to Pixabay.
-  4. Download each clip to ./output/media/<slug>.mp4
-  5. Return ordered list of local file paths for the video compiler.
 """
 
 import os
@@ -32,6 +12,7 @@ import requests
 import random  # 🌟 Added for randomness and diversity
 from pathlib import Path
 from tenacity import retry, stop_after_attempt, wait_fixed
+from PIL import Image, ImageDraw, ImageFont  # 🌟 Added for professional thumbnail rendering
 
 import config
 
@@ -40,14 +21,11 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PEXELS
+# PEXELS VIDEO SEARCH
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def _search_pexels(keyword: str, per_page: int = 30) -> list[dict]:  # Increased per_page to 30 for more choice
-    """
-    Call Pexels Videos search API.
-    Returns list of video metadata dicts with keys: id, url, width, height, duration.
-    """
+def _search_pexels(keyword: str, per_page: int = 30) -> list[dict]:
+    """Call Pexels Videos search API."""
     headers = {"Authorization": config.PEXELS_API_KEY}
     params  = {
         "query":       keyword,
@@ -66,7 +44,7 @@ def _search_pexels(keyword: str, per_page: int = 30) -> list[dict]:  # Increased
     for v in videos:
         duration = v.get("duration", 0)
         if not (config.MEDIA_MIN_DURATION <= duration <= config.MEDIA_MAX_DURATION):
-            continue  # Skip clips that are too short or too long
+            continue
 
         files = v.get("video_files", [])
         files_sorted = sorted(
@@ -93,21 +71,17 @@ def _search_pexels(keyword: str, per_page: int = 30) -> list[dict]:  # Increased
                 "source":   "pexels",
             })
 
-    # 🌟 Shuffle the results so we don't pick the exact same top clips every time
     random.shuffle(results)
     logger.info(f"Pexels '{keyword}': {len(results)} usable clips found & shuffled.")
     return results
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PIXABAY  (fallback)
+# PIXABAY VIDEO SEARCH (Fallback)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def _search_pixabay(keyword: str, per_page: int = 30) -> list[dict]:  # Increased per_page to 30 for more choice
-    """
-    Call Pixabay Videos API.
-    Returns list of video metadata dicts (same schema as _search_pexels).
-    """
+def _search_pixabay(keyword: str, per_page: int = 30) -> list[dict]:
+    """Call Pixabay Videos API."""
     params = {
         "key":          config.PIXABAY_API_KEY,
         "q":            keyword,
@@ -150,23 +124,125 @@ def _search_pixabay(keyword: str, per_page: int = 30) -> list[dict]:  # Increase
             "source":   "pixabay",
         })
 
-    # 🌟 Shuffle Pixabay results too
     random.shuffle(results)
     logger.info(f"Pixabay '{keyword}': {len(results)} usable clips found & shuffled.")
     return results
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# DOWNLOADER
+# 🌟 PROFESSIONAL AUTOMATIC THUMBNAIL GENERATOR 🌟
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def generate_professional_thumbnail(keyword: str, hook_text: str, output_stem: str) -> str | None:
+    """
+    Fetches a high-resolution portrait image based on the keyword and bakes 
+    an aggressive, eye-catching, clickable text overlay onto it.
+    """
+    logger.info(f"🎨 Generating high-retention thumbnail for topic: '{keyword}'")
+    
+    # 1. Fetch Image from Pexels Photo API
+    photo_url = None
+    headers = {"Authorization": config.PEXELS_API_KEY}
+    params = {"query": keyword, "per_page": 10, "orientation": "portrait"}
+    
+    try:
+        resp = requests.get("https://api.pexels.com/v1/search", headers=headers, params=params, timeout=15)
+        if resp.status_code == 200:
+            photos = resp.json().get("photos", [])
+            if photos:
+                photo_url = random.choice(photos)["src"]["large2x"]
+    except Exception as e:
+        logger.warning(f"Failed to fetch image from Pexels, trying Pixabay: {e}")
+
+    # Fallback to Pixabay Image API if Pexels fails
+    if not photo_url:
+        try:
+            pixabay_img_url = f"https://pixabay.com/api/?key={config.PIXABAY_API_KEY}&q={requests.utils.quote(keyword)}&image_type=photo&orientation=vertical"
+            resp = requests.get(pixabay_img_url, timeout=15)
+            if resp.status_code == 200:
+                hits = resp.json().get("hits", [])
+                if hits:
+                    photo_url = random.choice(hits)["largeImageURL"]
+        except Exception as e:
+            logger.error(f"Image API fallback failed: {e}")
+
+    if not photo_url:
+        logger.warning("❌ Could not fetch unique thumbnail image. System will default to YouTube auto-frame.")
+        return None
+
+    # 2. Download Image and Process Graphic Overlay
+    try:
+        img_data = requests.get(photo_url, timeout=20).content
+        img_temp = Path(tempfile.gettempdir()) / f"raw_thumb_{output_stem}.jpg"
+        with open(img_temp, "wb") as f:
+            f.write(img_data)
+
+        # Base Configs for 9:16 Shorts Thumbnail
+        t_w, t_h = 1080, 1920
+        base_img = Image.open(img_temp).convert("RGBA").resize((t_w, t_h))
+        
+        # Dark dramatic vignetting layer to pop the text
+        overlay = Image.new("RGBA", (t_w, t_h), (0, 0, 0, 80)) # Subtle dark tint
+        final_img = Image.alpha_composite(base_img, overlay)
+        draw = ImageDraw.Draw(final_img)
+
+        # Load bold font
+        try:
+            font_name = getattr(config, "FONT_NAME", "Impact.ttf")
+            font_path = config.FONTS_DIR / font_name
+            font = ImageFont.truetype(str(font_path), 110) # Massive clickable text
+        except Exception:
+            font = ImageFont.load_default()
+
+        # Wrap text elegantly so it doesn't leave the screen margins
+        wrapped_lines = []
+        for phrase in hook_text.split("\n"):
+            wrapped_lines.extend(re.sub(r'\s+', ' ', phrase).strip().split(" "))
+        
+        # Group into 2-3 impact words per line
+        lines = []
+        for i in range(0, len(wrapped_lines), 2):
+            lines.append(" ".join(wrapped_lines[i:i+2]).upper())
+
+        # Draw heavy stroke outlines + custom bright text colors
+        current_y = int(t_h * 0.35)
+        for line in lines[:4]:  # Keep it ultra clean, max 4 lines
+            bbox = draw.textbbox((0, 0), line, font=font)
+            w = bbox[2] - bbox[0]
+            x = (t_w - w) // 2
+
+            # Dynamic toxic color scheming (Yellow/Green)
+            text_color = (255, 255, 0, 255) if len(line) % 2 == 0 else (57, 255, 20, 255)
+            
+            # Heavy Black Outline for maximum legibility over raw scenes
+            for adj_x, adj_y in [(-8, -8), (8, -8), (-8, 8), (8, 8), (-6, 0), (6, 0), (0, -6), (0, 6)]:
+                draw.text((x + adj_x, current_y + adj_y), line, font=font, fill=(0, 0, 0, 255))
+            
+            draw.text((x, current_y), line, font=font, fill=text_color)
+            current_y += 140
+
+        # Save out clean thumbnail image
+        thumb_path = config.FINAL_VIDEOS_DIR / f"thumb_{output_stem}.jpg"
+        final_img.convert("RGB").save(thumb_path, "JPEG", quality=95)
+        
+        if img_temp.exists():
+            os.remove(img_temp)
+            
+        logger.info(f"✅ Clickable Professional Thumbnail Generated successfully: {thumb_path.name}")
+        return str(thumb_path)
+
+    except Exception as e:
+        logger.error(f"Error drawing thumbnail layout: {e}")
+        return None
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DOWNLOADER CORE
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @retry(stop=stop_after_attempt(config.API_RETRY_ATTEMPTS),
        wait=wait_fixed(config.API_RETRY_WAIT_SEC))
 def _download_clip(url: str, dest_path: Path) -> bool:
-    """
-    Stream-download a single video clip to dest_path.
-    Returns True on success, raises on failure.
-    """
     if dest_path.exists() and dest_path.stat().st_size > 50_000:
         logger.info(f"Cache hit: {dest_path.name}")
         return True
@@ -183,7 +259,6 @@ def _download_clip(url: str, dest_path: Path) -> bool:
 
 
 def _slug(text: str) -> str:
-    """Convert arbitrary text to a safe filename slug."""
     return re.sub(r"[^a-z0-9_-]", "_", text.lower())[:40]
 
 
@@ -192,11 +267,6 @@ def _slug(text: str) -> str:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def fetch_broll_clips(keywords: list[str], clips_per_keyword: int = None) -> list[str]:
-    """
-    For each keyword: try Pexels → fallback to Pixabay if 0 results.
-    Downloads up to `clips_per_keyword` clips per keyword.
-    Returns a de-duplicated list of local file paths (str) ready for the compiler.
-    """
     if clips_per_keyword is None:
         clips_per_keyword = config.MEDIA_PER_KEYWORD
 
@@ -204,14 +274,12 @@ def fetch_broll_clips(keywords: list[str], clips_per_keyword: int = None) -> lis
     seen_ids: set[str]   = set()
 
     for keyword in keywords:
-        # ── 1. Try Pexels ────────────────────────────────────────────────────
         try:
             candidates = _search_pexels(keyword)
         except Exception as exc:
             logger.warning(f"Pexels error for '{keyword}': {exc}")
             candidates = []
 
-        # ── 2. Fallback to Pixabay ──────────────────────────────────────────
         if not candidates:
             logger.info(f"No Pexels results for '{keyword}' → trying Pixabay…")
             try:
@@ -242,15 +310,17 @@ def fetch_broll_clips(keywords: list[str], clips_per_keyword: int = None) -> lis
                 if ok:
                     all_paths.append(str(dest))
                     downloaded += 1
-            except Exception as exc:
-                logger.warning(f"Download failed for {clip['url']}: {exc}")
+                except Exception as exc:
+                    logger.warning(f"Download failed for {clip['url']}: {exc}")
 
     logger.info(f"Total B-roll clips ready: {len(all_paths)}")
     return all_paths
 
 
 if __name__ == "__main__":
-    test_keywords = ["surveillance camera city", "hacker dark room", "data center servers"]
-    paths = fetch_broll_clips(test_keywords, clips_per_keyword=2)
-    for p in paths:
-        print(p)
+    # Test Thumbnail & Clips Workflow
+    test_keywords = ["dark psychology focus"]
+    paths = fetch_broll_clips(test_keywords, clips_per_keyword=1)
+    
+    # Generate test thumbnail image
+    generate_professional_thumbnail("dark mystery brain", "MIND TRICK TO CONTROL ANYONE", "test_stem")
