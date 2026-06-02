@@ -2,7 +2,7 @@
 audio_generator.py — Voiceover Synthesis Engine (NUCLEAR HYPNOTIC EDGE-TTS v6.0)
 AI Dark Realities · Short-Form Video Pipeline
 Optimized for: High-Retention USA/UK Dark Psychology Niche
-Formula: en-US-GuyNeural + Hypnotic Slowdown (-5%) + Deep Authority Pitch (-2st)
+Formula: en-US-GuyNeural + Hypnotic Slowdown (-5%) + Deep Authority Pitch (-3Hz)
 ─────────────────────────────────────────────────────────────────────────────────────
 """
 
@@ -34,12 +34,12 @@ VOICE_PROFILES = {
     "guy_dark": {
         "name": "en-US-GuyNeural",
         "rate": "-5%",       # Hypnotic slow delivery (approx 140 WPM)
-        "pitch": "-2st"      # Deep authority pitch shift
+        "pitch": "-3Hz"      # 🔥 FIXED: Rigid Hz format for deep authority pitch shift
     },
     "ryan_uk": {
         "name": "en-GB-RyanNeural",
         "rate": "-5%",       # British Classy Deep
-        "pitch": "-1st"      # Subtle bass boost for UK market
+        "pitch": "-2Hz"      # 🔥 FIXED: Rigid Hz format for subtle bass boost
     },
     "andrew_story": {
         "name": "en-US-AndrewNeural",
