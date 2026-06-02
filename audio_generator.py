@@ -1,6 +1,7 @@
 """
-audio_generator.py — Voiceover Synthesis Engine (HUMAN MODE + PERFECT SYNC v3.4)
+audio_generator.py — Voiceover Synthesis Engine (HUMAN MODE + RANDOM SYNC v3.6)
 AI Dark Realities · Short-Form Video Pipeline
+Fixed: Re-engineered filler injection with dynamic intervals and dual-layer probability.
 Fixed: Voice-speed lead error using automatic filler absorption and predictive human offset.
 Tested: Fully compatible with GitHub Actions and Python 3.10+ environments.
 ──────────────────────────────────────────────
@@ -26,7 +27,7 @@ AUDIO_OUTPUT_DIR = Path("output/audio")
 AUDIO_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # Human Mode Settings
-PAUSE_PROBABILITY = 0.15  # 15% chance har 8-12 words pe pause
+PAUSE_PROBABILITY = 0.15  # 15% overall chance check for dynamic triggers
 ROOM_NOISE_VOLUME = 0.08  # 8% volume pe background noise
 BREATH_VOLUME = 0.15  # Saans ki awaz
 
@@ -38,10 +39,10 @@ def generate_voiceover(script: str, output_stem: str) -> dict:
     Human-like voiceover with REAL word timings from Edge-TTS
     Returns: audio_path, duration, word_timings - 100% sync
     """
-    logger.info("Initializing Human Mode TTS with Real Sync...")
+    logger.info("Initializing Human Mode TTS with Advanced Randomizer...")
     audio_path = AUDIO_OUTPUT_DIR / f"{output_stem}.mp3"
 
-    # Step 1: Script me human pauses + filler words inject karo
+    # Step 1: Script me human tehrao + fillers bilkul random gaps ke sath inject karo
     human_script = _add_human_pauses(script)
 
     # Step 2: Clean text and format safely for Edge-TTS API
@@ -61,7 +62,7 @@ def generate_voiceover(script: str, output_stem: str) -> dict:
     duration_sec = audio_clip.duration
     audio_clip.close()
 
-    logger.info(f"✅ Human voiceover generated: {duration_sec:.2f}s")
+    logger.info(f"✅ Random-infused human voiceover generated: {duration_sec:.2f}s")
 
     # Step 4: REAL word timings use karo - 100% Calibrated Match
     word_timings = _extract_word_timings_real(clean_text, duration_sec)
@@ -97,26 +98,39 @@ async def _synthesize_audio_edge(text: str, output_path: str, rate: str):
 
 def _add_human_pauses(script: str) -> str:
     """
-    Har 8-12 words ke baad random pause... add karta hai
-    "umm, like, right" wale filler bhi inject karta hai
+    Script me tehrao (...) aur human fillers (umm, like) ko bilkul random 
+    jaga par aur random gaps ke sath inject karta hai taake har video unique bane.
     """
     words = script.split()
     result = []
     word_count = 0
+    
+    # Har run par random initial trigger gap set karo (e.g., pehla pause 5 words baad ya 14 words baad)
+    next_pause_trigger = random.randint(5, 14)
     filler_words = ["umm", "like", "you know", "right", "actually"]
 
     for i, word in enumerate(words):
         result.append(word)
         word_count += 1
 
-        # Har 8-12 words pe pause check
-        if word_count >= random.randint(8, 12):
+        # Jab dynamic step complete ho jaye
+        if word_count >= next_pause_trigger:
             if random.random() < PAUSE_PROBABILITY:
-                if random.random() < 0.7:
+                roll = random.random()
+                
+                if roll < 0.50:
+                    # 50% Chance: Sirf natural tehrao/comma pause aaye
                     result.append("...")
-                else:
+                elif roll < 0.85:
+                    # 35% Chance: Single filler word blend ho aage
                     result.append(random.choice(filler_words) + "...")
+                else:
+                    # 15% Chance: Fast double human fillers sequence generate ho
+                    result.append(f"{random.choice(filler_words)}... {random.choice(filler_words)}...")
+            
+            # Counter clear karke agla pattern range choose karo completely random
             word_count = 0
+            next_pause_trigger = random.randint(6, 15)
 
     return " ".join(result)
 
@@ -135,11 +149,7 @@ def _add_human_effects(audio_path: str, output_stem: str) -> str:
 
     # 3. Sab combine karo
     final_audio = CompositeAudioClip([main_audio, room_noise, breath_audio])
-    
-    # Explicitly set duration to bypass MoviePy validation crash
     final_audio.duration = duration
-
-    # Static volume level applying to fix lambda multiply function error
     final_audio = final_audio.volumex(1.0)
 
     output_path = AUDIO_OUTPUT_DIR / f"{output_stem}_human.mp3"
@@ -151,7 +161,7 @@ def _add_human_effects(audio_path: str, output_stem: str) -> str:
         logger=None
     )
 
-    # Properly closing all open audio frames to clear RAM
+    # Clean clips memory to save workflow crash
     main_audio.close()
     room_noise.close()
     breath_audio.close()
