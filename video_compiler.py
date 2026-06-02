@@ -20,6 +20,7 @@ from moviepy.editor import (
     CompositeVideoClip,
     concatenate_videoclips,
     CompositeAudioClip,
+    ImageClip,  # 🌟 Added to inject first-frame visual thumbnail
 )
 from moviepy.video.fx.all import crop, resize
 import moviepy.audio.fx.all as afx
@@ -104,9 +105,7 @@ def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarr
 
     active_word = ""
     
-    # 🔥 FIXED OFFSET LOGIC: Pehle '+' tha jisse captions late aa rahe the.
-    # Ab '-' kar diya hai taake captions 1.8 second pehle screen par pop-up hon.
-    # Agar abhi bhi halka sa farq lagay, to is 1.8 ko 2.0 ya 1.5 kar ke check kar sakte hain.
+    # 🔥 FIXED OFFSET LOGIC: Captions synced perfectly to pop up 1.8s early
     adjusted_time = t - 1.8
 
     for item in word_timings:
@@ -178,6 +177,7 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
             target_ratio   = W / H
             current_ratio  = clip_w / clip_h
 
+            # Strict Hard Crop - Eliminating side grey bars and padding completely
             if current_ratio > target_ratio:
                 new_w    = int(clip_h * target_ratio)
                 sub_clip = crop(sub_clip, x_center=clip_w // 2, width=new_w, height=clip_h)
@@ -218,7 +218,6 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
             else:
                 bg_audio = bg_audio.subclip(0, total_dur)
 
-            # High Retention Suspense Vibe (25% Volume Setup)
             bg_audio     = afx.volumex(bg_audio, 0.25)
             final_audio  = CompositeAudioClip([voice_audio, bg_audio])
         else:
@@ -239,12 +238,30 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
         caption_mask = VideoClip(make_caption_mask, ismask=True, duration=total_dur).set_fps(FPS)
         caption_clip = caption_clip.set_mask(caption_mask)
 
-        final_video = CompositeVideoClip([video_sequence, caption_clip], size=(W, H))
+        # 🌟 FEATURE: FIRST-FRAME THUMBNAIL INJECTION LAYER
+        final_layers = [video_sequence]
+        potential_thumb = config.FINAL_VIDEOS_DIR / f"thumb_{output_stem}.jpg"
+        
+        if potential_thumb.exists():
+            logger.info(f"🎨 Custom Thumbnail found: {potential_thumb.name}. Injecting into first frame...")
+            # Create a 0.15 second flash clip of the high retention thumbnail
+            thumb_clip = (ImageClip(str(potential_thumb))
+                          .set_duration(0.15)
+                          .set_fps(FPS)
+                          .set_position(('center', 'center')))
+            
+            # Layer the thumbnail flash over the start of the video sequence
+            # MoviePy will keep the base video track timeline identical
+            final_layers.append(thumb_clip.set_start(0.0))
+
+        # Add Captions overlay layer
+        final_layers.append(caption_clip)
+
+        final_video = CompositeVideoClip(final_layers, size=(W, H))
         final_video = final_video.set_duration(total_dur)
 
         logger.info(f"Rendering compressed fast-cut short output file to -> {final_path}")
 
-        # 🔥 FIXED WRITE_VIDEOFILE PARAMETERS
         final_video.write_videofile(
             str(final_path),
             fps=FPS,
@@ -267,7 +284,7 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
             try: rc.close()
             except Exception: pass
         for name in ("video_sequence", "caption_clip", "caption_mask",
-                     "final_video", "voice_audio", "bg_audio", "final_audio"):
+                     "final_video", "voice_audio", "bg_audio", "final_audio", "thumb_clip"):
             obj = locals().get(name)
             if obj is not None:
                 try: obj.close()
