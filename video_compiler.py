@@ -139,7 +139,16 @@ def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarr
 def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str) -> str:
     logger.info("Starting video compilation engine with Fast-Cut Aggressive Zoom...")
     final_path   = config.FINAL_VIDEOS_DIR / f"{output_stem}.mp4"
-    total_dur    = voiceover_data["duration_sec"]
+    
+    # 🌟 THUMBNAIL TIMING SETUP
+    THUMB_DURATION = 2.5  # Holds the HD Thumbnail for 2.5 seconds
+    voice_dur    = voiceover_data["duration_sec"]
+    
+    # Agar thumbnail exist karega to total duration barh jaye gi
+    potential_thumb = config.FINAL_VIDEOS_DIR / f"thumb_{output_stem}.jpg"
+    has_thumb = potential_thumb.exists()
+    
+    total_dur = voice_dur + (THUMB_DURATION if has_thumb else 0.0)
     word_timings = voiceover_data["word_timings"]
     downloaded_music = None
 
@@ -155,7 +164,7 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
     try:
         MAX_CLIP_DURATION = 2.5
 
-        while current_time < total_dur:
+        while current_time < voice_dur:
             path_str  = media_paths[media_index % len(media_paths)]
             media_index += 1
 
@@ -166,7 +175,7 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
             raw_clip = VideoFileClip(str(clip_path), audio=False)
             allocated_raw_clips.append(raw_clip)
 
-            rem_dur       = total_dur - current_time
+            rem_dur       = voice_dur - current_time
             clip_duration = min(raw_clip.duration, rem_dur, MAX_CLIP_DURATION)
 
             if clip_duration <= 0.3:
@@ -177,7 +186,6 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
             target_ratio   = W / H
             current_ratio  = clip_w / clip_h
 
-            # Strict Hard Crop - Eliminating side grey bars and padding completely
             if current_ratio > target_ratio:
                 new_w    = int(clip_h * target_ratio)
                 sub_clip = crop(sub_clip, x_center=clip_w // 2, width=new_w, height=clip_h)
@@ -202,6 +210,7 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
         voice_audio = AudioFileClip(voiceover_data["audio_path"])
         voice_audio = afx.volumex(voice_audio, 1.0)
 
+        # Music elements track should run for total video duration
         music_path = _get_music_track(total_dur)
 
         if music_path:
@@ -219,39 +228,50 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
                 bg_audio = bg_audio.subclip(0, total_dur)
 
             bg_audio     = afx.volumex(bg_audio, 0.25)
+            
+            # If thumbnail exists, delay the voice track so it perfectly syncs with clips
+            if has_thumb:
+                voice_audio = voice_audio.set_start(THUMB_DURATION)
+                
             final_audio  = CompositeAudioClip([voice_audio, bg_audio])
         else:
             logger.warning("No music available — rendering with voice only.")
+            if has_thumb:
+                voice_audio = voice_audio.set_start(THUMB_DURATION)
             final_audio = voice_audio
+
+        # Adjust video base start point if thumbnail shifts it
+        if has_thumb:
+            video_sequence = video_sequence.set_start(THUMB_DURATION)
 
         video_sequence = video_sequence.set_audio(final_audio)
 
+        # CAPTIONS TIMING ADJUSTMENT (Shifted forward by THUMB_DURATION)
         def make_caption_frame(t):
-            frame = _render_caption_frame_cached(t, word_timings)
+            adjusted_t = t - THUMB_DURATION if has_thumb else t
+            frame = _render_caption_frame_cached(adjusted_t, word_timings)
             return frame[:, :, :3]
 
         def make_caption_mask(t):
-            frame = _render_caption_frame_cached(t, word_timings)
+            adjusted_t = t - THUMB_DURATION if has_thumb else t
+            frame = _render_caption_frame_cached(adjusted_t, word_timings)
             return frame[:, :, 3] / 255.0
 
         caption_clip = VideoClip(make_caption_frame, duration=total_dur).set_fps(FPS)
         caption_mask = VideoClip(make_caption_mask, ismask=True, duration=total_dur).set_fps(FPS)
         caption_clip = caption_clip.set_mask(caption_mask)
 
-        # 🌟 FEATURE: FIRST-FRAME THUMBNAIL INJECTION LAYER
+        # 🌟 LAYER COMPOSITION
         final_layers = [video_sequence]
-        potential_thumb = config.FINAL_VIDEOS_DIR / f"thumb_{output_stem}.jpg"
         
-        if potential_thumb.exists():
-            logger.info(f"🎨 Custom Thumbnail found: {potential_thumb.name}. Injecting into first frame...")
-            # Create a 0.15 second flash clip of the high retention thumbnail
+        if has_thumb:
+            logger.info(f"🎨 Custom HD Thumbnail found: {potential_thumb.name}. Injecting for 2.5s hold window...")
             thumb_clip = (ImageClip(str(potential_thumb))
-                          .set_duration(0.15)
+                          .set_duration(THUMB_DURATION)
                           .set_fps(FPS)
+                          .resize(newsize=(W, H))  # Force HD profile mapping
                           .set_position(('center', 'center')))
             
-            # Layer the thumbnail flash over the start of the video sequence
-            # MoviePy will keep the base video track timeline identical
             final_layers.append(thumb_clip.set_start(0.0))
 
         # Add Captions overlay layer
