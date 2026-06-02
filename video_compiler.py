@@ -140,14 +140,14 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
     logger.info("Starting video compilation engine with Fast-Cut Aggressive Zoom...")
     final_path   = config.FINAL_VIDEOS_DIR / f"{output_stem}.mp4"
     
-    # 🌟 THUMBNAIL TIMING SETUP
-    THUMB_DURATION = 2.5  # Holds the HD Thumbnail for 2.5 seconds
+    # 🌟 THUMBNAIL TIMING CONFIGURATION
+    THUMB_DURATION = 2.5  # Holds the HD Thumbnail physically for 2.5 seconds
     voice_dur    = voiceover_data["duration_sec"]
     
-    # Agar thumbnail exist karega to total duration barh jaye gi
     potential_thumb = config.FINAL_VIDEOS_DIR / f"thumb_{output_stem}.jpg"
     has_thumb = potential_thumb.exists()
     
+    # Calculate global timeline duration
     total_dur = voice_dur + (THUMB_DURATION if has_thumb else 0.0)
     word_timings = voiceover_data["word_timings"]
     downloaded_music = None
@@ -210,7 +210,6 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
         voice_audio = AudioFileClip(voiceover_data["audio_path"])
         voice_audio = afx.volumex(voice_audio, 1.0)
 
-        # Music elements track should run for total video duration
         music_path = _get_music_track(total_dur)
 
         if music_path:
@@ -227,26 +226,35 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
             else:
                 bg_audio = bg_audio.subclip(0, total_dur)
 
-            bg_audio     = afx.volumex(bg_audio, 0.25)
+            bg_audio = afx.volumex(bg_audio, 0.25)
             
-            # If thumbnail exists, delay the voice track so it perfectly syncs with clips
+            # Sync timing: if thumbnail is pushed first, delay voiceover sequence
             if has_thumb:
                 voice_audio = voice_audio.set_start(THUMB_DURATION)
                 
-            final_audio  = CompositeAudioClip([voice_audio, bg_audio])
+            final_audio = CompositeAudioClip([voice_audio, bg_audio])
         else:
             logger.warning("No music available — rendering with voice only.")
             if has_thumb:
                 voice_audio = voice_audio.set_start(THUMB_DURATION)
             final_audio = voice_audio
 
-        # Adjust video base start point if thumbnail shifts it
+        # 🌟 FIX FOR YOUTUBE SHORTS BOT: Pushing thumbnail via continuous concatenation stream
         if has_thumb:
-            video_sequence = video_sequence.set_start(THUMB_DURATION)
+            logger.info(f"🎨 YouTube Core HD Thumbnail found: {potential_thumb.name}. Merging into main stream...")
+            thumb_clip = (ImageClip(str(potential_thumb))
+                          .set_duration(THUMB_DURATION)
+                          .set_fps(FPS)
+                          .resize(newsize=(W, H)))
+            
+            # Physical frame link injection loop
+            final_visual_sequence = concatenate_videoclips([thumb_clip, video_sequence], method="compose")
+        else:
+            final_visual_sequence = video_sequence
 
-        video_sequence = video_sequence.set_audio(final_audio)
+        final_visual_sequence = final_visual_sequence.set_audio(final_audio)
 
-        # CAPTIONS TIMING ADJUSTMENT (Shifted forward by THUMB_DURATION)
+        # CAPTIONS TIMING ADJUSTMENT (Shifted forward by THUMB_DURATION to map layout)
         def make_caption_frame(t):
             adjusted_t = t - THUMB_DURATION if has_thumb else t
             frame = _render_caption_frame_cached(adjusted_t, word_timings)
@@ -261,21 +269,8 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
         caption_mask = VideoClip(make_caption_mask, ismask=True, duration=total_dur).set_fps(FPS)
         caption_clip = caption_clip.set_mask(caption_mask)
 
-        # 🌟 LAYER COMPOSITION
-        final_layers = [video_sequence]
-        
-        if has_thumb:
-            logger.info(f"🎨 Custom HD Thumbnail found: {potential_thumb.name}. Injecting for 2.5s hold window...")
-            thumb_clip = (ImageClip(str(potential_thumb))
-                          .set_duration(THUMB_DURATION)
-                          .set_fps(FPS)
-                          .resize(newsize=(W, H))  # Force HD profile mapping
-                          .set_position(('center', 'center')))
-            
-            final_layers.append(thumb_clip.set_start(0.0))
-
-        # Add Captions overlay layer
-        final_layers.append(caption_clip)
+        # Master layout assembly
+        final_layers = [final_visual_sequence, caption_clip]
 
         final_video = CompositeVideoClip(final_layers, size=(W, H))
         final_video = final_video.set_duration(total_dur)
@@ -294,6 +289,23 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
             logger=None
         )
 
+        # 🌟 FFMPEG EXTRA COVER ART INTEGRATION FOR META / INSTAGRAM
+        if has_thumb:
+            try:
+                logger.info("🎬 Formatting hybrid metadata cover art for Instagram ecosystem...")
+                temp_output = str(final_path).replace(".mp4", "_meta.mp4")
+                ffmpeg_cmd = (
+                    f'ffmpeg -y -i "{final_path}" -i "{potential_thumb}" '
+                    f'-map 0 -map 1 -c copy -disposition:v:1 attached_pic '
+                    f'"{temp_output}"'
+                )
+                exit_code = os.system(ffmpeg_cmd)
+                if exit_code == 0:
+                    os.replace(temp_output, str(final_path))
+                    logger.info("✅ Hybrid Cover System locked successfully!")
+            except Exception as meta_err:
+                logger.error(f"❌ Hybrid metadata engine error: {meta_err}")
+
         return str(final_path)
 
     finally:
@@ -303,7 +315,7 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
         for rc in allocated_raw_clips:
             try: rc.close()
             except Exception: pass
-        for name in ("video_sequence", "caption_clip", "caption_mask",
+        for name in ("video_sequence", "caption_clip", "caption_mask", "final_visual_sequence",
                      "final_video", "voice_audio", "bg_audio", "final_audio", "thumb_clip"):
             obj = locals().get(name)
             if obj is not None:
