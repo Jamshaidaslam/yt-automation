@@ -105,8 +105,8 @@ def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarr
 
     active_word = ""
     
-    # 🔥 FIXED OFFSET LOGIC: Captions synced perfectly to pop up 1.8s early
-    adjusted_time = t - 1.8
+    # 🔥 FIXED OFFSET: Removed hardcoded -1.8 to prevent timeline logic breakdown
+    adjusted_time = t
 
     for item in word_timings:
         if item["start"] <= adjusted_time <= item["end"]:
@@ -160,6 +160,7 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
     current_time       = 0.0
     media_index        = 0
     bg_audio           = None
+    thumb_clip         = None
 
     try:
         MAX_CLIP_DURATION = 2.5
@@ -228,7 +229,7 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
 
             bg_audio = afx.volumex(bg_audio, 0.25)
             
-            # Sync timing: if thumbnail is pushed first, delay voiceover sequence
+            # 🔥 SYNC FIX: Shift voice audio exactly by Thumbnail Duration
             if has_thumb:
                 voice_audio = voice_audio.set_start(THUMB_DURATION)
                 
@@ -239,7 +240,7 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
                 voice_audio = voice_audio.set_start(THUMB_DURATION)
             final_audio = voice_audio
 
-        # 🌟 FIX FOR YOUTUBE SHORTS BOT: Pushing thumbnail via continuous concatenation stream
+        # 🌟 Pushing thumbnail via continuous concatenation stream
         if has_thumb:
             logger.info(f"🎨 YouTube Core HD Thumbnail found: {potential_thumb.name}. Merging into main stream...")
             thumb_clip = (ImageClip(str(potential_thumb))
@@ -247,14 +248,13 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
                           .set_fps(FPS)
                           .resize(newsize=(W, H)))
             
-            # Physical frame link injection loop
             final_visual_sequence = concatenate_videoclips([thumb_clip, video_sequence], method="compose")
         else:
             final_visual_sequence = video_sequence
 
         final_visual_sequence = final_visual_sequence.set_audio(final_audio)
 
-        # CAPTIONS TIMING ADJUSTMENT (Shifted forward by THUMB_DURATION to map layout)
+        # 🔥 CAPTIONS TIMING SYNC FIX: Adjusted precisely for seamless matching
         def make_caption_frame(t):
             adjusted_t = t - THUMB_DURATION if has_thumb else t
             frame = _render_caption_frame_cached(adjusted_t, word_timings)
@@ -315,12 +315,15 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
         for rc in allocated_raw_clips:
             try: rc.close()
             except Exception: pass
+        
+        # Fixed syntax breakdown in cleanup sequence
         for name in ("video_sequence", "caption_clip", "caption_mask", "final_visual_sequence",
                      "final_video", "voice_audio", "bg_audio", "final_audio", "thumb_clip"):
             obj = locals().get(name)
             if obj is not None:
                 try: obj.close()
                 except Exception: pass
+                
         if downloaded_music and os.path.exists(downloaded_music):
             try:
                 os.remove(downloaded_music)
