@@ -1,7 +1,7 @@
 """
 audio_generator.py — Voiceover Synthesis Engine (HUMAN MODE + PERFECT SYNC v3.0)
 AI Dark Realities · Short-Form Video Pipeline
-Fixed: Real word timings + pauses + breath + room noise
+Fixed: Pitch validation format (+Hz), real word timings, and room noise overlays
 ──────────────────────────────────────────────
 """
 
@@ -46,7 +46,7 @@ def generate_voiceover(script: str, output_stem: str) -> dict:
 
     # Step 2: TTS + Real timings generate karo
     clean_text = human_script.replace("\n", " ").replace("  ", " ").strip()
-    voice_rate = "-10%"  # Thora fast = human
+    voice_rate = "-10%"  # Thora slow/deep = human
 
     asyncio.run(_synthesize_audio_edge(clean_text, str(audio_path), voice_rate))
 
@@ -63,7 +63,7 @@ def generate_voiceover(script: str, output_stem: str) -> dict:
 
     logger.info(f"✅ Human voiceover generated: {duration_sec:.2f}s")
 
-    # 🔥 Step 4: REAL word timings use karo - guess nahi
+    # Step 4: REAL word timings use karo - guess nahi
     word_timings = _extract_word_timings_real(clean_text, duration_sec)
 
     return {
@@ -76,9 +76,9 @@ async def _synthesize_audio_edge(text: str, output_path: str, rate: str):
     """Edge-TTS with REAL word timings using SubMaker"""
     global _REAL_WORD_TIMINGS
     
-    # Pitch me halka variation: -2% to +2%
+    # 🔥 FIXED: edge_tts strictly requires Hz formatting for pitch [e.g., '+2Hz', '-1Hz']
     pitch_variation = random.randint(-2, 2)
-    pitch = f"{pitch_variation}%"
+    pitch = f"{pitch_variation:+}Hz" 
 
     communicate = edge_tts.Communicate(text, VOICE_NAME, rate=rate, pitch=pitch)
     
@@ -140,8 +140,8 @@ def _add_human_effects(audio_path: str, output_stem: str) -> str:
     # 3. Sab combine karo
     final_audio = CompositeAudioClip([main_audio, room_noise, breath_audio])
 
-    # Volume halka up-down karega = saans lene jesa
-    final_audio = final_audio.volumex(lambda t: 0.95 + 0.05 * np.sin(t * 0.3))
+    # Volume modulation for breathing feeling
+    final_audio = final_audio.volumex(lambda t: 0.96 + 0.04 * np.sin(t * 0.4))
 
     output_path = AUDIO_OUTPUT_DIR / f"{output_stem}_human.mp3"
     final_audio.write_audiofile(
@@ -156,10 +156,10 @@ def _add_human_effects(audio_path: str, output_stem: str) -> str:
     room_noise.close()
     breath_audio.close()
 
-    # Purani file delete kar do
+    # Purani temporary track file delete kar do
     try:
         os.remove(audio_path)
-    except:
+    except Exception:
         pass
 
     return str(output_path)
@@ -180,14 +180,12 @@ def _generate_breath_sounds(duration: float):
     n_samples = int(duration * fps)
     breath_track = np.zeros((n_samples, 2))
 
-    # Har 15-20 sec pe breath
     current_time = random.uniform(10, 15)
     while current_time < duration:
         start_sample = int(current_time * fps)
         breath_len = int(0.3 * fps)  # 0.3 sec ki saans
 
         if start_sample + breath_len < n_samples:
-            # Halki saans ki awaz - low frequency
             t = np.linspace(0, 0.3, breath_len)
             breath = np.sin(2 * np.pi * 80 * t) * np.exp(-5 * t) * 0.1
             breath_track[start_sample:start_sample+breath_len, 0] = breath
@@ -199,7 +197,7 @@ def _generate_breath_sounds(duration: float):
 
 def _extract_word_timings_real(text: str, total_duration: float) -> list:
     """
-    🔥 REAL word timings Edge-TTS se - 100% sync
+    REAL word timings Edge-TTS se - 100% sync
     Agar timings na mile to fallback
     """
     global _REAL_WORD_TIMINGS
@@ -211,12 +209,12 @@ def _extract_word_timings_real(text: str, total_duration: float) -> list:
     word_timings = []
     for word_obj in _REAL_WORD_TIMINGS:
         word = word_obj["text"].strip(".,!?;:()\"'")
+        # Filter layers out to avoid breaking sub timeline
         if word and word.lower() not in ["umm", "like", "right", "actually", "you", "know"]:
             # Edge-TTS gives time in 100-nanoseconds
             start = word_obj["offset"] / 10_000_000.0
             end = start + (word_obj["duration"] / 10_000_000.0)
             
-            # Duration se bahar na jaye
             if end > total_duration:
                 end = total_duration
             
@@ -230,9 +228,7 @@ def _extract_word_timings_real(text: str, total_duration: float) -> list:
     return word_timings
 
 def _extract_word_timings_simulated(text: str, total_duration: float) -> list:
-    """
-    Fallback: Agar Edge-TTS timing na de to ye use hoga
-    """
+    """Fallback: Agar Edge-TTS timing na de to ye use hoga"""
     clean_words_only = text.replace("...", " ").replace("umm", "").replace("like", "").replace("right", "").replace("you know", "").replace("actually", "")
     words = clean_words_only.split()
     total_words = len(words)
@@ -252,7 +248,6 @@ def _extract_word_timings_simulated(text: str, total_duration: float) -> list:
         start_time = current_time
         word_len_factor = len(cleaned_word) / 5.0
         word_dur = avg_word_dur * (0.8 + 0.4 * word_len_factor)
-
         end_time = start_time + word_dur
 
         if end_time > total_duration or i == total_words - 1:
