@@ -1,7 +1,7 @@
 """
-script_generator.py — Groq LLM Script Engine (VIRAL SHORT-FORM v3.1 FIXED)
+script_generator.py — Groq LLM Script Engine (VIRAL + HUMAN v3.2 FIXED)
 AI Dark Realities · YouTube Automation Pipeline
-Optimized for USA audience + 40-55 sec shorts
+Optimized for USA audience + 40-55 sec shorts + Human tone
 """
 
 import os
@@ -45,10 +45,10 @@ FALLBACK_TOPICS = [
 def generate_script(topic: str | None = None) -> dict:
     """
     Generate viral YouTube Shorts script using Groq API
-    Optimized for 40-55 sec + USA retention
+    Optimized for 40-55 sec + USA retention + Human tone
     """
 
-    logger.info("Starting Groq Script Engine v3.1...")
+    logger.info("Starting Groq Script Engine v3.2 HUMAN MODE...")
 
     api_key = os.getenv("GROQ_API_KEY") or getattr(config, "GROQ_API_KEY", None)
     if not api_key:
@@ -63,21 +63,24 @@ def generate_script(topic: str | None = None) -> dict:
         logger.info(f"Topic received: {topic}")
 
     # ---------------------------
-    # System Prompt - FIXED FOR VIRAL + USA
+    # System Prompt - FIXED FOR HUMAN TONE + VIRAL
     # ---------------------------
     system_instruction = (
-        "You are a viral YouTube Shorts script writer for USA audience.\n"
+        "You are a viral YouTube Shorts script writer for USA audience. "
+        "Write like a real friend talking to you, not like AI or news anchor.\n\n"
         "Niche: Dark Psychology & Mind Tricks.\n\n"
-        "RULES:\n"
+        "CRITICAL RULES:\n"
         "1. 65-85 words script. Max 85 words for 40-55 sec video.\n"
         "2. First 3 words MUST be: You / Your brain / Stop scrolling / 90% people / Never do this\n"
-        "3. Must include suspense + curiosity gaps. Never reveal everything early.\n"
-        "4. Add... after every 7-8 words for dramatic pause effect\n"
+        "3. Add NATURAL pauses with... every 6-8 words. Not robotic.\n"
+        "4. Add 2-3 FILLER WORDS naturally: umm, like, you know, right, actually, look\n"
         "5. Include EXACTLY ONE: 'Wait for it...' or 'But here's the twist...'\n"
-        "6. End with CTA: Follow for part 2 / Save this / Comment which one shocked you\n"
-        "7. Banned words: kill, suicide, murder, blood, death. Use 'dark trick', 'mind hack', 'psychology trap' instead\n"
-        "8. Title must be 5 words max + 1 emoji. Ex: Your Brain Lies 🧠\n"
-        "9. Tone: Direct, dark, like a smart friend warning you. Use 'you' 5+ times.\n\n"
+        "6. Use 'you' at least 5 times. Talk DIRECT to viewer.\n"
+        "7. End with casual CTA: Follow for part 2 / Save this / Comment which one shocked you\n"
+        "8. Banned words: kill, suicide, murder, blood, death. Use 'dark trick', 'mind hack', 'psychology trap' instead\n"
+        "9. Title must be 4-5 words max + 1 emoji. Ex: Your Brain Lies 🧠\n"
+        "10. Tone: Casual, dark, like a smart friend warning you in a bar. Use contractions: you're, it's, don't\n"
+        "EXAMPLE STYLE: 'Your brain... umm... it lies to you... right? Every single day... but here's the twist... you never notice it... Save this.'\n\n"
         "Return ONLY JSON:\n"
         '{"hook":"",'
         '"script":"",'
@@ -86,7 +89,7 @@ def generate_script(topic: str | None = None) -> dict:
         "}"
     )
 
-    user_prompt = f"Topic: {topic}. Write for USA audience aged 18-35."
+    user_prompt = f"Topic: {topic}. Write for USA audience aged 18-35. Make it sound human, not AI generated."
 
     try:
         completion = client.chat.completions.create(
@@ -95,7 +98,7 @@ def generate_script(topic: str | None = None) -> dict:
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": user_prompt}
             ],
-            temperature=0.8, # FIXED: 0.95 se 0.8 kiya for consistency
+            temperature=0.85, # FIXED: 0.95 se 0.85 kiya. Human but consistent
             top_p=0.9,
             response_format={"type": "json_object"}
         )
@@ -103,7 +106,7 @@ def generate_script(topic: str | None = None) -> dict:
         script_data = json.loads(completion.choices[0].message.content)
 
         # ---------------------------
-        # Validation Safety Layer - FIXED
+        # Validation Safety Layer + Human Post-Processing
         # ---------------------------
         if not isinstance(script_data.get("broll_keywords"), list) or len(script_data["broll_keywords"]) < 3:
             script_data["broll_keywords"] = [
@@ -126,6 +129,9 @@ def generate_script(topic: str | None = None) -> dict:
                 "Comment if this shocked you..."
             )
 
+        # Human tone post-processing
+        script_data["script"] = _add_human_tone(script_data["script"])
+
         if "seo" not in script_data:
             script_data["seo"] = {
                 "title": "Brain Secret 🧠",
@@ -136,33 +142,4 @@ def generate_script(topic: str | None = None) -> dict:
         word_count = len(script_data["script"].split())
         if word_count > 85:
             logger.warning(f"Script too long: {word_count} words. Truncating...")
-            words = script_data["script"].split()[:85]
-            script_data["script"] = " ".join(words) + "..."
-
-        logger.info(f"Script generated: {word_count} words")
-        return script_data
-
-    except Exception as e:
-        logger.error(f"Script generation failed: {e}")
-
-        return {
-            "hook": "Your brain already knows this secret.",
-            "script": (
-                "Your brain... detects patterns before you notice them... "
-                "Most people... ignore this hidden signal... "
-                "Wait for it... "
-                "Your subconscious... reacts faster than your thoughts... "
-                "Comment if this surprised you..."
-            ),
-            "seo": {
-                "title": "Brain Secret 🧠",
-                "description": "#darkpsychology #mindhacks #psychologyfacts"
-            },
-            "broll_keywords": [
-                "brain scan",
-                "eye closeup",
-                "shadow figure",
-                "neon brain",
-                "psychology test"
-            ]
-        }
+            words = script_data
