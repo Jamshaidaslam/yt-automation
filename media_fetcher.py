@@ -243,4 +243,93 @@ def generate_professional_thumbnail(keyword: str, hook_text: str, output_stem: s
 
 @retry(stop=stop_after_attempt(config.API_RETRY_ATTEMPTS),
        wait=wait_fixed(config.API_RETRY_WAIT_SEC))
-def _
+def _download_clip(url: str, dest_path: Path) -> bool:
+    if dest_path.exists() and dest_path.stat().st_size > 50_000:
+        logger.info(f"Cache hit: {dest_path.name}")
+        return True
+
+    logger.info(f"Downloading {url[:80]}…")
+    with requests.get(url, stream=True, timeout=60) as r:
+        r.raise_for_status()
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(dest_path, "wb") as f:
+            for chunk in r.iter_content(chunk_size=1 << 20):
+                f.write(chunk)
+    logger.info(f"Saved → {dest_path.name} ({dest_path.stat().st_size // 1024} KB)")
+    return True
+
+
+def _slug(text: str) -> str:
+    return re.sub(r"[^a-z0-9_-]", "_", text.lower())[:40]
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PUBLIC API
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def fetch_broll_clips(keywords: list[str], clips_per_keyword: int = None) -> list[str]:
+    if clips_per_keyword is None:
+        clips_per_keyword = config.MEDIA_PER_KEYWORD
+
+    all_paths: list[str] = []
+    seen_ids: set[str]   = set()
+
+    for keyword in keywords:
+        try:
+            candidates = _search_pexels(keyword)
+        except Exception as exc:
+            logger.warning(f"Pexels error for '{keyword}': {exc}")
+            candidates = []
+
+        if not candidates:
+            logger.info(f"No Pexels results for '{keyword}' → trying Pixabay…")
+            try:
+                candidates = _search_pixabay(keyword)
+            except Exception as exc:
+                logger.warning(f"Pixabay error for '{keyword}': {exc}")
+                candidates = []
+
+        if not candidates:
+            logger.warning(f"No media found for keyword: '{keyword}' — skipping.")
+            continue
+
+        downloaded = 0
+        for clip in candidates:
+            if downloaded >= clips_per_keyword:
+                break
+
+            dedup_key = f"{clip['source']}_{clip['id']}"
+            if dedup_key in seen_ids:
+                continue
+            seen_ids.add(dedup_key)
+
+            fname = f"{_slug(keyword)}_{clip['source']}_{clip['id']}.mp4"
+            dest  = config.MEDIA_DIR / fname
+
+            try:
+                ok = _download_clip(clip["url"], dest)
+                if ok:
+                    all_paths.append(str(dest))
+                    downloaded += 1
+                except Exception as exc:
+                    logger.warning(f"Download failed for {clip['url']}: {exc}")
+
+    logger.info(f"Total B-roll clips ready: {len(all_paths)}")
+    return all_paths
+
+
+if __name__ == "__main__":
+    # Test Thumbnail & Clips Workflow
+    test_keywords = ["dark psychology focus"]
+    
+    try:
+        paths = fetch_broll_clips(test_keywords, clips_per_keyword=1)
+        for p in paths:
+            print(f"Fetched clip: {p}")
+            
+        # Generate test thumbnail image
+        thumb = generate_professional_thumbnail("dark mystery brain", "MIND TRICK TO CONTROL ANYONE", "test_stem")
+        print(f"Generated thumbnail: {thumb}")
+        
+    except Exception as exc:
+        logger.error(f"Test run failed: {exc}")
