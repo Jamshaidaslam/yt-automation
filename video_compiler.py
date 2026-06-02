@@ -1,7 +1,7 @@
 """
 video_compiler.py — Core Video Rendering Engine (FAST-CUT ZOOM + PERFECT SYNC)
 AI Dark Realities · Short-Form Video Pipeline
-Fixed: First frame = 1 sec + keyframe + Caption sync offset for human feel
+Fixed: First frame = 1 sec + keyframe + Caption sync offset for human feel + Bracket fix
 ──────────────────────────────────────────────
 """
 
@@ -96,7 +96,7 @@ def _get_music_track(duration: float) -> str | None:
 
     return None
 
-def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarray:
+def _render_caption_frame_cached(t: float, word_timings: list) -> np.ndarray:
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
@@ -113,7 +113,7 @@ def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarr
 
     font = _get_font(FONT_SIZE)
 
-    # 🔥 HUMAN SHAKE: Har word ki position halki hilti rahegi
+    # HUMAN SHAKE: Har word ki position halki hilti rahegi
     shake_x = random.randint(-4, 4)
     shake_y = random.randint(-2, 2)
     current_y = int(H * 0.45) + shake_y
@@ -138,7 +138,7 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
     logger.info("Starting video compilation engine with PERFECT SYNC...")
     final_path = config.FINAL_VIDEOS_DIR / f"{output_stem}.mp4"
 
-    # 🌟 THUMBNAIL TIMING CONFIGURATION - FIXED FOR YT
+    # THUMBNAIL TIMING CONFIGURATION - FIXED FOR YT
     THUMB_DURATION = 1.0 # 1 sec = YT thumbnail
     voice_dur = voiceover_data["duration_sec"]
 
@@ -238,12 +238,9 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
                 voice_audio = voice_audio.set_start(THUMB_DURATION)
             final_audio = voice_audio
 
-        # Pushing thumbnail via continuous concatenation stream
+        # Pushing thumbnail via continuous concatenation stream - BRACKET FIXED
         if has_thumb:
             logger.info(f"🎨 YouTube Core HD Thumbnail found: {potential_thumb.name}. Merging into main stream...")
             thumb_clip = (ImageClip(str(potential_thumb))
-                        .set_duration(THUMB_DURATION)
-                        .set_fps(FPS)
-                        .resize(newsize=(W, H)))
-
-            final_visual_sequence = concatenate_videoclips([thumb_clip, video_sequence],
+                       .set_duration(THUMB_DURATION)
+                       .set_fps(FPS)
