@@ -103,7 +103,11 @@ def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarr
     draw = ImageDraw.Draw(img)
 
     active_word = ""
-    adjusted_time = t + 0.18
+    
+    # 🔥 FIXED OFFSET LOGIC: Pehle '+' tha jisse captions late aa rahe the.
+    # Ab '-' kar diya hai taake captions 1.8 second pehle screen par pop-up hon.
+    # Agar abhi bhi halka sa farq lagay, to is 1.8 ko 2.0 ya 1.5 kar ke check kar sakte hain.
+    adjusted_time = t - 1.8
 
     for item in word_timings:
         if item["start"] <= adjusted_time <= item["end"]:
@@ -241,7 +245,6 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
         logger.info(f"Rendering compressed fast-cut short output file to -> {final_path}")
 
         # 🔥 FIXED WRITE_VIDEOFILE PARAMETERS
-        # Ghalat filter_complex params hata diye hain taake FFMPEG pipe crash na kare
         final_video.write_videofile(
             str(final_path),
             fps=FPS,
