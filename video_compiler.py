@@ -1,7 +1,7 @@
 """
-video_compiler.py — Core Video Rendering Engine (FAST-CUT ZOOM + YT THUMBNAIL FIXED)
+video_compiler.py — Core Video Rendering Engine (FAST-CUT ZOOM + PERFECT SYNC)
 AI Dark Realities · Short-Form Video Pipeline
-Fixed: First frame = 1 sec + keyframe for YT Shorts thumbnail
+Fixed: First frame = 1 sec + keyframe + Caption sync offset for human feel
 ──────────────────────────────────────────────
 """
 
@@ -112,12 +112,16 @@ def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarr
         return np.array(img)
 
     font = _get_font(FONT_SIZE)
-    current_y = int(H * 0.45)
+
+    # 🔥 HUMAN SHAKE: Har word ki position halki hilti rahegi
+    shake_x = random.randint(-4, 4)
+    shake_y = random.randint(-2, 2)
+    current_y = int(H * 0.45) + shake_y
 
     bbox = draw.textbbox((0, 0), active_word, font=font)
     text_w = bbox[2] - bbox[0]
     text_h = bbox[3] - bbox[1]
-    x = (W - text_w) // 2
+    x = (W - text_w) // 2 + shake_x
 
     text_color = CAPTION_GREEN_COLOR if len(active_word) > 5 else CAPTION_YELLOW_COLOR
 
@@ -131,11 +135,11 @@ def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarr
     return np.array(img)
 
 def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str) -> str:
-    logger.info("Starting video compilation engine with YT Thumbnail Fix...")
+    logger.info("Starting video compilation engine with PERFECT SYNC...")
     final_path = config.FINAL_VIDEOS_DIR / f"{output_stem}.mp4"
 
     # 🌟 THUMBNAIL TIMING CONFIGURATION - FIXED FOR YT
-    THUMB_DURATION = 1.0 # FIXED: 2.5 se 1.0 kiya. YT 1 sec frame ko thumbnail banata hai
+    THUMB_DURATION = 1.0 # 1 sec = YT thumbnail
     voice_dur = voiceover_data["duration_sec"]
 
     potential_thumb = config.FINAL_VIDEOS_DIR / f"thumb_{output_stem}.jpg"
@@ -219,4 +223,27 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
             if bg_audio.duration < total_dur:
                 bg_audio = afx.audio_loop(bg_audio, duration=total_dur)
             else:
-                bg
+                bg_audio = bg_audio.subclip(0, total_dur)
+
+            bg_audio = afx.volumex(bg_audio, 0.25)
+
+            # SYNC FIX: Shift voice audio by Thumbnail Duration
+            if has_thumb:
+                voice_audio = voice_audio.set_start(THUMB_DURATION)
+
+            final_audio = CompositeAudioClip([voice_audio, bg_audio])
+        else:
+            logger.warning("No music available — rendering with voice only.")
+            if has_thumb:
+                voice_audio = voice_audio.set_start(THUMB_DURATION)
+            final_audio = voice_audio
+
+        # Pushing thumbnail via continuous concatenation stream
+        if has_thumb:
+            logger.info(f"🎨 YouTube Core HD Thumbnail found: {potential_thumb.name}. Merging into main stream...")
+            thumb_clip = (ImageClip(str(potential_thumb))
+                        .set_duration(THUMB_DURATION)
+                        .set_fps(FPS)
+                        .resize(newsize=(W, H)))
+
+            final_visual_sequence = concatenate_videoclips([thumb_clip, video_sequence],
