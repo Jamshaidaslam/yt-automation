@@ -1,8 +1,9 @@
 """
-video_compiler.py — Core Video Rendering Engine v3.3 FINAL
+video_compiler.py — Core Video Rendering Engine v3.5 FINAL (DYNAMIC CAPTIONS)
 AI Dark Realities · Short-Form Video Pipeline
-Fixed: All bracket + try/finally + syntax errors removed
-Tested: Python 3.10+ syntax checked
+Fixed: Added dynamic random positioning (Top, Center, Bottom) for active words.
+Fixed: Integrated real-time Kinetic Zoom Effect using custom math transformation.
+Tested: Bracket alignment and Python 3.10+ syntax error-free.
 ──────────────────────────────────────────────
 """
 
@@ -37,6 +38,7 @@ FPS = config.VIDEO_FPS
 FONT_SIZE = 95
 CAPTION_YELLOW_COLOR = (255, 255, 0, 255)
 CAPTION_GREEN_COLOR = (57, 255, 20, 255)
+CAPTION_WHITE_COLOR = (255, 255, 255, 255)
 CAPTION_STROKE_COLOR = (0, 0, 0, 255)
 
 MUSIC_DIR = Path("assets/music")
@@ -90,26 +92,75 @@ def _get_music_track(duration):
     return None
 
 def _render_caption_frame_cached(t, word_timings):
+    """
+    Renders word by word subtitles with DYNAMIC POSITIONING and KINETIC ZOOM
+    """
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
+    
     active_word = ""
+    word_index = 0
+    word_start = 0.0
+    word_end = 0.0
     adjusted_time = t
-    for item in word_timings:
+    
+    # 1. Active word aur uski static timing nikalen
+    for idx, item in enumerate(word_timings):
         if item["start"] <= adjusted_time <= item["end"]:
             active_word = item["word"].upper().strip()
+            word_index = idx
+            word_start = item["start"]
+            word_end = item["end"]
             break
+            
     if not active_word:
         return np.array(img)
-    font = _get_font(FONT_SIZE)
-    shake_x = random.randint(-4, 4)
-    shake_y = random.randint(-2, 2)
-    current_y = int(H * 0.45) + shake_y
+        
+    # 2. 🔥 DYNAMIC POSITIONING BASED ON WORD INDEX
+    # Seed lagane se word ki position frame change hone par hilegi nahi, bilkul constant rahegi
+    random.seed(word_index + 99)
+    position_choice = random.choice(['bottom', 'center', 'top'])
+    
+    if position_choice == 'bottom':
+        base_y = int(H * 0.75)
+        text_color = CAPTION_WHITE_COLOR
+    elif position_choice == 'top':
+        base_y = int(H * 0.20)
+        text_color = CAPTION_GREEN_COLOR # Top par green highlight
+    else:
+        base_y = int(H * 0.45)
+        text_color = CAPTION_YELLOW_COLOR # Center par attractive yellow highlight
+
+    # 3. 🚀 KINETIC ZOOM MATHEMATICS
+    word_duration = max(0.05, word_end - word_start)
+    progress = (adjusted_time - word_start) / word_duration
+    
+    # Text pop-up hone ke pehle 25% duration me zoom effect trigger hoga (Max 1.25x scale)
+    if progress < 0.25:
+        zoom_factor = 1.0 + (0.25 * (progress / 0.25))
+    else:
+        zoom_factor = 1.25
+        
+    dynamic_font_size = int(FONT_SIZE * zoom_factor)
+    font = _get_font(dynamic_font_size)
+    
+    # Text metrics calculate karein centers align rakhne ke liye
     bbox = draw.textbbox((0, 0), active_word, font=font)
     text_w = bbox[2] - bbox[0]
+    text_h = bbox[3] - bbox[1]
+    
+    # Shake effect adding to boost extreme retention
+    shake_x = random.randint(-4, 4)
+    shake_y = random.randint(-2, 2)
+    
     x = (W - text_w) // 2 + shake_x
-    text_color = CAPTION_GREEN_COLOR if len(active_word) > 5 else CAPTION_YELLOW_COLOR
+    current_y = base_y - (text_h // 2) + shake_y
+    
+    # Bold premium black border layout rendering
     for adj_x, adj_y in [(-6, -6), (6, -6), (-6, 6), (6, 6), (-4, 0), (4, 0), (0, -4), (0, 4)]:
         draw.text((x + adj_x, current_y + adj_y), active_word, font=font, fill=CAPTION_STROKE_COLOR)
+        
+    # Main active word draw karein
     draw.text((x, current_y), active_word, font=font, fill=text_color)
     return np.array(img)
 
@@ -265,8 +316,10 @@ def compile_video(media_paths, voiceover_data, output_stem):
                      "final_video", "voice_audio", "bg_audio", "final_audio", "thumb_clip"):
             obj = locals().get(name)
             if obj is not None:
-                try: obj.close()
-                except Exception: pass
+                try: 
+                    obj.close()
+                except Exception: 
+                    pass
         if downloaded_music and os.path.exists(downloaded_music):
             try:
                 os.remove(downloaded_music)
