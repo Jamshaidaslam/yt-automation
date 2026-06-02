@@ -101,74 +101,49 @@ def _get_youtube_service():
     return build("youtube", "v3", credentials=creds)
 
 
-def upload_to_cloudinary(video_path: str) -> dict:
+def upload_to_cloudinary(file_path: str, resource_type: str = "video") -> dict:
+    """Helper to upload either video or custom professional thumbnail to Cloudinary."""
     try:
-        logger.info("Uploading to Cloudinary with auto compression...")
+        logger.info(f"Uploading {resource_type} to Cloudinary...")
         upload_result = cloudinary.uploader.upload(
-            video_path,
-            resource_type="video",
+            file_path,
+            resource_type=resource_type,
             folder="yt_automation",
-            quality="auto",
-            fetch_format="mp4",
             overwrite=True,
             invalidate=True
         )
         url = upload_result.get("secure_url")
         public_id = upload_result.get("public_id")
-        logger.info(f"✅ Cloudinary upload successful: {url}")
+        logger.info(f"✅ Cloudinary {resource_type} upload successful: {url}")
         return {"url": url, "public_id": public_id}
     except Exception as e:
-        logger.error(f"Cloudinary upload error: {e}")
+        logger.error(f"Cloudinary {resource_type} upload error: {e}")
         return {"url": None, "public_id": None}
 
 
-def generate_thumbnail_url(public_id: str) -> str:
+def set_youtube_thumbnail_local(youtube, video_id: str, local_thumb_path: str):
+    """🔥 FIXED: Uploads the professional local generated text thumbnail directly to YouTube."""
     try:
-        thumbnail_url, _ = cloudinary.utils.cloudinary_url(
-            public_id,
-            resource_type="video",
-            format="jpg",
-            transformation=[
-                {"start_offset": "3.0"}, # 🟢 FIXED: Video ke 3rd second se frame cut karega
-                {"width": 1080, "height": 1920, "crop": "fill"},
-                {"quality": "auto"},
-                {"effect": "sharpen"}
-            ]
-        )
-        logger.info(f"✅ Thumbnail URL generated: {thumbnail_url}")
-        return thumbnail_url
-    except Exception as e:
-        logger.error(f"Thumbnail generation error: {e}")
-        return None
-
-
-def set_youtube_thumbnail(youtube, video_id: str, thumbnail_url: str):
-    try:
-        logger.info("Downloading thumbnail from Cloudinary for YouTube...")
-        with urllib.request.urlopen(thumbnail_url) as response:
-            thumbnail_data = response.read()
-        logger.info("Setting thumbnail on YouTube...")
+        logger.info(f"Uploading professional custom thumbnail to YouTube from: {local_thumb_path}")
         youtube.thumbnails().set(
             videoId=video_id,
-            media_body=MediaIoBaseUpload(
-                io.BytesIO(thumbnail_data),
-                mimetype="image/jpeg"
-            )
+            media_body=MediaFileUpload(local_thumb_path, mimetype="image/jpeg")
         ).execute()
-        logger.info("✅ YouTube thumbnail set successfully!")
+        logger.info("✅ Professional YouTube text thumbnail set successfully!")
     except Exception as e:
-        logger.error(f"YouTube thumbnail set failed: {e}")
+        logger.error(f"YouTube thumbnail upload failed: {e}")
 
 
-def cleanup_cloudinary(public_id: str):
+def cleanup_cloudinary(public_id: str, resource_type: str = "video"):
     try:
-        cloudinary.uploader.destroy(public_id, resource_type="video")
-        logger.info(f"✅ Cloudinary cleanup done: {public_id}")
+        cloudinary.uploader.destroy(public_id, resource_type=resource_type)
+        logger.info(f"✅ Cloudinary cleanup done for {resource_type}: {public_id}")
     except Exception as e:
         logger.error(f"Cloudinary cleanup error: {e}")
 
 
-def upload_all_platforms(video_path: str, seo: dict) -> dict:
+# 🔥 FIXED PARAMETER: Added thumbnail_path to prevent main.py pipeline crash
+def upload_all_platforms(video_path: str, seo: dict, thumbnail_path: str = None) -> dict:
     logger.info(f"Initiating cloud publisher engine for: {video_path}")
 
     title = seo.get("title", "Dark Realities Shocking Fact")
@@ -181,18 +156,22 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
     full_description = f"{description}\n\n" + " ".join(hashtags)
     results = {"youtube": "skipped", "facebook": "skipped", "instagram": "skipped"}
 
-    # STEP 1: CLOUDINARY UPLOAD
-    cloudinary_data = upload_to_cloudinary(video_path)
+    # STEP 1: CLOUDINARY UPLOAD (Video)
+    cloudinary_data = upload_to_cloudinary(video_path, resource_type="video")
     cloudinary_url = cloudinary_data["url"]
     cloudinary_public_id = cloudinary_data["public_id"]
 
     if not cloudinary_url:
         logger.error("Cloudinary upload failed — aborting Meta uploads.")
 
-    # STEP 2: GENERATE THUMBNAIL
-    thumbnail_url = None
-    if cloudinary_public_id:
-        thumbnail_url = generate_thumbnail_url(cloudinary_public_id)
+    # STEP 2: CLOUDINARY UPLOAD (Custom Thumbnail for Meta Graph API)
+    cloud_thumb_url = None
+    cloud_thumb_id = None
+    if thumbnail_path and os.path.exists(thumbnail_path):
+        logger.info("Uploading professional text thumbnail to cloud gateway...")
+        thumb_cloud_data = upload_to_cloudinary(thumbnail_path, resource_type="image")
+        cloud_thumb_url = thumb_cloud_data["url"]
+        cloud_thumb_id = thumb_cloud_data["public_id"]
 
     # PHASE 1: YOUTUBE
     youtube = _get_youtube_service()
@@ -206,7 +185,7 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
                     "title": title[:100],
                     "description": full_description,
                     "tags": [tag.replace("#", "") for tag in hashtags],
-                    "categoryId": "22",
+                    "categoryId": "27",  # 🔥 FIXED: Changed from '22' (Blogs) to '27' (Education) for Algorithm alignment
                     "defaultAudioLanguage": "en-US",
                     "defaultLanguage": "en-US"
                 },
@@ -235,8 +214,9 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
             logger.info(f"✅ YouTube Upload Successful! Video ID: {youtube_id}")
             results["youtube"] = f"success_id_{youtube_id}"
 
-            if thumbnail_url and youtube_id:
-                set_youtube_thumbnail(youtube, youtube_id, thumbnail_url)
+            # 🔥 FIXED: Local text poster image will be forced directly onto YouTube
+            if youtube_id and thumbnail_path and os.path.exists(thumbnail_path):
+                set_youtube_thumbnail_local(youtube, youtube_id, thumbnail_path)
 
         except Exception as err:
             logger.error(f"YouTube upload failed: {err}")
@@ -246,8 +226,8 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
     meta_caption = f"{title}\n\n{full_description}"
 
     if META_TOKEN and FB_PAGE_ID and cloudinary_url:
-        # 🟢 FIXED: Linked thumbnail_url back into the gateway execution call
-        fb_res = post_to_facebook_via_url(cloudinary_url, thumbnail_url, meta_caption)
+        # 🔥 FIXED: Passes our professional cloud-thumbnail instead of auto video frames
+        fb_res = post_to_facebook_via_url(cloudinary_url, cloud_thumb_url, meta_caption)
         results["facebook"] = fb_res
     else:
         logger.warning("Facebook skipped: Missing token, Page ID, or Cloudinary URL.")
@@ -260,10 +240,13 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
         logger.warning("Instagram skipped: Missing token, ID, or Cloudinary URL.")
 
     # STEP 3: DELAYED CLEANUP
-    if cloudinary_public_id:
-        logger.info("Waiting 3 minutes for Meta servers to finish processing...")
+    if cloudinary_public_id or cloud_thumb_id:
+        logger.info("Waiting 3 minutes for Meta servers to finish processing assets...")
         time.sleep(180)
-        cleanup_cloudinary(cloudinary_public_id)
+        if cloudinary_public_id:
+            cleanup_cloudinary(cloudinary_public_id, resource_type="video")
+        if cloud_thumb_id:
+            cleanup_cloudinary(cloud_thumb_id, resource_type="image")
 
     return results
 
@@ -276,7 +259,6 @@ def post_to_facebook_via_url(video_url: str, thumb_url: str, caption: str) -> st
             'file_url': video_url,
             'access_token': META_TOKEN
         }
-        # 🟢 FIXED: If unique thumbnail is available, pass it straight to Meta Graph
         if thumb_url:
             payload['thumb'] = thumb_url
 
@@ -298,7 +280,7 @@ def post_to_instagram_via_url(video_url: str, caption: str) -> str:
             'media_type': 'REELS',
             'video_url': video_url,
             'caption': caption,
-            'cover_frame_time': 3000, # 🟢 FIXED: Cover frame timestamp updated to 3 seconds (3000ms)
+            'cover_frame_time': 3000,
             'access_token': META_TOKEN
         }
         req = requests.post(container_url, data=payload, timeout=60)
