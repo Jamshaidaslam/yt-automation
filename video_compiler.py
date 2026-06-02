@@ -1,6 +1,7 @@
 """
-video_compiler.py — Core Video Rendering Engine (FAST-CUT ZOOM + FIXED FFMPEG OUTPUT)
+video_compiler.py — Core Video Rendering Engine (FAST-CUT ZOOM + YT THUMBNAIL FIXED)
 AI Dark Realities · Short-Form Video Pipeline
+Fixed: First frame = 1 sec + keyframe for YT Shorts thumbnail
 ──────────────────────────────────────────────
 """
 
@@ -20,7 +21,7 @@ from moviepy.editor import (
     CompositeVideoClip,
     concatenate_videoclips,
     CompositeAudioClip,
-    ImageClip,  # 🌟 Added to inject first-frame visual thumbnail
+    ImageClip,
 )
 from moviepy.video.fx.all import crop, resize
 import moviepy.audio.fx.all as afx
@@ -29,13 +30,13 @@ import config
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
 
-W   = config.VIDEO_WIDTH    # 1080
-H   = config.VIDEO_HEIGHT   # 1920
-FPS = config.VIDEO_FPS      # 30
+W = config.VIDEO_WIDTH # 1080
+H = config.VIDEO_HEIGHT # 1920
+FPS = config.VIDEO_FPS # 30
 
 FONT_SIZE = 95
 CAPTION_YELLOW_COLOR = (255, 255, 0, 255)
-CAPTION_GREEN_COLOR  = (57, 255, 20, 255)
+CAPTION_GREEN_COLOR = (57, 255, 20, 255)
 CAPTION_STROKE_COLOR = (0, 0, 0, 255)
 
 MUSIC_DIR = Path("assets/music")
@@ -49,7 +50,6 @@ DARK_MUSIC_URLS = [
     "https://cdn.pixabay.com/download/audio/2022/11/22/audio_febc508520.mp3",
 ]
 
-
 def _get_font(size: int) -> ImageFont.FreeTypeFont:
     try:
         font_name = getattr(config, "FONT_NAME", None) or getattr(config, "FONT_FILE", "Impact.ttf")
@@ -59,7 +59,6 @@ def _get_font(size: int) -> ImageFont.FreeTypeFont:
         return ImageFont.load_default()
     except Exception:
         return ImageFont.load_default()
-
 
 def _download_random_dark_music(duration: float) -> str | None:
     random.shuffle(DARK_MUSIC_URLS)
@@ -81,7 +80,6 @@ def _download_random_dark_music(duration: float) -> str | None:
             continue
     return None
 
-
 def _get_music_track(duration: float) -> str | None:
     local_tracks = [
         f for f in list(MUSIC_DIR.glob("*.mp3")) + list(MUSIC_DIR.glob("*.wav"))
@@ -98,14 +96,11 @@ def _get_music_track(duration: float) -> str | None:
 
     return None
 
-
 def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarray:
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
     active_word = ""
-    
-    # 🔥 FIXED OFFSET: Removed hardcoded -1.8 to prevent timeline logic breakdown
     adjusted_time = t
 
     for item in word_timings:
@@ -135,18 +130,17 @@ def _render_caption_frame_cached(t: float, word_timings: list[dict]) -> np.ndarr
     draw.text((x, current_y), active_word, font=font, fill=text_color)
     return np.array(img)
 
-
 def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str) -> str:
-    logger.info("Starting video compilation engine with Fast-Cut Aggressive Zoom...")
-    final_path   = config.FINAL_VIDEOS_DIR / f"{output_stem}.mp4"
-    
-    # 🌟 THUMBNAIL TIMING CONFIGURATION
-    THUMB_DURATION = 2.5  # Holds the HD Thumbnail physically for 2.5 seconds
-    voice_dur    = voiceover_data["duration_sec"]
-    
+    logger.info("Starting video compilation engine with YT Thumbnail Fix...")
+    final_path = config.FINAL_VIDEOS_DIR / f"{output_stem}.mp4"
+
+    # 🌟 THUMBNAIL TIMING CONFIGURATION - FIXED FOR YT
+    THUMB_DURATION = 1.0 # FIXED: 2.5 se 1.0 kiya. YT 1 sec frame ko thumbnail banata hai
+    voice_dur = voiceover_data["duration_sec"]
+
     potential_thumb = config.FINAL_VIDEOS_DIR / f"thumb_{output_stem}.jpg"
     has_thumb = potential_thumb.exists()
-    
+
     # Calculate global timeline duration
     total_dur = voice_dur + (THUMB_DURATION if has_thumb else 0.0)
     word_timings = voiceover_data["word_timings"]
@@ -155,18 +149,18 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
     if not media_paths:
         raise ValueError("Cannot compile video — media paths list is empty.")
 
-    video_clips        = []
+    video_clips = []
     allocated_raw_clips = []
-    current_time       = 0.0
-    media_index        = 0
-    bg_audio           = None
-    thumb_clip         = None
+    current_time = 0.0
+    media_index = 0
+    bg_audio = None
+    thumb_clip = None
 
     try:
         MAX_CLIP_DURATION = 2.5
 
         while current_time < voice_dur:
-            path_str  = media_paths[media_index % len(media_paths)]
+            path_str = media_paths[media_index % len(media_paths)]
             media_index += 1
 
             clip_path = Path(path_str)
@@ -176,22 +170,22 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
             raw_clip = VideoFileClip(str(clip_path), audio=False)
             allocated_raw_clips.append(raw_clip)
 
-            rem_dur       = voice_dur - current_time
+            rem_dur = voice_dur - current_time
             clip_duration = min(raw_clip.duration, rem_dur, MAX_CLIP_DURATION)
 
             if clip_duration <= 0.3:
                 continue
 
-            sub_clip    = raw_clip.subclip(0, clip_duration)
+            sub_clip = raw_clip.subclip(0, clip_duration)
             clip_w, clip_h = sub_clip.size
-            target_ratio   = W / H
-            current_ratio  = clip_w / clip_h
+            target_ratio = W / H
+            current_ratio = clip_w / clip_h
 
             if current_ratio > target_ratio:
-                new_w    = int(clip_h * target_ratio)
+                new_w = int(clip_h * target_ratio)
                 sub_clip = crop(sub_clip, x_center=clip_w // 2, width=new_w, height=clip_h)
             elif current_ratio < target_ratio:
-                new_h    = int(clip_w / target_ratio)
+                new_h = int(clip_w / target_ratio)
                 sub_clip = crop(sub_clip, y_center=clip_h // 2, width=clip_w, height=new_h)
 
             processed_clip = resize(sub_clip, newsize=(W, H))
@@ -216,7 +210,7 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
         if music_path:
             logger.info(f"🎵 Injecting dark music track into video...")
             bg_audio = AudioFileClip(music_path)
-            
+
             if music_path.startswith(str(MUSIC_DIR)) and "tmp" in music_path:
                 downloaded_music = music_path
             else:
@@ -225,108 +219,4 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
             if bg_audio.duration < total_dur:
                 bg_audio = afx.audio_loop(bg_audio, duration=total_dur)
             else:
-                bg_audio = bg_audio.subclip(0, total_dur)
-
-            bg_audio = afx.volumex(bg_audio, 0.25)
-            
-            # 🔥 SYNC FIX: Shift voice audio exactly by Thumbnail Duration
-            if has_thumb:
-                voice_audio = voice_audio.set_start(THUMB_DURATION)
-                
-            final_audio = CompositeAudioClip([voice_audio, bg_audio])
-        else:
-            logger.warning("No music available — rendering with voice only.")
-            if has_thumb:
-                voice_audio = voice_audio.set_start(THUMB_DURATION)
-            final_audio = voice_audio
-
-        # 🌟 Pushing thumbnail via continuous concatenation stream
-        if has_thumb:
-            logger.info(f"🎨 YouTube Core HD Thumbnail found: {potential_thumb.name}. Merging into main stream...")
-            thumb_clip = (ImageClip(str(potential_thumb))
-                          .set_duration(THUMB_DURATION)
-                          .set_fps(FPS)
-                          .resize(newsize=(W, H)))
-            
-            final_visual_sequence = concatenate_videoclips([thumb_clip, video_sequence], method="compose")
-        else:
-            final_visual_sequence = video_sequence
-
-        final_visual_sequence = final_visual_sequence.set_audio(final_audio)
-
-        # 🔥 CAPTIONS TIMING SYNC FIX: Adjusted precisely for seamless matching
-        def make_caption_frame(t):
-            adjusted_t = t - THUMB_DURATION if has_thumb else t
-            frame = _render_caption_frame_cached(adjusted_t, word_timings)
-            return frame[:, :, :3]
-
-        def make_caption_mask(t):
-            adjusted_t = t - THUMB_DURATION if has_thumb else t
-            frame = _render_caption_frame_cached(adjusted_t, word_timings)
-            return frame[:, :, 3] / 255.0
-
-        caption_clip = VideoClip(make_caption_frame, duration=total_dur).set_fps(FPS)
-        caption_mask = VideoClip(make_caption_mask, ismask=True, duration=total_dur).set_fps(FPS)
-        caption_clip = caption_clip.set_mask(caption_mask)
-
-        # Master layout assembly
-        final_layers = [final_visual_sequence, caption_clip]
-
-        final_video = CompositeVideoClip(final_layers, size=(W, H))
-        final_video = final_video.set_duration(total_dur)
-
-        logger.info(f"Rendering compressed fast-cut short output file to -> {final_path}")
-
-        final_video.write_videofile(
-            str(final_path),
-            fps=FPS,
-            codec="libx264",
-            audio_codec="aac",
-            bitrate="2500k",
-            audio_bitrate="128k",
-            preset="ultrafast",
-            threads=2,
-            logger=None
-        )
-
-        # 🌟 FFMPEG EXTRA COVER ART INTEGRATION FOR META / INSTAGRAM
-        if has_thumb:
-            try:
-                logger.info("🎬 Formatting hybrid metadata cover art for Instagram ecosystem...")
-                temp_output = str(final_path).replace(".mp4", "_meta.mp4")
-                ffmpeg_cmd = (
-                    f'ffmpeg -y -i "{final_path}" -i "{potential_thumb}" '
-                    f'-map 0 -map 1 -c copy -disposition:v:1 attached_pic '
-                    f'"{temp_output}"'
-                )
-                exit_code = os.system(ffmpeg_cmd)
-                if exit_code == 0:
-                    os.replace(temp_output, str(final_path))
-                    logger.info("✅ Hybrid Cover System locked successfully!")
-            except Exception as meta_err:
-                logger.error(f"❌ Hybrid metadata engine error: {meta_err}")
-
-        return str(final_path)
-
-    finally:
-        for c in video_clips:
-            try: c.close()
-            except Exception: pass
-        for rc in allocated_raw_clips:
-            try: rc.close()
-            except Exception: pass
-        
-        # Fixed syntax breakdown in cleanup sequence
-        for name in ("video_sequence", "caption_clip", "caption_mask", "final_visual_sequence",
-                     "final_video", "voice_audio", "bg_audio", "final_audio", "thumb_clip"):
-            obj = locals().get(name)
-            if obj is not None:
-                try: obj.close()
-                except Exception: pass
-                
-        if downloaded_music and os.path.exists(downloaded_music):
-            try:
-                os.remove(downloaded_music)
-                logger.info("Temp music file cleaned up.")
-            except Exception:
-                pass
+                bg
