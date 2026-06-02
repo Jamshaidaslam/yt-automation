@@ -1,8 +1,8 @@
 """
-video_compiler.py — Core Video Rendering Engine v3.5 FINAL (DYNAMIC CAPTIONS)
+video_compiler.py — Core Video Rendering Engine v3.8 (SUSPENSE TRAP EDITION)
 AI Dark Realities · Short-Form Video Pipeline
-Fixed: Added dynamic random positioning (Top, Center, Bottom) for active words.
-Fixed: Integrated real-time Kinetic Zoom Effect using custom math transformation.
+Fixed: Programmatic center position override, 1.6x scale burst, and GOLD color flash for "WAIT..."
+Fixed: Real-time audio music ducking during the hook silence freeze frame to maximize tension.
 Tested: Bracket alignment and Python 3.10+ syntax error-free.
 ──────────────────────────────────────────────
 """
@@ -37,6 +37,7 @@ FPS = config.VIDEO_FPS
 
 FONT_SIZE = 95
 CAPTION_YELLOW_COLOR = (255, 255, 0, 255)
+CAPTION_GOLD_COLOR = (255, 215, 0, 255) # Premium Gold for the Trap
 CAPTION_GREEN_COLOR = (57, 255, 20, 255)
 CAPTION_WHITE_COLOR = (255, 255, 255, 255)
 CAPTION_STROKE_COLOR = (0, 0, 0, 255)
@@ -93,7 +94,8 @@ def _get_music_track(duration):
 
 def _render_caption_frame_cached(t, word_timings):
     """
-    Renders word by word subtitles with DYNAMIC POSITIONING and KINETIC ZOOM
+    Renders word by word subtitles with DYNAMIC POSITIONING and KINETIC ZOOM.
+    Overrides everything when the hook "WAIT..." trap is triggered.
     """
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
@@ -104,7 +106,6 @@ def _render_caption_frame_cached(t, word_timings):
     word_end = 0.0
     adjusted_time = t
     
-    # 1. Active word aur uski static timing nikalen
     for idx, item in enumerate(word_timings):
         if item["start"] <= adjusted_time <= item["end"]:
             active_word = item["word"].upper().strip()
@@ -116,56 +117,71 @@ def _render_caption_frame_cached(t, word_timings):
     if not active_word:
         return np.array(img)
         
-    # 2. 🔥 DYNAMIC POSITIONING BASED ON WORD INDEX
-    # Seed lagane se word ki position frame change hone par hilegi nahi, bilkul constant rahegi
-    random.seed(word_index + 99)
-    position_choice = random.choice(['bottom', 'center', 'top'])
-    
-    if position_choice == 'bottom':
-        base_y = int(H * 0.75)
-        text_color = CAPTION_WHITE_COLOR
-    elif position_choice == 'top':
-        base_y = int(H * 0.20)
-        text_color = CAPTION_GREEN_COLOR # Top par green highlight
-    else:
-        base_y = int(H * 0.45)
-        text_color = CAPTION_YELLOW_COLOR # Center par attractive yellow highlight
+    # CRITICAL TRIGGER INTERCEPTOR: "WAIT..." Hook Check
+    is_trap_word = "WAIT" in active_word
 
-    # 3. 🚀 KINETIC ZOOM MATHEMATICS
+    if is_trap_word:
+        # Hard lock to screen exact CENTER during the silence trap
+        base_y = int(H * 0.48)
+        text_color = CAPTION_GOLD_COLOR
+    else:
+        # Dynamic positioning loop for regular content flow
+        random.seed(word_index + 99)
+        position_choice = random.choice(['bottom', 'center', 'top'])
+        
+        if position_choice == 'bottom':
+            base_y = int(H * 0.75)
+            text_color = CAPTION_WHITE_COLOR
+        elif position_choice == 'top':
+            base_y = int(H * 0.20)
+            text_color = CAPTION_GREEN_COLOR
+        else:
+            base_y = int(H * 0.45)
+            text_color = CAPTION_YELLOW_COLOR
+
+    # Kinetic Zoom Scale Config
     word_duration = max(0.05, word_end - word_start)
     progress = (adjusted_time - word_start) / word_duration
     
-    # Text pop-up hone ke pehle 25% duration me zoom effect trigger hoga (Max 1.25x scale)
-    if progress < 0.25:
-        zoom_factor = 1.0 + (0.25 * (progress / 0.25))
+    if is_trap_word:
+        # Massive screen burst effect for the hook trap (Starts at 1.1x and scales up to 1.6x)
+        zoom_factor = 1.1 + (0.5 * (progress / 1.0))
     else:
-        zoom_factor = 1.25
+        if progress < 0.25:
+            zoom_factor = 1.0 + (0.25 * (progress / 0.25))
+        else:
+            zoom_factor = 1.25
         
     dynamic_font_size = int(FONT_SIZE * zoom_factor)
     font = _get_font(dynamic_font_size)
     
-    # Text metrics calculate karein centers align rakhne ke liye
     bbox = draw.textbbox((0, 0), active_word, font=font)
     text_w = bbox[2] - bbox[0]
     text_h = bbox[3] - bbox[1]
     
-    # Shake effect adding to boost extreme retention
-    shake_x = random.randint(-4, 4)
-    shake_y = random.randint(-2, 2)
+    # Extreme screen retention shaker math
+    if is_trap_word:
+        shake_x = random.randint(-6, 6) # Extra violent shake for the freeze text
+        shake_y = random.randint(-4, 4)
+    else:
+        shake_x = random.randint(-4, 4)
+        shake_y = random.randint(-2, 2)
     
     x = (W - text_w) // 2 + shake_x
     current_y = base_y - (text_h // 2) + shake_y
     
     # Bold premium black border layout rendering
-    for adj_x, adj_y in [(-6, -6), (6, -6), (-6, 6), (6, 6), (-4, 0), (4, 0), (0, -4), (0, 4)]:
+    stroke_thickness = 8 if is_trap_word else 6
+    for adj_x, adj_y in [(-stroke_thickness, -stroke_thickness), (stroke_thickness, -stroke_thickness), 
+                         (-stroke_thickness, stroke_thickness), (stroke_thickness, stroke_thickness), 
+                         (-stroke_thickness, 0), (stroke_thickness, 0), (0, -stroke_thickness), (0, stroke_thickness)]:
         draw.text((x + adj_x, current_y + adj_y), active_word, font=font, fill=CAPTION_STROKE_COLOR)
         
-    # Main active word draw karein
     draw.text((x, current_y), active_word, font=font, fill=text_color)
     return np.array(img)
 
 def compile_video(media_paths, voiceover_data, output_stem):
-    logger.info("Starting video compilation engine with PERFECT SYNC...")
+    logger.info("Starting video compilation engine with SUSPENSE COGNITIVE SYNC...")
     final_path = config.FINAL_VIDEOS_DIR / (output_stem + ".mp4")
     THUMB_DURATION = 1.0
     voice_dur = voiceover_data["duration_sec"]
@@ -225,7 +241,7 @@ def compile_video(media_paths, voiceover_data, output_stem):
         music_path = _get_music_track(total_dur)
 
         if music_path:
-            logger.info("🎵 Injecting dark music track into video...")
+            logger.info("🎵 Injecting adaptive dark music track with custom trap ducking...")
             bg_audio = AudioFileClip(music_path)
             if music_path.startswith(str(MUSIC_DIR)) and "tmp" in music_path:
                 downloaded_music = music_path
@@ -233,7 +249,39 @@ def compile_video(media_paths, voiceover_data, output_stem):
                 bg_audio = afx.audio_loop(bg_audio, duration=total_dur)
             else:
                 bg_audio = bg_audio.subclip(0, total_dur)
-            bg_audio = afx.volumex(bg_audio, 0.25)
+            
+            # --- DYNAMIC SUSPENSE AUDIO DUCKING LOGIC ---
+            # Dhoondte hain ke WAIT lafz kab se kab tak hai timeline pe
+            trap_start, trap_end = None, None
+            for item in word_timings:
+                if "WAIT" in item["word"].upper():
+                    trap_start = item["start"]
+                    trap_end = item["end"]
+                    break
+
+            if trap_start is not None and trap_end is not None:
+                # Custom lambda wrapper jo specific suspense trap timeframe par volume ko 90% mazeed drop kar dega
+                if has_thumb:
+                    adjusted_start = trap_start + THUMB_DURATION
+                    adjusted_end = trap_end + THUMB_DURATION
+                else:
+                    adjusted_start = trap_start
+                    adjusted_end = trap_end
+
+                def volume_ducking_filter(gf, t):
+                    # gf(t) is a numpy array of shape (N, 2) for stereo audio frames
+                    factor = np.ones_like(t) * 0.25 # Base dark music volume (25%)
+                    # Sannata region logic check
+                    duck_mask = (t >= adjusted_start) & (t <= adjusted_end)
+                    factor[duck_mask] = 0.02 # Intense drop to 2% volume for dramatic shock
+                    
+                    # Convert to column vectors for element-wise array multiplication
+                    return gf(t) * factor[:, np.newaxis]
+                
+                bg_audio = bg_audio.fl(volume_ducking_filter, keep_duration=True)
+                logger.info(f"🔒 Audio compression ducking filter locked on frame sequence [{trap_start}s - {trap_end}s]")
+            else:
+                bg_audio = afx.volumex(bg_audio, 0.25)
             
             if has_thumb:
                 voice_audio = voice_audio.set_start(THUMB_DURATION)
