@@ -1,7 +1,7 @@
 """
 video_compiler.py — Core Video Rendering Engine (FAST-CUT ZOOM + PERFECT SYNC)
 AI Dark Realities · Short-Form Video Pipeline
-Fixed: First frame = 1 sec + keyframe + Caption sync offset for human feel + Bracket fix
+Fixed: Bracket errors removed + Perfect sync + YT thumbnail
 ──────────────────────────────────────────────
 """
 
@@ -30,9 +30,9 @@ import config
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
 
-W = config.VIDEO_WIDTH # 1080
-H = config.VIDEO_HEIGHT # 1920
-FPS = config.VIDEO_FPS # 30
+W = config.VIDEO_WIDTH
+H = config.VIDEO_HEIGHT
+FPS = config.VIDEO_FPS
 
 FONT_SIZE = 95
 CAPTION_YELLOW_COLOR = (255, 255, 0, 255)
@@ -67,9 +67,7 @@ def _download_random_dark_music(duration: float) -> str | None:
             logger.info(f"Downloading dark music track from Pixabay...")
             response = requests.get(url, timeout=30, stream=True)
             if response.status_code == 200:
-                tmp = tempfile.NamedTemporaryFile(
-                    delete=False, suffix=".mp3", dir=str(MUSIC_DIR)
-                )
+                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3", dir=str(MUSIC_DIR))
                 for chunk in response.iter_content(chunk_size=8192):
                     tmp.write(chunk)
                 tmp.close()
@@ -81,71 +79,47 @@ def _download_random_dark_music(duration: float) -> str | None:
     return None
 
 def _get_music_track(duration: float) -> str | None:
-    local_tracks = [
-        f for f in list(MUSIC_DIR.glob("*.mp3")) + list(MUSIC_DIR.glob("*.wav"))
-        if not f.name.startswith("tmp")
-    ]
+    local_tracks = [f for f in list(MUSIC_DIR.glob("*.mp3")) + list(MUSIC_DIR.glob("*.wav")) if not f.name.startswith("tmp")]
     if local_tracks:
         selected = random.choice(local_tracks)
         logger.info(f"🎵 Local music track selected: {selected.name}")
         return str(selected)
-
     downloaded = _download_random_dark_music(duration)
     if downloaded:
         return downloaded
-
     return None
 
 def _render_caption_frame_cached(t: float, word_timings: list) -> np.ndarray:
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
-
     active_word = ""
     adjusted_time = t
-
     for item in word_timings:
         if item["start"] <= adjusted_time <= item["end"]:
             active_word = item["word"].upper().strip()
             break
-
     if not active_word:
         return np.array(img)
-
     font = _get_font(FONT_SIZE)
-
-    # HUMAN SHAKE: Har word ki position halki hilti rahegi
     shake_x = random.randint(-4, 4)
     shake_y = random.randint(-2, 2)
     current_y = int(H * 0.45) + shake_y
-
     bbox = draw.textbbox((0, 0), active_word, font=font)
     text_w = bbox[2] - bbox[0]
-    text_h = bbox[3] - bbox[1]
     x = (W - text_w) // 2 + shake_x
-
     text_color = CAPTION_GREEN_COLOR if len(active_word) > 5 else CAPTION_YELLOW_COLOR
-
     for adj_x, adj_y in [(-6, -6), (6, -6), (-6, 6), (6, 6), (-4, 0), (4, 0), (0, -4), (0, 4)]:
-        draw.text(
-            (x + adj_x, current_y + adj_y),
-            active_word, font=font, fill=CAPTION_STROKE_COLOR
-        )
-
+        draw.text((x + adj_x, current_y + adj_y), active_word, font=font, fill=CAPTION_STROKE_COLOR)
     draw.text((x, current_y), active_word, font=font, fill=text_color)
     return np.array(img)
 
 def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str) -> str:
     logger.info("Starting video compilation engine with PERFECT SYNC...")
     final_path = config.FINAL_VIDEOS_DIR / f"{output_stem}.mp4"
-
-    # THUMBNAIL TIMING CONFIGURATION - FIXED FOR YT
-    THUMB_DURATION = 1.0 # 1 sec = YT thumbnail
+    THUMB_DURATION = 1.0
     voice_dur = voiceover_data["duration_sec"]
-
     potential_thumb = config.FINAL_VIDEOS_DIR / f"thumb_{output_stem}.jpg"
     has_thumb = potential_thumb.exists()
-
-    # Calculate global timeline duration
     total_dur = voice_dur + (THUMB_DURATION if has_thumb else 0.0)
     word_timings = voiceover_data["word_timings"]
     downloaded_music = None
@@ -162,85 +136,12 @@ def compile_video(media_paths: list[str], voiceover_data: dict, output_stem: str
 
     try:
         MAX_CLIP_DURATION = 2.5
-
         while current_time < voice_dur:
             path_str = media_paths[media_index % len(media_paths)]
             media_index += 1
-
             clip_path = Path(path_str)
             if not clip_path.exists():
                 continue
-
             raw_clip = VideoFileClip(str(clip_path), audio=False)
             allocated_raw_clips.append(raw_clip)
-
             rem_dur = voice_dur - current_time
-            clip_duration = min(raw_clip.duration, rem_dur, MAX_CLIP_DURATION)
-
-            if clip_duration <= 0.3:
-                continue
-
-            sub_clip = raw_clip.subclip(0, clip_duration)
-            clip_w, clip_h = sub_clip.size
-            target_ratio = W / H
-            current_ratio = clip_w / clip_h
-
-            if current_ratio > target_ratio:
-                new_w = int(clip_h * target_ratio)
-                sub_clip = crop(sub_clip, x_center=clip_w // 2, width=new_w, height=clip_h)
-            elif current_ratio < target_ratio:
-                new_h = int(clip_w / target_ratio)
-                sub_clip = crop(sub_clip, y_center=clip_h // 2, width=clip_w, height=new_h)
-
-            processed_clip = resize(sub_clip, newsize=(W, H))
-
-            # FAST ZOOM EFFECT
-            processed_clip = processed_clip.resize(lambda t: 1.0 + 0.12 * t)
-
-            video_clips.append(processed_clip)
-            current_time += clip_duration
-
-        if not video_clips:
-            raise RuntimeError("No visual media clips processed successfully.")
-
-        video_sequence = concatenate_videoclips(video_clips, method="compose")
-
-        # AUDIO PROCESSING
-        voice_audio = AudioFileClip(voiceover_data["audio_path"])
-        voice_audio = afx.volumex(voice_audio, 1.0)
-
-        music_path = _get_music_track(total_dur)
-
-        if music_path:
-            logger.info(f"🎵 Injecting dark music track into video...")
-            bg_audio = AudioFileClip(music_path)
-
-            if music_path.startswith(str(MUSIC_DIR)) and "tmp" in music_path:
-                downloaded_music = music_path
-            else:
-                downloaded_music = None
-
-            if bg_audio.duration < total_dur:
-                bg_audio = afx.audio_loop(bg_audio, duration=total_dur)
-            else:
-                bg_audio = bg_audio.subclip(0, total_dur)
-
-            bg_audio = afx.volumex(bg_audio, 0.25)
-
-            # SYNC FIX: Shift voice audio by Thumbnail Duration
-            if has_thumb:
-                voice_audio = voice_audio.set_start(THUMB_DURATION)
-
-            final_audio = CompositeAudioClip([voice_audio, bg_audio])
-        else:
-            logger.warning("No music available — rendering with voice only.")
-            if has_thumb:
-                voice_audio = voice_audio.set_start(THUMB_DURATION)
-            final_audio = voice_audio
-
-        # Pushing thumbnail via continuous concatenation stream - BRACKET FIXED
-        if has_thumb:
-            logger.info(f"🎨 YouTube Core HD Thumbnail found: {potential_thumb.name}. Merging into main stream...")
-            thumb_clip = (ImageClip(str(potential_thumb))
-                       .set_duration(THUMB_DURATION)
-                       .set_fps(FPS)
