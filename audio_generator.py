@@ -1,7 +1,7 @@
 """
-audio_generator.py — Voiceover Synthesis Engine (HUMAN MODE + PERFECT SYNC v3.1)
+audio_generator.py — Voiceover Synthesis Engine (HUMAN MODE + PERFECT SYNC v3.2)
 AI Dark Realities · Short-Form Video Pipeline
-Fixed: SubMaker AttributeError resolved via direct chunk boundary mapping
+Fixed: Explicit CompositeAudioClip duration injection + Edge-TTS text conditioning
 ──────────────────────────────────────────────
 """
 
@@ -43,8 +43,9 @@ def generate_voiceover(script: str, output_stem: str) -> dict:
     # Step 1: Script me human pauses + filler words inject karo
     human_script = _add_human_pauses(script)
 
-    # Step 2: TTS + Real timings generate karo
-    clean_text = human_script.replace("\n", " ").replace("  ", " ").strip()
+    # Step 2: Clean text and format safely for Edge-TTS API
+    # Extra dots ko space me convert karke clean spacing maintain karte hain
+    clean_text = human_script.replace("\n", " ").replace("...", ", ").replace("  ", " ").strip()
     voice_rate = "-10%"  # Thora slow/deep = human
 
     asyncio.run(_synthesize_audio_edge(clean_text, str(audio_path), voice_rate))
@@ -86,8 +87,6 @@ async def _synthesize_audio_edge(text: str, output_path: str, rate: str):
             if chunk["type"] == "audio":
                 file.write(chunk["data"])
             elif chunk["type"] == "WordBoundary":
-                # 🔥 FIXED: Capture boundary data directly from the stream chunks
-                # structure: {"type": "WordBoundary", "offset": int, "duration": int, "text": str}
                 _REAL_WORD_TIMINGS.append({
                     "offset": chunk["offset"],
                     "duration": chunk["duration"],
@@ -137,6 +136,9 @@ def _add_human_effects(audio_path: str, output_stem: str) -> str:
 
     # 3. Sab combine karo
     final_audio = CompositeAudioClip([main_audio, room_noise, breath_audio])
+    
+    # 🔥 FIXED: Explicitly set duration for the CompositeAudioClip to bypass MoviePy validation crash
+    final_audio.duration = duration
 
     # Volume modulation for breathing feeling
     final_audio = final_audio.volumex(lambda t: 0.96 + 0.04 * np.sin(t * 0.4))
@@ -153,6 +155,7 @@ def _add_human_effects(audio_path: str, output_stem: str) -> str:
     main_audio.close()
     room_noise.close()
     breath_audio.close()
+    final_audio.close()
 
     try:
         os.remove(audio_path)
@@ -204,7 +207,6 @@ def _extract_word_timings_real(text: str, total_duration: float) -> list:
     for word_obj in _REAL_WORD_TIMINGS:
         word = word_obj["text"].strip(".,!?;:()\"'")
         if word and word.lower() not in ["umm", "like", "right", "actually", "you", "know"]:
-            # Edge-TTS gives time in 100-nanoseconds ticks
             start = word_obj["offset"] / 10_000_000.0
             end = start + (word_obj["duration"] / 10_000_000.0)
             
@@ -217,12 +219,16 @@ def _extract_word_timings_real(text: str, total_duration: float) -> list:
                 "end": round(end, 2)
             })
     
+    # Simple validation if extraction yields too little data relative to fallback
+    if not word_timings:
+        return _extract_word_timings_simulated(text, total_duration)
+        
     logger.info(f"Using {len(word_timings)} real word timings for captions")
     return word_timings
 
 def _extract_word_timings_simulated(text: str, total_duration: float) -> list:
     """Fallback: Agar Edge-TTS timing na de to ye use hoga"""
-    clean_words_only = text.replace("...", " ").replace("umm", "").replace("like", "").replace("right", "").replace("you know", "").replace("actually", "")
+    clean_words_only = text.replace(",", " ").replace("umm", "").replace("like", "").replace("right", "").replace("you know", "").replace("actually", "")
     words = clean_words_only.split()
     total_words = len(words)
 
