@@ -98,7 +98,7 @@ def generate_script(topic: str | None = None) -> dict:
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": user_prompt}
             ],
-            temperature=0.85, # FIXED: 0.95 se 0.85 kiya. Human but consistent
+            temperature=0.85,
             top_p=0.9,
             response_format={"type": "json_object"}
         )
@@ -142,4 +142,63 @@ def generate_script(topic: str | None = None) -> dict:
         word_count = len(script_data["script"].split())
         if word_count > 85:
             logger.warning(f"Script too long: {word_count} words. Truncating...")
-            words = script_data
+            words = script_data["script"].split()[:85]
+            script_data["script"] = " ".join(words) + "..."
+
+        logger.info(f"Script generated: {word_count} words - Human tone applied")
+        return script_data
+
+    except Exception as e:
+        logger.error(f"Script generation failed: {e}")
+
+        return {
+            "hook": "Your brain already knows this secret.",
+            "script": (
+                "Your brain... detects patterns before you notice them... "
+                "Most people... ignore this hidden signal... "
+                "Wait for it... "
+                "Your subconscious... reacts faster than your thoughts... "
+                "Comment if this surprised you..."
+            ),
+            "seo": {
+                "title": "Brain Secret 🧠",
+                "description": "#darkpsychology #mindhacks #psychologyfacts"
+            },
+            "broll_keywords": [
+                "brain scan",
+                "eye closeup",
+                "shadow figure",
+                "neon brain",
+                "psychology test"
+            ]
+        }
+
+def _add_human_tone(script: str) -> str:
+    """
+    Post-processing: AI tone ko human tone me convert karta hai
+    """
+    # AI words ko human words se replace
+    replacements = {
+        "Additionally": "Also",
+        "Furthermore": "Plus",
+        "However": "But",
+        "Therefore": "So",
+        "Consequently": "That's why",
+        "In conclusion": "Look",
+        "Moreover": "And"
+    }
+
+    for ai_word, human_word in replacements.items():
+        script = script.replace(ai_word, human_word)
+
+    # Agar... nahi hai to add karo
+    if script.count("...") < 3:
+        words = script.split()
+        new_words = []
+        for i, word in enumerate(words):
+            new_words.append(word)
+            if (i + 1) % 7 == 0 and i!= len(words) - 1:
+                new_words.append("...")
+        script = " ".join(new_words)
+
+    return script
