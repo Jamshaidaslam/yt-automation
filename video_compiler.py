@@ -156,4 +156,120 @@ def compile_video(media_paths, voiceover_data, output_stem):
                 new_w = int(clip_h * target_ratio)
                 sub_clip = crop(sub_clip, x_center=clip_w // 2, width=new_w, height=clip_h)
             elif current_ratio < target_ratio:
-                new_h = int(clip
+                new_h = int(clip_w / target_ratio)
+                sub_clip = crop(sub_clip, y_center=clip_h // 2, width=clip_w, height=new_h)
+
+            processed_clip = resize(sub_clip, newsize=(W, H))
+            processed_clip = processed_clip.resize(lambda t: 1.0 + 0.12 * t)
+            video_clips.append(processed_clip)
+            current_time += clip_duration
+
+        if not video_clips:
+            raise RuntimeError("No visual media clips processed successfully.")
+
+        video_sequence = concatenate_videoclips(video_clips, method="compose")
+
+        voice_audio = AudioFileClip(voiceover_data["audio_path"])
+        voice_audio = afx.volumex(voice_audio, 1.0)
+        music_path = _get_music_track(total_dur)
+
+        if music_path:
+            logger.info("🎵 Injecting dark music track into video...")
+            bg_audio = AudioFileClip(music_path)
+            if music_path.startswith(str(MUSIC_DIR)) and "tmp" in music_path:
+                downloaded_music = music_path
+            if bg_audio.duration < total_dur:
+                bg_audio = afx.audio_loop(bg_audio, duration=total_dur)
+            else:
+                bg_audio = bg_audio.subclip(0, total_dur)
+            bg_audio = afx.volumex(bg_audio, 0.25)
+            
+            if has_thumb:
+                voice_audio = voice_audio.set_start(THUMB_DURATION)
+            final_audio = CompositeAudioClip([voice_audio, bg_audio])
+        else:
+            logger.warning("No music available — rendering with voice only.")
+            if has_thumb:
+                voice_audio = voice_audio.set_start(THUMB_DURATION)
+            final_audio = voice_audio
+
+        if has_thumb:
+            logger.info(f"🎨 HD Thumbnail found: {potential_thumb.name}. Merging...")
+            thumb_clip = (ImageClip(str(potential_thumb))
+                          .set_duration(THUMB_DURATION)
+                          .set_fps(FPS)
+                          .resize(newsize=(W, H)))
+            final_visual_sequence = concatenate_videoclips([thumb_clip, video_sequence], method="compose")
+        else:
+            final_visual_sequence = video_sequence
+
+        final_visual_sequence = final_visual_sequence.set_audio(final_audio)
+
+        def make_caption_frame(t):
+            adjusted_t = t - THUMB_DURATION if has_thumb else t
+            frame = _render_caption_frame_cached(adjusted_t, word_timings)
+            return frame[:, :, :3]
+
+        def make_caption_mask(t):
+            adjusted_t = t - THUMB_DURATION if has_thumb else t
+            frame = _render_caption_frame_cached(adjusted_t, word_timings)
+            return frame[:, :, 3] / 255.0
+
+        caption_clip = VideoClip(make_caption_frame, duration=total_dur).set_fps(FPS)
+        caption_mask = VideoClip(make_caption_mask, ismask=True, duration=total_dur).set_fps(FPS)
+        caption_clip = caption_clip.set_mask(caption_mask)
+
+        final_layers = [final_visual_sequence, caption_clip]
+        final_video = CompositeVideoClip(final_layers, size=(W, H))
+        final_video = final_video.set_duration(total_dur)
+
+        logger.info(f"Rendering output file to -> {final_path}")
+        final_video.write_videofile(
+            str(final_path),
+            fps=FPS,
+            codec="libx264",
+            audio_codec="aac",
+            bitrate="2500k",
+            audio_bitrate="128k",
+            preset="ultrafast",
+            threads=2,
+            logger=None
+        )
+
+        if has_thumb:
+            try:
+                logger.info("🎬 Formatting metadata cover art for Instagram...")
+                temp_output = str(final_path).replace(".mp4", "_meta.mp4")
+                ffmpeg_cmd = (
+                    f'ffmpeg -y -i "{final_path}" -i "{potential_thumb}" '
+                    f'-map 0 -map 1 -c copy -disposition:v:1 attached_pic '
+                    f'"{temp_output}"'
+                )
+                exit_code = os.system(ffmpeg_cmd)
+                if exit_code == 0:
+                    os.replace(temp_output, str(final_path))
+                    logger.info("✅ Hybrid Cover System locked successfully!")
+            except Exception as meta_err:
+                logger.error(f"❌ Hybrid metadata error: {meta_err}")
+
+        return str(final_path)
+
+    finally:
+        for c in video_clips:
+            try: c.close()
+            except Exception: pass
+        for rc in allocated_raw_clips:
+            try: rc.close()
+            except Exception: pass
+        for name in ("video_sequence", "caption_clip", "caption_mask", "final_visual_sequence",
+                     "final_video", "voice_audio", "bg_audio", "final_audio", "thumb_clip"):
+            obj = locals().get(name)
+            if obj is not None:
+                try: obj.close()
+                except Exception: pass
+        if downloaded_music and os.path.exists(downloaded_music):
+            try:
+                os.remove(downloaded_music)
+                logger.info("Temp music file cleaned up.")
+            except Exception:
+                pass
