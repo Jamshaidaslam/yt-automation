@@ -1,5 +1,5 @@
 """
-media_fetcher.py — B-Roll Media & Clickable Thumbnail Downloader
+media_fetcher.py — B-Roll Media & Clickable Thumbnail Downloader (FIXED SYNTAX)
 AI Dark Realities · Short-Form Video Pipeline
 ──────────────────────────────────────────────
 """
@@ -9,11 +9,11 @@ import re
 import hashlib
 import logging
 import requests
-import random    # 🌟 Added for randomness and diversity
-import tempfile  # 🌟 FIXED: Added missing import to prevent NameError during thumbnail compilation
+import random    
+import tempfile  
 from pathlib import Path
 from tenacity import retry, stop_after_attempt, wait_fixed
-from PIL import Image, ImageDraw, ImageFont  # 🌟 Added for professional thumbnail rendering
+from PIL import Image, ImageDraw, ImageFont  
 
 import config
 
@@ -141,7 +141,6 @@ def generate_professional_thumbnail(keyword: str, hook_text: str, output_stem: s
     """
     logger.info(f"🎨 Generating high-retention thumbnail for topic: '{keyword}'")
     
-    # 1. Fetch Image from Pexels Photo API
     photo_url = None
     headers = {"Authorization": config.PEXELS_API_KEY}
     params = {"query": keyword, "per_page": 10, "orientation": "portrait"}
@@ -155,7 +154,6 @@ def generate_professional_thumbnail(keyword: str, hook_text: str, output_stem: s
     except Exception as e:
         logger.warning(f"Failed to fetch image from Pexels, trying Pixabay: {e}")
 
-    # Fallback to Pixabay Image API if Pexels fails
     if not photo_url:
         try:
             pixabay_img_url = f"https://pixabay.com/api/?key={config.PIXABAY_API_KEY}&q={requests.utils.quote(keyword)}&image_type=photo&orientation=vertical"
@@ -171,58 +169,48 @@ def generate_professional_thumbnail(keyword: str, hook_text: str, output_stem: s
         logger.warning("❌ Could not fetch unique thumbnail image. System will default to YouTube auto-frame.")
         return None
 
-    # 2. Download Image and Process Graphic Overlay
     try:
         img_data = requests.get(photo_url, timeout=20).content
         img_temp = Path(tempfile.gettempdir()) / f"raw_thumb_{output_stem}.jpg"
         with open(img_temp, "wb") as f:
             f.write(img_data)
 
-        # Base Configs for 9:16 Shorts Thumbnail
         t_w, t_h = 1080, 1920
         base_img = Image.open(img_temp).convert("RGBA").resize((t_w, t_h))
         
-        # Dark dramatic vignetting layer to pop the text
-        overlay = Image.new("RGBA", (t_w, t_h), (0, 0, 0, 80)) # Subtle dark tint
+        overlay = Image.new("RGBA", (t_w, t_h), (0, 0, 0, 80)) 
         final_img = Image.alpha_composite(base_img, overlay)
         draw = ImageDraw.Draw(final_img)
 
-        # Load bold font
         try:
             font_name = getattr(config, "FONT_NAME", "Impact.ttf")
             font_path = config.FONTS_DIR / font_name
-            font = ImageFont.truetype(str(font_path), 110) # Massive clickable text
+            font = ImageFont.truetype(str(font_path), 110) 
         except Exception:
             font = ImageFont.load_default()
 
-        # Wrap text elegantly so it doesn't leave the screen margins
         wrapped_lines = []
         for phrase in hook_text.split("\n"):
             wrapped_lines.extend(re.sub(r'\s+', ' ', phrase).strip().split(" "))
         
-        # Group into 2-3 impact words per line
         lines = []
         for i in range(0, len(wrapped_lines), 2):
             lines.append(" ".join(wrapped_lines[i:i+2]).upper())
 
-        # Draw heavy stroke outlines + custom bright text colors
         current_y = int(t_h * 0.35)
-        for line in lines[:4]:  # Keep it ultra clean, max 4 lines
+        for line in lines[:4]:  
             bbox = draw.textbbox((0, 0), line, font=font)
             w = bbox[2] - bbox[0]
             x = (t_w - w) // 2
 
-            # Dynamic toxic color scheming (Yellow/Green)
             text_color = (255, 255, 0, 255) if len(line) % 2 == 0 else (57, 255, 20, 255)
             
-            # Heavy Black Outline for maximum legibility over raw scenes
             for adj_x, adj_y in [(-8, -8), (8, -8), (-8, 8), (8, 8), (-6, 0), (6, 0), (0, -6), (0, 6)]:
                 draw.text((x + adj_x, current_y + adj_y), line, font=font, fill=(0, 0, 0, 255))
             
             draw.text((x, current_y), line, font=font, fill=text_color)
             current_y += 140
 
-        # Save out clean thumbnail image
         thumb_path = config.FINAL_VIDEOS_DIR / f"thumb_{output_stem}.jpg"
         final_img.convert("RGB").save(thumb_path, "JPEG", quality=95)
         
@@ -311,15 +299,14 @@ def fetch_broll_clips(keywords: list[str], clips_per_keyword: int = None) -> lis
                 if ok:
                     all_paths.append(str(dest))
                     downloaded += 1
-                except Exception as exc:
-                    logger.warning(f"Download failed for {clip['url']}: {exc}")
+            except Exception as exc:
+                logger.warning(f"Download failed for {clip['url']}: {exc}")
 
     logger.info(f"Total B-roll clips ready: {len(all_paths)}")
     return all_paths
 
 
 if __name__ == "__main__":
-    # Test Thumbnail & Clips Workflow
     test_keywords = ["dark psychology focus"]
     
     try:
@@ -327,7 +314,6 @@ if __name__ == "__main__":
         for p in paths:
             print(f"Fetched clip: {p}")
             
-        # Generate test thumbnail image
         thumb = generate_professional_thumbnail("dark mystery brain", "MIND TRICK TO CONTROL ANYONE", "test_stem")
         print(f"Generated thumbnail: {thumb}")
         
