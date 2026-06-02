@@ -1,7 +1,7 @@
 """
-audio_generator.py — Voiceover Synthesis Engine (HUMAN MODE + PERFECT SYNC v3.0)
+audio_generator.py — Voiceover Synthesis Engine (HUMAN MODE + PERFECT SYNC v3.1)
 AI Dark Realities · Short-Form Video Pipeline
-Fixed: Pitch validation format (+Hz), real word timings, and room noise overlays
+Fixed: SubMaker AttributeError resolved via direct chunk boundary mapping
 ──────────────────────────────────────────────
 """
 
@@ -12,7 +12,6 @@ import asyncio
 import random
 from pathlib import Path
 import edge_tts
-from edge_tts import SubMaker
 from moviepy.editor import AudioFileClip, CompositeAudioClip
 from moviepy.audio.AudioClip import AudioArrayClip
 import numpy as np
@@ -73,29 +72,29 @@ def generate_voiceover(script: str, output_stem: str) -> dict:
     }
 
 async def _synthesize_audio_edge(text: str, output_path: str, rate: str):
-    """Edge-TTS with REAL word timings using SubMaker"""
+    """Edge-TTS with REAL word timings captured directly from boundary chunks"""
     global _REAL_WORD_TIMINGS
+    _REAL_WORD_TIMINGS = [] # Reset global list before generation
     
-    # 🔥 FIXED: edge_tts strictly requires Hz formatting for pitch [e.g., '+2Hz', '-1Hz']
     pitch_variation = random.randint(-2, 2)
     pitch = f"{pitch_variation:+}Hz" 
 
     communicate = edge_tts.Communicate(text, VOICE_NAME, rate=rate, pitch=pitch)
-    
-    # REAL word timings nikalne ke liye SubMaker
-    sub_maker = SubMaker()
     
     with open(output_path, "wb") as file:
         async for chunk in communicate.stream():
             if chunk["type"] == "audio":
                 file.write(chunk["data"])
             elif chunk["type"] == "WordBoundary":
-                sub_maker.feed(chunk)
+                # 🔥 FIXED: Capture boundary data directly from the stream chunks
+                # structure: {"type": "WordBoundary", "offset": int, "duration": int, "text": str}
+                _REAL_WORD_TIMINGS.append({
+                    "offset": chunk["offset"],
+                    "duration": chunk["duration"],
+                    "text": chunk["text"]
+                })
     
-    # Word timings save karo global variable me
-    _REAL_WORD_TIMINGS = sub_maker.get_word_timings()
-    
-    logger.info(f"Captured {len(_REAL_WORD_TIMINGS)} real word timings from Edge-TTS")
+    logger.info(f"Captured {len(_REAL_WORD_TIMINGS)} real word timings from Edge-TTS stream")
 
 def _add_human_pauses(script: str) -> str:
     """
@@ -114,7 +113,6 @@ def _add_human_pauses(script: str) -> str:
         # Har 8-12 words pe pause check
         if word_count >= random.randint(8, 12):
             if random.random() < PAUSE_PROBABILITY:
-                # 70% chance normal pause, 30% chance filler word
                 if random.random() < 0.7:
                     result.append("...")
                 else:
@@ -156,7 +154,6 @@ def _add_human_effects(audio_path: str, output_stem: str) -> str:
     room_noise.close()
     breath_audio.close()
 
-    # Purani temporary track file delete kar do
     try:
         os.remove(audio_path)
     except Exception:
@@ -168,10 +165,7 @@ def _generate_room_noise(duration: float):
     """Halka AC/Fan noise - bilkul silence AI lagta hai"""
     fps = 44100
     n_samples = int(duration * fps)
-
-    # Pink noise jesa halka hiss
     noise = np.random.normal(0, 0.003, (n_samples, 2))
-
     return AudioArrayClip(noise, fps=fps).volumex(ROOM_NOISE_VOLUME)
 
 def _generate_breath_sounds(duration: float):
@@ -183,7 +177,7 @@ def _generate_breath_sounds(duration: float):
     current_time = random.uniform(10, 15)
     while current_time < duration:
         start_sample = int(current_time * fps)
-        breath_len = int(0.3 * fps)  # 0.3 sec ki saans
+        breath_len = int(0.3 * fps)
 
         if start_sample + breath_len < n_samples:
             t = np.linspace(0, 0.3, breath_len)
@@ -209,9 +203,8 @@ def _extract_word_timings_real(text: str, total_duration: float) -> list:
     word_timings = []
     for word_obj in _REAL_WORD_TIMINGS:
         word = word_obj["text"].strip(".,!?;:()\"'")
-        # Filter layers out to avoid breaking sub timeline
         if word and word.lower() not in ["umm", "like", "right", "actually", "you", "know"]:
-            # Edge-TTS gives time in 100-nanoseconds
+            # Edge-TTS gives time in 100-nanoseconds ticks
             start = word_obj["offset"] / 10_000_000.0
             end = start + (word_obj["duration"] / 10_000_000.0)
             
