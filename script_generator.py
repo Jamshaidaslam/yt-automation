@@ -1,7 +1,7 @@
 """
-script_generator.py — Groq LLM Script Engine (VIRAL + HUMAN v3.2 FIXED)
+script_generator.py — Groq LLM Script Engine (SUSPENSE TRAP + AUTOMATED HOOK v3.5)
 AI Dark Realities · YouTube Automation Pipeline
-Optimized for USA audience + 40-55 sec shorts + Human tone
+Optimized for USA audience + Dynamic Hook & Silent Trap + Human Tone
 """
 
 import os
@@ -45,10 +45,10 @@ FALLBACK_TOPICS = [
 def generate_script(topic: str | None = None) -> dict:
     """
     Generate viral YouTube Shorts script using Groq API
-    Optimized for 40-55 sec + USA retention + Human tone
+    Forces a high-retention 3-4s killer hook followed by a dramatic freeze trap.
     """
 
-    logger.info("Starting Groq Script Engine v3.2 HUMAN MODE...")
+    logger.info("Starting Groq Script Engine v3.5 CRITICAL HOOK MODE...")
 
     api_key = os.getenv("GROQ_API_KEY") or getattr(config, "GROQ_API_KEY", None)
     if not api_key:
@@ -63,24 +63,26 @@ def generate_script(topic: str | None = None) -> dict:
         logger.info(f"Topic received: {topic}")
 
     # ---------------------------
-    # System Prompt - FIXED FOR HUMAN TONE + VIRAL
+    # System Prompt - SUSPENSE TRAP & PATTERN INTERRUPT
     # ---------------------------
     system_instruction = (
-        "You are a viral YouTube Shorts script writer for USA audience. "
-        "Write like a real friend talking to you, not like AI or news anchor.\n\n"
+        "You are an elite scriptwriter for 'AI Dark Realities', specializing in high-retention short-form videos for USA/UK audiences. "
+        "Write like a real friend talking to you—casual, dark, like a smart friend warning you in a bar. Use contractions (you're, it's, don't).\n\n"
         "Niche: Dark Psychology & Mind Tricks.\n\n"
-        "CRITICAL RULES:\n"
-        "1. 65-85 words script. Max 85 words for 40-55 sec video.\n"
-        "2. First 3 words MUST be: You / Your brain / Stop scrolling / 90% people / Never do this\n"
-        "3. Add NATURAL pauses with... every 6-8 words. Not robotic.\n"
-        "4. Add 2-3 FILLER WORDS naturally: umm, like, you know, right, actually, look\n"
-        "5. Include EXACTLY ONE: 'Wait for it...' or 'But here's the twist...'\n"
-        "6. Use 'you' at least 5 times. Talk DIRECT to viewer.\n"
-        "7. End with casual CTA: Follow for part 2 / Save this / Comment which one shocked you\n"
-        "8. Banned words: kill, suicide, murder, blood, death. Use 'dark trick', 'mind hack', 'psychology trap' instead\n"
-        "9. Title must be 4-5 words max + 1 emoji. Ex: Your Brain Lies 🧠\n"
-        "10. Tone: Casual, dark, like a smart friend warning you in a bar. Use contractions: you're, it's, don't\n"
-        "EXAMPLE STYLE: 'Your brain... umm... it lies to you... right? Every single day... but here's the twist... you never notice it... Save this.'\n\n"
+        "CRITICAL STRUCTURAL RULES FOR EVERY SCRIPT:\n"
+        "1. THE KILLER HOOK (0-4s): Start directly with a shocking, brutal truth, fear-trigger, or dark psychology paradox. "
+        "First 3 words MUST be highly aggressive: You / Your brain / Stop scrolling / 90% people / Never do this. (Length: 8-12 words max).\n"
+        "2. THE DRAMATIC TRAP (4-6s): Immediately after the hook sentence, you MUST inject the exact freeze phrase: '... WAIT. ...'. "
+        "This is a non-negotiable rule to trigger a physical silence in the audio engine.\n"
+        "3. THE HYPNOTIC BODY (6-25s): Deliver deep, slow, analytical value about the topic. Add natural pauses with '...' every 6-8 words. "
+        "Blend 2-3 filler words naturally: umm, like, you know, right, actually.\n"
+        "4. THE OPEN LOOP OUTRO (25-32s): End with a high-conversion call to action that forces comments: Follow for part 2 / Save this / Comment if you are ready.\n"
+        "5. MAX WORDS: Total script must be between 65-80 words max to allow room for the dramatic silence trap.\n"
+        "6. BANNED WORDS: kill, suicide, murder, blood, death. Use 'dark trick', 'mind hack', 'psychology trap' instead.\n"
+        "7. TITLE: Must be 4-5 words max + 1 emoji. Ex: Your Brain Lies 🧠\n\n"
+        "EXAMPLE STUCTURE OUTPUT:\n"
+        "\"hook\": \"Your silence scares them... because they can't control you.\",\n"
+        "\"script\": \"Your silence scares them... because they can't control you. ... WAIT. ... When you talk, you reveal your limits... right? But when you stay quiet... umm... you become a complete mystery. It forces them to overthink every move... Save this.\"\n\n"
         "Return ONLY JSON:\n"
         '{"hook":"",'
         '"script":"",'
@@ -89,7 +91,7 @@ def generate_script(topic: str | None = None) -> dict:
         "}"
     )
 
-    user_prompt = f"Topic: {topic}. Write for USA audience aged 18-35. Make it sound human, not AI generated."
+    user_prompt = f"Topic: {topic}. Write for USA audience aged 18-35. Make the hook punchy and ensure the '... WAIT. ...' string is placed exactly after the hook sentence."
 
     try:
         completion = client.chat.completions.create(
@@ -98,7 +100,7 @@ def generate_script(topic: str | None = None) -> dict:
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": user_prompt}
             ],
-            temperature=0.85,
+            temperature=0.82,
             top_p=0.9,
             response_format={"type": "json_object"}
         )
@@ -106,78 +108,70 @@ def generate_script(topic: str | None = None) -> dict:
         script_data = json.loads(completion.choices[0].message.content)
 
         # ---------------------------
-        # Validation Safety Layer + Human Post-Processing
+        # Validation Safety Layer + Automated Fallbacks
         # ---------------------------
         if not isinstance(script_data.get("broll_keywords"), list) or len(script_data["broll_keywords"]) < 3:
-            script_data["broll_keywords"] = [
-                "brain scan",
-                "eye closeup",
-                "shadow figure",
-                "neon brain",
-                "psychology test"
-            ]
+            script_data["broll_keywords"] = ["brain scan", "eye closeup", "shadow figure", "neon brain"]
 
         if "hook" not in script_data or len(script_data["hook"].split()) < 3:
             script_data["hook"] = "Your brain is hiding this from you."
 
+        # Ensure the dramatic "... WAIT. ..." trap always exists in the script text
         if "script" not in script_data:
             script_data["script"] = (
-                "Your brain... notices things before you do... "
+                f"{script_data['hook']} ... WAIT. ... "
                 "Most people... never realize this hidden pattern... "
-                "Wait for it... "
                 "Your subconscious... reacts first, your mind follows later... "
-                "Comment if this shocked you..."
+                "Comment if you are ready..."
             )
+        else:
+            # Force post-processing to inject the trap if LLM forgot it
+            if "... WAIT. ..." not in script_data["script"] and "WAIT." not in script_data["script"]:
+                logger.warning("LLM omitted the trap. Injecting freeze string programmatically.")
+                hook_text = script_data["hook"]
+                body_text = script_data["script"].replace(hook_text, "").strip()
+                script_data["script"] = f"{hook_text} ... WAIT. ... {body_text}"
 
-        # Human tone post-processing
+        # Clean double spaces and standardize tone
         script_data["script"] = _add_human_tone(script_data["script"])
 
         if "seo" not in script_data:
             script_data["seo"] = {
-                "title": "Brain Secret 🧠",
+                "title": "The Silent Power 🧠",
                 "description": "#darkpsychology #mindhacks #psychologyfacts"
             }
 
-        # Word count check for 40-55 sec
-        word_count = len(script_data["script"].split())
-        if word_count > 85:
-            logger.warning(f"Script too long: {word_count} words. Truncating...")
-            words = script_data["script"].split()[:85]
-            script_data["script"] = " ".join(words) + "..."
+        # Strict Word count ceiling for safety
+        words = script_data["script"].split()
+        if len(words) > 85:
+            logger.warning(f"Script too long. Truncating to preserve retention pace...")
+            script_data["script"] = " ".join(words[:82]) + "..."
 
-        logger.info(f"Script generated: {word_count} words - Human tone applied")
+        logger.info(f"✅ Suspense Script generated successfully! Total Words: {len(script_data['script'].split())}")
         return script_data
 
     except Exception as e:
-        logger.error(f"Script generation failed: {e}")
-
+        logger.error(f"Groq Script generation failed: {e}")
+        # Rock-solid fallback loop maintaining the suspense structure
         return {
-            "hook": "Your brain already knows this secret.",
+            "hook": "Your silence scares them... because they can't control you.",
             "script": (
-                "Your brain... detects patterns before you notice them... "
-                "Most people... ignore this hidden signal... "
-                "Wait for it... "
-                "Your subconscious... reacts faster than your thoughts... "
-                "Comment if this surprised you..."
+                "Your silence scares them... because they can't control you. ... WAIT. ... "
+                "When you talk... you reveal your limits... right? But when you stay quiet... "
+                "umm... you become a complete mystery. It forces them to overthink every single move... "
+                "Save this video for later."
             ),
             "seo": {
-                "title": "Brain Secret 🧠",
+                "title": "The Silent Power 🧠",
                 "description": "#darkpsychology #mindhacks #psychologyfacts"
             },
-            "broll_keywords": [
-                "brain scan",
-                "eye closeup",
-                "shadow figure",
-                "neon brain",
-                "psychology test"
-            ]
+            "broll_keywords": ["brain scan", "eye closeup", "shadow figure", "neon brain"]
         }
 
 def _add_human_tone(script: str) -> str:
     """
-    Post-processing: AI tone ko human tone me convert karta hai
+    Post-processing: Normalizes AI transitions into casual bar-talk patterns.
     """
-    # AI words ko human words se replace
     replacements = {
         "Additionally": "Also",
         "Furthermore": "Plus",
@@ -191,14 +185,6 @@ def _add_human_tone(script: str) -> str:
     for ai_word, human_word in replacements.items():
         script = script.replace(ai_word, human_word)
 
-    # Agar... nahi hai to add karo
-    if script.count("...") < 3:
-        words = script.split()
-        new_words = []
-        for i, word in enumerate(words):
-            new_words.append(word)
-            if (i + 1) % 7 == 0 and i!= len(words) - 1:
-                new_words.append("...")
-        script = " ".join(new_words)
-
-    return script
+    # Standardize spaces around the trap
+    script = script.replace("...WAIT...", "... WAIT. ...").replace("... WAIT ...", "... WAIT. ...")
+    return " ".join(script.split())
