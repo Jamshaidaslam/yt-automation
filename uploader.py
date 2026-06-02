@@ -1,5 +1,5 @@
 """
-uploader.py — Secure Channel Publisher Engine (FINAL - AUTOMATIC SECRET RECOVERY)
+uploader.py — Secure Channel Publisher Engine (FINAL - AUTOMATIC SECRET RECOVERY + THUMBNAIL FIXED)
 AI Dark Realities · Short-Form Video Pipeline
 ─────────────────────────────────────────────────────────────────────────────────────
 """
@@ -46,7 +46,6 @@ def _get_youtube_service():
     creds = None
     scopes = ["https://www.googleapis.com/auth/youtube.upload"]
 
-    # GitHub Environment se direct fresh values uthana
     client_id = os.environ.get("YOUTUBE_CLIENT_ID")
     client_secret = os.environ.get("YOUTUBE_CLIENT_SECRET")
     token_json_str = os.environ.get("YOUTUBE_TOKEN_JSON")
@@ -58,7 +57,6 @@ def _get_youtube_service():
             
             if refresh_token and client_id and client_secret:
                 logger.info("Rebuilding fresh credentials object directly from GitHub Secrets...")
-                # Bina purani JSON method par depend kiye direct stable Credentials object build karna
                 creds = Credentials(
                     token=None,
                     refresh_token=refresh_token,
@@ -76,7 +74,6 @@ def _get_youtube_service():
         except Exception as exc:
             logger.warning(f"Local token file parsing failed: {exc}")
 
-    # Access Token auto-refresh mechanism
     if creds and creds.expired and creds.refresh_token:
         try:
             logger.info("YouTube session expired. Attempting background auto-refresh...")
@@ -132,6 +129,7 @@ def generate_thumbnail_url(public_id: str) -> str:
             resource_type="video",
             format="jpg",
             transformation=[
+                {"start_offset": "3.0"}, # 🟢 FIXED: Video ke 3rd second se frame cut karega
                 {"width": 1080, "height": 1920, "crop": "fill"},
                 {"quality": "auto"},
                 {"effect": "sharpen"}
@@ -248,7 +246,8 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
     meta_caption = f"{title}\n\n{full_description}"
 
     if META_TOKEN and FB_PAGE_ID and cloudinary_url:
-        fb_res = post_to_facebook_via_url(cloudinary_url, meta_caption)
+        # 🟢 FIXED: Linked thumbnail_url back into the gateway execution call
+        fb_res = post_to_facebook_via_url(cloudinary_url, thumbnail_url, meta_caption)
         results["facebook"] = fb_res
     else:
         logger.warning("Facebook skipped: Missing token, Page ID, or Cloudinary URL.")
@@ -260,7 +259,7 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
     else:
         logger.warning("Instagram skipped: Missing token, ID, or Cloudinary URL.")
 
-    # STEP 3: DELAYED CLEANUP — Meta ko process karne ka waqt dena zaroori hai
+    # STEP 3: DELAYED CLEANUP
     if cloudinary_public_id:
         logger.info("Waiting 3 minutes for Meta servers to finish processing...")
         time.sleep(180)
@@ -269,7 +268,7 @@ def upload_all_platforms(video_path: str, seo: dict) -> dict:
     return results
 
 
-def post_to_facebook_via_url(video_url: str, caption: str) -> str:
+def post_to_facebook_via_url(video_url: str, thumb_url: str, caption: str) -> str:
     try:
         url = f"https://graph.facebook.com/v20.0/{FB_PAGE_ID}/videos"
         payload = {
@@ -277,6 +276,10 @@ def post_to_facebook_via_url(video_url: str, caption: str) -> str:
             'file_url': video_url,
             'access_token': META_TOKEN
         }
+        # 🟢 FIXED: If unique thumbnail is available, pass it straight to Meta Graph
+        if thumb_url:
+            payload['thumb'] = thumb_url
+
         res = requests.post(url, data=payload, timeout=60).json()
         if "id" in res:
             logger.info(f"✅ Facebook Page Upload Successful! ID: {res['id']}")
@@ -295,7 +298,7 @@ def post_to_instagram_via_url(video_url: str, caption: str) -> str:
             'media_type': 'REELS',
             'video_url': video_url,
             'caption': caption,
-            'cover_frame_time': 0,
+            'cover_frame_time': 3000, # 🟢 FIXED: Cover frame timestamp updated to 3 seconds (3000ms)
             'access_token': META_TOKEN
         }
         req = requests.post(container_url, data=payload, timeout=60)
