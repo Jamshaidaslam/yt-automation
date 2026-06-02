@@ -1,5 +1,5 @@
 """
-main.py — Pipeline Orchestrator (ANTI-SPAM & INTENT ALIGNED v2.5 - DUPLICATE PREVENTION ADDED)
+main.py — Pipeline Orchestrator (ANTI-SPAM & INTENT ALIGNED v2.5 - THUMBNAIL INTEGRATED)
 AI Dark Realities · Short-Form Video Pipeline
 ──────────────────────────────────────────────
 """
@@ -155,6 +155,23 @@ def run_pipeline(topic: str | None = None, skip_upload: bool = False) -> dict:
         logger.error("Pipeline failure: No B-roll fetched.")
         sys.exit(1)
 
+    # 🌟 STEP 2.5: Professional Automatic Thumbnail Generation 🌟
+    logger.info("STEP 2.5 — Generating Eye-Catching Clickable Thumbnail Image…")
+    thumb_keyword = keywords_list[0] if keywords_list else "dark mystery"
+    
+    # Script se title/hook nikalna, fallback lagana agar na mile
+    seo_data = script_data.get("seo", {})
+    hook_text = seo_data.get("title") or script_data.get("title") or "DARK REALITY"
+    
+    # Clean hook text (remove hashtags for thumbnail writing)
+    hook_text = hook_text.split("#")[0].strip()
+    
+    thumbnail_path = media_fetcher.generate_professional_thumbnail(
+        keyword=thumb_keyword,
+        hook_text=hook_text,
+        output_stem=stem
+    )
+
     # STEP 3: Voiceover Audio Synthesis
     logger.info("STEP 3/5 — Generating voiceover synthesis…")
     voiceover_data = audio_generator.generate_voiceover(
@@ -175,9 +192,12 @@ def run_pipeline(topic: str | None = None, skip_upload: bool = False) -> dict:
     upload_results = {}
     if not skip_upload:
         logger.info("STEP 5/5 — Dispatching multi-platform cloud upload sequences…")
+        
+        # 🔥 MODIFIED: thumbnail_path ko uploader functions ke liye bhej diya gaya hai
         upload_results = uploader.upload_all_platforms(
-            video_path = video_path,
-            seo        = script_data.get("seo", {}),
+            video_path     = video_path,
+            seo            = script_data.get("seo", {}),
+            thumbnail_path = thumbnail_path,  # Passed professional custom layout
         )
         if "success" in str(upload_results.get("youtube", "")):
             _log_upload(stem, upload_results)
@@ -195,6 +215,7 @@ def run_pipeline(topic: str | None = None, skip_upload: bool = False) -> dict:
         "video_path":     video_path,
         "seo":            script_data.get("seo", {}),
         "upload_results": upload_results,
+        "thumbnail_path": thumbnail_path
     }
 
 
