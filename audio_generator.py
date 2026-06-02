@@ -33,8 +33,8 @@ _REAL_WORD_TIMINGS = []
 VOICE_PROFILES = {
     "guy_dark": {
         "name": "en-US-GuyNeural",
-        "rate": "-5%",       # Hypnotic slow delivery (approx 140 WPM)
-        "pitch": "-3Hz"      # 🔥 FIXED: Rigid Hz format for deep authority pitch shift
+        "rate": "-12%",       # Hypnotic slow delivery (approx 140 WPM)
+        "pitch": "-4Hz"      # 🔥 FIXED: Rigid Hz format for deep authority pitch shift
     },
     "ryan_uk": {
         "name": "en-GB-RyanNeural",
