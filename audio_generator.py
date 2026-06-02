@@ -1,7 +1,7 @@
 """
-audio_generator.py — Voiceover Synthesis Engine (HUMAN MODE v2.0)
+audio_generator.py — Voiceover Synthesis Engine (HUMAN MODE + PERFECT SYNC v3.0)
 AI Dark Realities · Short-Form Video Pipeline
-Fixed: Random pauses + breath + room noise for real human feel
+Fixed: Real word timings + pauses + breath + room noise
 ──────────────────────────────────────────────
 """
 
@@ -12,6 +12,7 @@ import asyncio
 import random
 from pathlib import Path
 import edge_tts
+from edge_tts import SubMaker
 from moviepy.editor import AudioFileClip, CompositeAudioClip
 from moviepy.audio.AudioClip import AudioArrayClip
 import numpy as np
@@ -29,20 +30,23 @@ PAUSE_PROBABILITY = 0.15  # 15% chance har 8-12 words pe pause
 ROOM_NOISE_VOLUME = 0.08  # 8% volume pe background noise
 BREATH_VOLUME = 0.15  # Saans ki awaz
 
+# Global variable for real word timings
+_REAL_WORD_TIMINGS = []
+
 def generate_voiceover(script: str, output_stem: str) -> dict:
     """
-    Human-like voiceover with pauses, breath, and room noise
-    Returns: audio_path, duration, word_timings
+    Human-like voiceover with REAL word timings from Edge-TTS
+    Returns: audio_path, duration, word_timings - 100% sync
     """
-    logger.info("Initializing Human Mode TTS engine...")
+    logger.info("Initializing Human Mode TTS with Real Sync...")
     audio_path = AUDIO_OUTPUT_DIR / f"{output_stem}.mp3"
 
     # Step 1: Script me human pauses + filler words inject karo
     human_script = _add_human_pauses(script)
 
-    # Step 2: TTS generate karo
+    # Step 2: TTS + Real timings generate karo
     clean_text = human_script.replace("\n", " ").replace("  ", " ").strip()
-    voice_rate = "-10%"  # FIXED: -12% se -10% kiya. Thora fast = human
+    voice_rate = "-10%"  # Thora fast = human
 
     asyncio.run(_synthesize_audio_edge(clean_text, str(audio_path), voice_rate))
 
@@ -57,10 +61,10 @@ def generate_voiceover(script: str, output_stem: str) -> dict:
     duration_sec = audio_clip.duration
     audio_clip.close()
 
-    logger.info(f"✅ Human voiceover generated: {duration_sec:.2f}s -> {Path(final_audio_path).name}")
+    logger.info(f"✅ Human voiceover generated: {duration_sec:.2f}s")
 
-    # Word timings nikalo captions ke liye
-    word_timings = _extract_word_timings_simulated(clean_text, duration_sec)
+    # 🔥 Step 4: REAL word timings use karo - guess nahi
+    word_timings = _extract_word_timings_real(clean_text, duration_sec)
 
     return {
         "audio_path": final_audio_path,
@@ -69,23 +73,34 @@ def generate_voiceover(script: str, output_stem: str) -> dict:
     }
 
 async def _synthesize_audio_edge(text: str, output_path: str, rate: str):
-    """Edge-TTS with slight pitch variation for human feel"""
+    """Edge-TTS with REAL word timings using SubMaker"""
+    global _REAL_WORD_TIMINGS
+    
     # Pitch me halka variation: -2% to +2%
     pitch_variation = random.randint(-2, 2)
     pitch = f"{pitch_variation}%"
 
-    communicate = edge_tts.Communicate(
-        text,
-        VOICE_NAME,
-        rate=rate,
-        pitch=pitch
-    )
-    await communicate.save(output_path)
+    communicate = edge_tts.Communicate(text, VOICE_NAME, rate=rate, pitch=pitch)
+    
+    # REAL word timings nikalne ke liye SubMaker
+    sub_maker = SubMaker()
+    
+    with open(output_path, "wb") as file:
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                file.write(chunk["data"])
+            elif chunk["type"] == "WordBoundary":
+                sub_maker.feed(chunk)
+    
+    # Word timings save karo global variable me
+    _REAL_WORD_TIMINGS = sub_maker.get_word_timings()
+    
+    logger.info(f"Captured {len(_REAL_WORD_TIMINGS)} real word timings from Edge-TTS")
 
 def _add_human_pauses(script: str) -> str:
     """
     Har 8-12 words ke baad random pause... add karta hai
-    "umm, like, right" wale filler bhi inject karta hai 5% chance pe
+    "umm, like, right" wale filler bhi inject karta hai
     """
     words = script.split()
     result = []
@@ -141,7 +156,7 @@ def _add_human_effects(audio_path: str, output_stem: str) -> str:
     room_noise.close()
     breath_audio.close()
 
-    # Purani file delete kar do space bachane ke liye
+    # Purani file delete kar do
     try:
         os.remove(audio_path)
     except:
@@ -182,10 +197,41 @@ def _generate_breath_sounds(duration: float):
 
     return AudioArrayClip(breath_track, fps=fps).volumex(BREATH_VOLUME)
 
+def _extract_word_timings_real(text: str, total_duration: float) -> list:
+    """
+    🔥 REAL word timings Edge-TTS se - 100% sync
+    Agar timings na mile to fallback
+    """
+    global _REAL_WORD_TIMINGS
+    
+    if not _REAL_WORD_TIMINGS:
+        logger.warning("Real timings not found, using simulated fallback")
+        return _extract_word_timings_simulated(text, total_duration)
+    
+    word_timings = []
+    for word_obj in _REAL_WORD_TIMINGS:
+        word = word_obj["text"].strip(".,!?;:()\"'")
+        if word and word.lower() not in ["umm", "like", "right", "actually", "you", "know"]:
+            # Edge-TTS gives time in 100-nanoseconds
+            start = word_obj["offset"] / 10_000_000.0
+            end = start + (word_obj["duration"] / 10_000_000.0)
+            
+            # Duration se bahar na jaye
+            if end > total_duration:
+                end = total_duration
+            
+            word_timings.append({
+                "word": word,
+                "start": round(start, 2),
+                "end": round(end, 2)
+            })
+    
+    logger.info(f"Using {len(word_timings)} real word timings for captions")
+    return word_timings
+
 def _extract_word_timings_simulated(text: str, total_duration: float) -> list:
     """
-    Word timings - ... aur filler words ko skip karta hai
-    Captions sync ke liye
+    Fallback: Agar Edge-TTS timing na de to ye use hoga
     """
     clean_words_only = text.replace("...", " ").replace("umm", "").replace("like", "").replace("right", "").replace("you know", "").replace("actually", "")
     words = clean_words_only.split()
