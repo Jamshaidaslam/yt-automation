@@ -1,5 +1,5 @@
 """
-script_generator.py — Groq LLM Script Engine v6.1 NUCLEAR BOMB (FIXED)
+script_generator.py — Groq LLM Script Engine v6.1 NUCLEAR BOMB (FIXED & FULLY AUDITED)
 AI Dark Realities · YouTube & Instagram Automation Pipeline
 Formula: SHOCK → WAIT → TWIST → DEEP SCIENCE → LOOP BACK → COMMENT WAR
 Target: 30-60 seconds | 90-130 words | 95%+ Retention for USA/UK
@@ -91,12 +91,10 @@ def generate_script(topic: str | None = None) -> dict:
         "6. CALL_TO_ACTION - 10-14 words. Force comment war. Use power words: Comment, Type, Drop, Admit\n"
         " Examples: 'Comment WEAPON if your brain just broke', 'Type SILENCE if you feel powerful now'\n\n"
 
-        "WORD COUNT WEAPON: Total 90-130 words = 35-55 seconds at slow hypnotic voice pacing.\n"
-        "TARGET: 45 seconds average. Never below 30 sec, never above 60 sec. Algorithm loves 45 sec.\n\n"
+        "WORD COUNT WEAPON: Total 95-130 words = STRICTLY 40-55 seconds at hypnotic voice pacing.\n"
+        "TARGET: 45 seconds average. DO NOT generate short answers. If needed, expand the detailed_explanation section with deep cognitive science details.\n\n"
 
-        "SEO WARFARE RULES:\n"
-        "YOUTUBE: Title 4-5 words + 1 emoji. Description 2 lines + 3 high volume tags #darkpsychology #mindcontrol #shorts\n"
-        "INSTAGRAM: Caption 4 bullet points to increase read time + 8-10 niche hashtags #reelsviral #psychology #sigma\n"
+        "B-ROLL KEYWORD RULES: Generate exactly 4 search terms. Keywords MUST BE simple, realistic, and highly popular single words or basic pairs (e.g., 'dark room', 'tunnel', 'cyberpunk', 'abstract motion', 'neon city', 'digital glitch'). FORBIDDEN keywords: 'couch potato', 'brain scan', 'slacker', or complex metaphorical phrases that do not exist on stock video sites.\n\n"
 
         "OUTPUT ONLY VALID JSON. NO TEXT BEFORE OR AFTER:\n"
         "{\n"
@@ -108,15 +106,14 @@ def generate_script(topic: str | None = None) -> dict:
         " \"call_to_action\": \"\",\n"
         " \"youtube_seo\": {\"title\": \"\", \"description\": \"\"},\n"
         " \"instagram_seo\": {\"caption\": \"\", \"hashtags\": \"\"},\n"
-        " \"broll_keywords\": [\"brain scan\", \"shadow figure\", \"eye closeup\", \"psychological warfare\"]\n"
+        " \"broll_keywords\": [\"dark room\", \"tv noise\", \"neon city\", \"tunnel\"]\n"
         "}"
     )
 
     user_prompt = (
         f"Topic: {topic}. "
-        f"Create NUCLEAR BOMB script. Hook must SHOCK. Twist must REVERSE. "
-        f"Explanation must be 70-90 words DEEP PSYCHOLOGY SCIENCE. "
-        f"Loop must connect back to hook word. Total 90-130 words. Target 45 seconds."
+        f"Create a high-retention LONG NUCLEAR BOMB script. The detailed_explanation must be extremely detailed, rich in neuroscience terms, and between 75-90 words by itself. "
+        f"Ensure total script length is between 95-130 words. B-roll keywords must be simple and easily downloadable."
     )
 
     try:
@@ -126,7 +123,7 @@ def generate_script(topic: str | None = None) -> dict:
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": user_prompt}
             ],
-            temperature=0.85, 
+            temperature=0.82, 
             top_p=0.95,
             response_format={"type": "json_object"}
         )
@@ -137,7 +134,7 @@ def generate_script(topic: str | None = None) -> dict:
         hook_text = raw_data.get("hook", "Your brain is being hacked right now").strip()
         wait_text = "... WAIT. ..."
         twist_text = raw_data.get("twist", "But it's actually your secret weapon").strip()
-        body_text = raw_data.get("detailed_explanation", "Your subconscious mind processes millions of bits per second while your conscious mind struggles. When manipulators use strategic pauses and anchoring words, they bypass your logical filters and inject commands directly into your subconscious. Your brain fills the silence with their ideas, believing they are your own thoughts.").strip()
+        body_text = raw_data.get("detailed_explanation", "Your subconscious mind processes millions of bits per second while your conscious mind struggles. When platforms use strategic autoplay loops and countdown anchoring, they bypass your prefrontal cortex, exploiting your evolutionary completion instinct. Your brain releases instant dopamine hits, forcing you to remain paralyzed on the screen while your psychological resistance decays.").strip()
         loop_text = raw_data.get("loop_back", "So they don't control you. You control them").strip()
         cta_text = raw_data.get("call_to_action", "Comment WEAPON if your mind just broke").strip()
 
@@ -150,11 +147,18 @@ def generate_script(topic: str | None = None) -> dict:
         estimated_seconds = int(word_count / 2.5) 
 
         if word_count < 90:
-            logger.warning(f"⚠️ Script too short: {word_count} words. Target 90-130.")
-        elif word_count > 130:
-            logger.warning(f"⚠️ Script too long: {word_count} words. Target 90-130.")
+            logger.warning(f"⚠️ Script too short: {word_count} words. Re-injecting padding details.")
+            body_text += " This sensory overstimulation locks your focus into an infinite scroll loop before your cognitive awareness can intervene."
+            compiled_script = f"{hook_text} {wait_text} {twist_text} {body_text} {loop_text} {cta_text}"
+            cleaned_script = _clean_narrative(compiled_script)
+            word_count = len(cleaned_script.split())
+            estimated_seconds = int(word_count / 2.5)
 
         logger.info(f"💣 NUCLEAR SCRIPT READY! Words: {word_count} | Est Time: {estimated_seconds} sec")
+
+        # Clean broll keywords to make sure no weird terms pass to engine
+        raw_keywords = raw_data.get("broll_keywords", ["dark room", "tv noise", "neon city", "tunnel"])
+        clean_keywords = [k.replace("couch potato", "dark room").replace("brain scan", "abstract neon").replace("couch", "dark room").replace("tv screen", "tv noise") for k in raw_keywords]
 
         script_data = {
             "hook": hook_text,
@@ -163,13 +167,13 @@ def generate_script(topic: str | None = None) -> dict:
             "estimated_seconds": estimated_seconds,
             "youtube_seo": raw_data.get("youtube_seo", {
                 "title": "Your Brain Is Hacked 🧠",
-                "description": "Psychological warfare tactics exposed. Watch how manipulators control you.\n\n#darkpsychology #mindcontrol #shorts"
+                "description": "Psychological warfare tactics exposed. Watch how platforms control your focus.\n\n#darkpsychology #mindcontrol #shorts"
             }),
             "instagram_seo": raw_data.get("instagram_seo", {
                 "caption": "Your mind is under attack... 🤫👇\n\n• Subconscious hijacking exposed\n• Psychological weapons revealed\n• Control tactics decoded\nComment WEAPON below",
                 "hashtags": "#darkpsychology #manipulation #mindcontrol #psychology #sigma #reelsviral"
             }),
-            "broll_keywords": raw_data.get("broll_keywords", ["brain scan", "eye closeup", "shadow figure", "neural network"])
+            "broll_keywords": clean_keywords
         }
 
         return script_data
@@ -204,7 +208,6 @@ def _clean_narrative(script: str) -> str:
     """Remove fillers and normalize WAIT trap precisely to 3 dots match"""
     fillers_to_remove = ["umm", "umm...", "like,", "like...", "you know,", "you know...", "um,", "um", "basically,", "actually,"]
     words = script.split()
-    # 🌟 FIXED: Kept on a single line to prevent trailing token indentation error
     cleaned_words = [w for w in words if w.lower().strip(".,!?;:") not in fillers_to_remove]
     processed = " ".join(cleaned_words)
     processed = processed.replace("...WAIT...", "... WAIT. ...").replace("... WAIT...", "... WAIT. ...")
