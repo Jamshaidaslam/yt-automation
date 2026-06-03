@@ -17,22 +17,27 @@ import config
 logger = logging.getLogger(__name__)
 
 # NUCLEAR HOOK TOPICS - SHOCK + PROBLEM + CURIOSITY COMBO
-NUCLEAR_TOPICS = [
-    "Why your brain trusts strangers in 7 seconds and gets destroyed",
-    "The dark psychology trick casinos use to rewire your dopamine",
-    "How manipulators control conversations without speaking a word",
-    "The hidden body signal liars accidentally reveal every time",
-    "Why silence makes powerful people panic and lose control",
-    "How narcissists instantly spot empathetic people to destroy them",
-    "The strange science behind deja vu that proves time is fake",
-    "The psychological weapon used by CIA interrogators on victims",
-    "Why toxic relationships become addictive like hard drugs",
-    "The dark reason people ghost you suddenly without warning",
-    "How your phone is programmed to destroy your attention span",
-    "Why rich people never say 'I' in conversations and win",
-    "The brain hack that makes anyone obsessed with you instantly",
-    "How trauma makes your brain crave toxic people forever",
-    "The 3-second eye trick that exposes someone's darkest secret"
+
+    "Why your brain trusts AI more than humans in 3 seconds",
+    "The name drop trick that makes strangers obey you instantly",
+    "Why airports are designed to make you spend money while stressed",
+    "How Netflix autoplay hijacks your brain finish it instinct",
+    "The mirror neuron trap Zoom calls use to make you agree",
+    "Why insomnia makes your brain create fake memories",
+    "The receipt check trick cashiers use to make you spend 40% more",
+    "How elevator music is programmed to make you anxious and impatient",
+    "Why your brain feels physical pain when someone ignores your text",
+    "The 3 second rule TikTok uses to destroy your focus forever",
+    "Why Americans say I'm good instead of No thanks dark psychology",
+    "The British polite threat that controls conversations without fighting",
+    "How American schools program kids to fear silence in class",
+    "Why UK people apologize when you bump into them psychology",
+    "The thank you trap that makes you owe favors forever",
+    "Why your phone vibration makes your brain release dopamine",
+    "The parking lot trick stores use to make you buy more",
+    "How your brain fills silence with worst case scenarios",
+    "Why people trust you more when you look down then up",
+    "The door handle trick that exposes someone's personality instantly"
 ]
 
 def generate_script(topic: str | None = None) -> dict:
