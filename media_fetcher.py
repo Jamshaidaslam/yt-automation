@@ -1,8 +1,8 @@
 """
-media_fetcher.py — B-Roll Media & Clickable Thumbnail Downloader v6.1 NUCLEAR
+media_fetcher.py — B-Roll Media & Clickable Thumbnail Downloader v6.2 (CONTEXT LOCKED)
 AI Dark Realities · Short-Form Video Pipeline
-Fallback System: Pexels → Pixabay → Nuclear Keywords Backup → Local Assets Lock
-──────────────────────────────────────────────
+Fallback System: Smart Context Lock → Pexels → Pixabay → Nuclear Keywords Backup → Local Assets Lock
+─────────────────────────────────────────────────────────────────────────────────────
 """
 
 import os
@@ -141,6 +141,7 @@ def _search_pixabay(keyword: str, per_page: int = 30) -> list[dict]:
                 "height": clip.get("height", 0),
                 "duration": duration,
                 "source": "pixabay",
+                "type": "film"
             })
 
         random.shuffle(results)
@@ -257,13 +258,13 @@ def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9_-]", "_", text.lower())[:40]
 
 # ═══════════════
-# 🌟 PUBLIC API - NUCLEAR ENGINE FULLY INTEGRATED 🌟
+# 🌟 PUBLIC API - NUCLEAR CONTEXT ROUTING INTEGRATED 🌟
 # ═══════════════
 
 def fetch_broll_clips(keywords: list[str], clips_per_keyword: int = None) -> list[str]:
     """
-    Fetch and download stock B-roll videos using standard keywords.
-    Implements dynamic multi-tier fallback to eliminate runtime pipeline crashes.
+    Fetch and download stock B-roll videos using clean contextual keywords.
+    Implements advanced dictionary mapping to fix video-script drop issues.
     """
     if clips_per_keyword is None:
         clips_per_keyword = getattr(config, "MEDIA_PER_KEYWORD", 2)
@@ -271,8 +272,32 @@ def fetch_broll_clips(keywords: list[str], clips_per_keyword: int = None) -> lis
     all_paths: list[str] = []
     seen_ids: set[str] = set()
     
-    # Clean and filter input keywords
-    active_keywords = [k.strip() for k in keywords if k.strip()]
+    # Clean input keywords
+    raw_keywords = [k.strip() for k in keywords if k.strip()]
+    joined_queries = " ".join(raw_keywords).lower()
+
+    # 🧠 HUMAN INTENT LOCK: Contextual Routing Matrix
+    CONTEXT_ROUTING = {
+        "airport": ["airport terminal", "airplane runway close", "duty free shop luxury", "plane flying cloud"],
+        "phone": ["smartphone addiction scrolling", "hand scrolling phone blue light", "typing screen closeup", "social media addict"],
+        "dopamine": ["brain neural activity glow", "subconscious abstract animation", "matrix background glitch", "neon cyber wire"],
+        "money": ["counting cash hands", "casino gambling chips", "wallet transaction closeup", "luxury diamond rich"],
+        "trust": ["eye closeup blinking stare", "man serious face dramatic", "shadow person silhouette", "deceptive handshake look"],
+        "relationship": ["toxic couple argument silhouette", "alone crying dark room", "man breaking mirror portrait", "fake smile face"]
+    }
+
+    # Intercept and route keywords based on core topic detection
+    active_keywords = []
+    for trigger_word, dynamic_brolls in CONTEXT_ROUTING.items():
+        if trigger_word in joined_queries:
+            logger.info(f"🎯 CONTEXT ENGINE LOCK TRIGGERED: Routing video assets directly to cluster [{trigger_word.upper()}]")
+            active_keywords = dynamic_brolls
+            break
+
+    # Fallback to standard Groq keys if no semantic dictionary trigger hits
+    if not active_keywords:
+        active_keywords = raw_keywords
+
     if not active_keywords:
         active_keywords = random.sample(NUCLEAR_FALLBACK_KEYWORDS, 3)
 
@@ -350,7 +375,6 @@ def fetch_broll_clips(keywords: list[str], clips_per_keyword: int = None) -> lis
             all_paths = random.sample(local_assets, min(len(local_assets), 5))
             logger.info(f"♻️ Pipeline recovered safely using {len(all_paths)} cached local clips.")
         else:
-            # Fatal barrier raise if even local folder doesn't have any video templates
             raise RuntimeError("CRITICAL LIQUIDATION: No media clips could be pulled via API or Local Cache folders.")
 
     logger.info(f"🚀 Media Engine finished execution. Total B-Rolls passed to pipeline: {len(all_paths)}")
