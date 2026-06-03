@@ -3,7 +3,7 @@ script_generator.py — Groq LLM Script Engine v6.1 NUCLEAR BOMB (FIXED)
 AI Dark Realities · YouTube & Instagram Automation Pipeline
 Formula: SHOCK → WAIT → TWIST → DEEP SCIENCE → LOOP BACK → COMMENT WAR
 Target: 30-60 seconds | 90-130 words | 95%+ Retention for USA/UK
-Tested: Python 3.10+ syntax error-free. Fully synced with audio/video engines.
+Tested: Python 3.10+ syntax error-free. Fully audited.
 ──────────────────────────────────────────────
 """
 
@@ -17,7 +17,7 @@ import config
 logger = logging.getLogger(__name__)
 
 # NUCLEAR HOOK TOPICS - SHOCK + PROBLEM + CURIOSITY COMBO
-
+NUCLEAR_TOPICS = [
     "Why your brain trusts AI more than humans in 3 seconds",
     "The name drop trick that makes strangers obey you instantly",
     "Why airports are designed to make you spend money while stressed",
@@ -204,6 +204,7 @@ def _clean_narrative(script: str) -> str:
     """Remove fillers and normalize WAIT trap precisely to 3 dots match"""
     fillers_to_remove = ["umm", "umm...", "like,", "like...", "you know,", "you know...", "um,", "um", "basically,", "actually,"]
     words = script.split()
+    # 🌟 FIXED: Kept on a single line to prevent trailing token indentation error
     cleaned_words = [w for w in words if w.lower().strip(".,!?;:") not in fillers_to_remove]
     processed = " ".join(cleaned_words)
     processed = processed.replace("...WAIT...", "... WAIT. ...").replace("... WAIT...", "... WAIT. ...")
