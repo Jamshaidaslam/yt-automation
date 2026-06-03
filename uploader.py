@@ -1,5 +1,5 @@
 """
-uploader.py — Secure Channel Publisher Engine (v7.0 - FULL ORGANIC)
+uploader.py — Secure Channel Publisher Engine (v7.0 - FULL ORGANIC - FIXED)
 AI Dark Realities · Short-Form Video Pipeline
 Fixes Applied:
   1. selfDeclaredMadeWithAI = False (algorithm suppression hataya)
@@ -10,6 +10,7 @@ Fixes Applied:
   6. recordingDetails poora hata diya (unnecessary metadata)
   7. Instagram cover_frame_time 6000→2000 (better cover frame)
   8. Description mein #Shorts hashtag properly add kiya
+  9. FIXED: Facebook Graph API thumb parameter mapped to thumb_url (fixes error #100)
 ─────────────────────────────────────────────────────────────────────────────────────
 """
 
@@ -153,16 +154,15 @@ def cleanup_cloudinary(public_id: str, resource_type: str = "video"):
 def upload_all_platforms(video_path: str, seo: dict, thumbnail_path: str = None) -> dict:
     logger.info(f"Initiating cloud publisher engine for: {video_path}")
 
-    # ✅ FIX 1: Unique fallback title — duplicate title spam fix
+    # ✅ Unique fallback title — duplicate title spam fix
     timestamp_fallback = datetime.now().strftime("%I:%M%p").lstrip("0")
     title = seo.get("title") or f"Dark Psychology Fact {timestamp_fallback}"
 
-    # ✅ FIX 2: #Shorts title mein NAHI, sirf description mein
+    # ✅ #Shorts title mein NAHI, sirf description mein
     # Title clean rakho — algorithm ke liye
     title = title.split("#")[0].strip()[:100]
 
     description = seo.get("description", "Explore the hidden truths of human psychology.")
-
     hashtags = seo.get("hashtags", ["#DarkPsychology", "#Mindset", "#Shorts"])
 
     # #Shorts description mein hona chahiye — title mein nahi
@@ -203,9 +203,9 @@ def upload_all_platforms(video_path: str, seo: dict, thumbnail_path: str = None)
                 "snippet": {
                     "title": title,
                     "description": full_description,
-                    # ✅ FIX 3: Tags se # hata ke clean tags
+                    # ✅ Tags se # hata ke clean tags
                     "tags": [tag.replace("#", "").strip() for tag in hashtags if tag.startswith("#")],
-                    # ✅ FIX 4: Category 22 = People & Blogs (algorithm friendly for new channels)
+                    # ✅ Category 22 = People & Blogs (algorithm friendly for new channels)
                     "categoryId": "22",
                     "defaultAudioLanguage": "en-US",
                     "defaultLanguage": "en-US"
@@ -213,11 +213,9 @@ def upload_all_platforms(video_path: str, seo: dict, thumbnail_path: str = None)
                 "status": {
                     "privacyStatus": "public",
                     "selfDeclaredMadeForKids": False,
-                    # ✅ FIX 5: AI declaration HATA DIYA — distribution block karta tha
+                    # ✅ AI declaration HATA DIYA — distribution block karta tha
                     "selfDeclaredMadeWithAI": False
                 }
-                # ✅ FIX 6: recordingDetails PURI HATA DIYA
-                # (fake "United States" location = spam/bot signal tha)
             }
 
             media = MediaFileUpload(
@@ -292,8 +290,9 @@ def post_to_facebook_via_url(video_url: str, thumb_url: str, caption: str) -> st
             'file_url': video_url,
             'access_token': META_TOKEN
         }
+        # 🌟 FIXED: Map custom cloud thumb link to 'thumb_url' instead of 'thumb' parameter
         if thumb_url:
-            payload['thumb'] = thumb_url
+            payload['thumb_url'] = thumb_url
 
         res = requests.post(url, data=payload, headers=headers, timeout=60).json()
         if "id" in res:
@@ -327,7 +326,6 @@ def post_to_instagram_via_url(video_url: str, thumb_url: str, caption: str) -> s
             payload['cover_url'] = thumb_url
             logger.info("🎯 Custom cover image set for Instagram Reel.")
         else:
-            # ✅ FIX 7: 2000ms = 2 second frame — better hook visual
             payload['cover_frame_time'] = 2000
 
         req = requests.post(container_url, data=payload, headers=headers, timeout=60)
