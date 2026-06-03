@@ -1,7 +1,7 @@
 """
 media_fetcher.py — B-Roll Media & Clickable Thumbnail Downloader v6.1 NUCLEAR
 AI Dark Realities · Short-Form Video Pipeline
-Fallback System: Pexels → Pixabay → Nuclear Keywords Backup
+Fallback System: Pexels → Pixabay → Nuclear Keywords Backup → Local Assets Lock
 ──────────────────────────────────────────────
 """
 
@@ -42,110 +42,114 @@ NUCLEAR_FALLBACK_KEYWORDS = [
     "money cash casino chips",
     "dopamine brain reward system"
 ]
-# ═══════════════
 
-# PEXELS VIDEO SEARCH - same as your code...
 def _search_pexels(keyword: str, per_page: int = 30) -> list[dict]:
     """Call Pexels Videos search API."""
-    headers = {"Authorization": config.PEXELS_API_KEY}
-    params = {
-        "query": keyword,
-        "per_page": per_page,
-        "orientation": config.MEDIA_ORIENTATION, # "portrait"
-        "size": "medium",
-    }
+    try:
+        headers = {"Authorization": config.PEXELS_API_KEY}
+        params = {
+            "query": keyword,
+            "per_page": per_page,
+            "orientation": config.MEDIA_ORIENTATION,  # "portrait"
+            "size": "medium",
+        }
 
-    resp = requests.get(config.PEXELS_BASE_URL, headers=headers, params=params, timeout=20)
-    resp.raise_for_status()
-    data = resp.json()
+        resp = requests.get(config.PEXELS_BASE_URL, headers=headers, params=params, timeout=20)
+        resp.raise_for_status()
+        data = resp.json()
 
-    videos = data.get("videos", [])
-    results = []
+        videos = data.get("videos", [])
+        results = []
 
-    for v in videos:
-        duration = v.get("duration", 0)
-        if not (config.MEDIA_MIN_DURATION <= duration <= config.MEDIA_MAX_DURATION):
-            continue
+        for v in videos:
+            duration = v.get("duration", 0)
+            if not (config.MEDIA_MIN_DURATION <= duration <= config.MEDIA_MAX_DURATION):
+                continue
 
-        files = v.get("video_files", [])
-        files_sorted = sorted(
-            [f for f in files if f.get("file_type") == "video/mp4"],
-            key=lambda f: f.get("width", 0),
-            reverse=True,
-        )
+            files = v.get("video_files", [])
+            files_sorted = sorted(
+                [f for f in files if f.get("file_type") == "video/mp4"],
+                key=lambda f: f.get("width", 0),
+                reverse=True,
+            )
 
-        chosen = None
-        for f in files_sorted:
-            if f.get("width", 9999) <= 1920:
-                chosen = f
-                break
-        if chosen is None and files_sorted:
-            chosen = files_sorted[-1]
+            chosen = None
+            for f in files_sorted:
+                if f.get("width", 9999) <= 1920:
+                    chosen = f
+                    break
+            if chosen is None and files_sorted:
+                chosen = files_sorted[-1]
 
-        if chosen and chosen.get("link"):
-            results.append({
-                "id": v["id"],
-                "url": chosen["link"],
-                "width": chosen.get("width", 0),
-                "height": chosen.get("height", 0),
-                "duration": duration,
-                "source": "pexels",
-            })
+            if chosen and chosen.get("link"):
+                results.append({
+                    "id": v["id"],
+                    "url": chosen["link"],
+                    "width": chosen.get("width", 0),
+                    "height": chosen.get("height", 0),
+                    "duration": duration,
+                    "source": "pexels",
+                })
 
-    random.shuffle(results)
-    logger.info(f"Pexels '{keyword}': {len(results)} usable clips found & shuffled.")
-    return results
+        random.shuffle(results)
+        logger.info(f"Pexels '{keyword}': {len(results)} usable clips found.")
+        return results
+    except Exception as e:
+        logger.warning(f"⚠️ Pexels API request failed for '{keyword}': {e}")
+        return []
 
-# PIXABAY VIDEO SEARCH - same as your code...
 def _search_pixabay(keyword: str, per_page: int = 30) -> list[dict]:
     """Call Pixabay Videos API."""
-    params = {
-        "key": config.PIXABAY_API_KEY,
-        "q": keyword,
-        "video_type": "film",
-        "per_page": per_page,
-        "safesearch": "true",
-    }
+    try:
+        params = {
+            "key": config.PIXABAY_API_KEY,
+            "q": keyword,
+            "video_type": "film",
+            "per_page": per_page,
+            "safesearch": "true",
+        }
 
-    resp = requests.get(config.PIXABAY_BASE_URL, params=params, timeout=20)
-    resp.raise_for_status()
-    data = resp.json()
+        resp = requests.get(config.PIXABAY_BASE_URL, params=params, timeout=20)
+        resp.raise_for_status()
+        data = resp.json()
 
-    hits = data.get("hits", [])
-    results = []
+        hits = data.get("hits", [])
+        results = []
 
-    for h in hits:
-        videos = h.get("videos", {})
-        clip = (
-            videos.get("large")
-            or videos.get("medium")
-            or videos.get("small")
-        )
-        if not clip:
-            continue
+        for h in hits:
+            videos = h.get("videos", {})
+            clip = (
+                videos.get("large")
+                or videos.get("medium")
+                or videos.get("small")
+            )
+            if not clip:
+                continue
 
-        duration = h.get("duration", 0)
-        if not (config.MEDIA_MIN_DURATION <= duration <= config.MEDIA_MAX_DURATION):
-            continue
+            duration = h.get("duration", 0)
+            if not (config.MEDIA_MIN_DURATION <= duration <= config.MEDIA_MAX_DURATION):
+                continue
 
-        url = clip.get("url", "")
-        if not url:
-            continue
+            url = clip.get("url", "")
+            if not url:
+                continue
 
-        results.append({
-            "id": h["id"],
-            "url": url,
-            "width": clip.get("width", 0),
-            "height": clip.get("height", 0),
-            "duration": duration,
-            "source": "pixabay",
-        })
+            results.append({
+                "id": h["id"],
+                "url": url,
+                "width": clip.get("width", 0),
+                "height": clip.get("height", 0),
+                "duration": duration,
+                "source": "pixabay",
+            })
 
-    random.shuffle(results)
-    logger.info(f"Pixabay '{keyword}': {len(results)} usable clips found & shuffled.")
-    return results
+        random.shuffle(results)
+        logger.info(f"Pixabay '{keyword}': {len(results)} usable clips found.")
+        return results
+    except Exception as e:
+        logger.warning(f"⚠️ Pixabay API request failed for '{keyword}': {e}")
+        return []
 
-# THUMBNAIL GENERATOR - same as your code...
 def generate_professional_thumbnail(keyword: str, hook_text: str, output_stem: str) -> str | None:
     logger.info(f"🎨 Generating high-retention thumbnail for topic: '{keyword}'")
 
@@ -232,7 +236,6 @@ def generate_professional_thumbnail(keyword: str, hook_text: str, output_stem: s
         logger.error(f"Error drawing thumbnail layout: {e}")
         return None
 
-# DOWNLOADER CORE - same as your code...
 @retry(stop=stop_after_attempt(config.API_RETRY_ATTEMPTS),
        wait=wait_fixed(config.API_RETRY_WAIT_SEC))
 def _download_clip(url: str, dest_path: Path) -> bool:
@@ -254,17 +257,101 @@ def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9_-]", "_", text.lower())[:40]
 
 # ═══════════════
-# 🌟 PUBLIC API - NUCLEAR FALLBACK LOGIC ADDED 🌟
+# 🌟 PUBLIC API - NUCLEAR ENGINE FULLY INTEGRATED 🌟
 # ═══════════════
 
 def fetch_broll_clips(keywords: list[str], clips_per_keyword: int = None) -> list[str]:
+    """
+    Fetch and download stock B-roll videos using standard keywords.
+    Implements dynamic multi-tier fallback to eliminate runtime pipeline crashes.
+    """
     if clips_per_keyword is None:
-        clips_per_keyword = config.MEDIA_PER_KEYWORD
+        clips_per_keyword = getattr(config, "MEDIA_PER_KEYWORD", 2)
 
     all_paths: list[str] = []
     seen_ids: set[str] = set()
+    
+    # Clean and filter input keywords
+    active_keywords = [k.strip() for k in keywords if k.strip()]
+    if not active_keywords:
+        active_keywords = random.sample(NUCLEAR_FALLBACK_KEYWORDS, 3)
 
-    for keyword in keywords:
+    logger.info(f"🎬 Initiating asset search engine for keywords: {active_keywords}")
+
+    for keyword in active_keywords:
         candidates = []
+        
+        # Phase 1: Try Pexels Engine Search
+        candidates = _search_pexels(keyword, per_page=20)
+        
+        # Phase 2: Try Pixabay Engine Search if Pexels returned nothing
+        if not candidates:
+            logger.info(f"🔄 Empty hit on Pexels for '{keyword}'. Route mapping to Pixabay Engine...")
+            candidates = _search_pixabay(keyword, per_page=20)
 
-        # STEP 1: Try main keyword from script_generator
+        # Process and download valid candidate clips
+        downloaded_count = 0
+        for clip in candidates:
+            if downloaded_count >= clips_per_keyword:
+                break
+                
+            clip_id = f"{clip['source']}_{clip['id']}"
+            if clip_id in seen_ids:
+                continue
+
+            unique_hash = hashlib.md5(clip['url'].encode('utf-8')).hexdigest()[:10]
+            filename = f"broll_{_slug(keyword)}_{unique_hash}.mp4"
+            dest_path = Path(getattr(config, "DOWNLOADS_DIR", Path("downloads"))) / filename
+
+            try:
+                if _download_clip(clip['url'], dest_path):
+                    all_paths.append(str(dest_path))
+                    seen_ids.add(clip_id)
+                    downloaded_count += 1
+            except Exception as download_error:
+                logger.warning(f"Failed to download clip {clip['url']}: {download_error}")
+                continue
+
+    # 🚨 CRITICAL PHASE 3: GLOBAL LOGICAL FALLBACK IF NO B-ROLL WAS FETCHED
+    if not all_paths:
+        logger.warning("⚠️ Critical Alert: Main keyword queries returned zero tracks. Activating Nuclear Fallback Keywords...")
+        fallback_samples = random.sample(NUCLEAR_FALLBACK_KEYWORDS, 4)
+        
+        for fb_kw in fallback_samples:
+            candidates = _search_pexels(fb_kw, per_page=15) or _search_pixabay(fb_kw, per_page=15)
+            if candidates:
+                for clip in candidates[:clips_per_keyword]:
+                    unique_hash = hashlib.md5(clip['url'].encode('utf-8')).hexdigest()[:10]
+                    filename = f"fallback_{_slug(fb_kw)}_{unique_hash}.mp4"
+                    dest_path = Path(getattr(config, "DOWNLOADS_DIR", Path("downloads"))) / filename
+                    try:
+                        if _download_clip(clip['url'], dest_path):
+                            all_paths.append(str(dest_path))
+                            if len(all_paths) >= 4:
+                                break
+                    except:
+                        continue
+            if len(all_paths) >= 4:
+                break
+
+    # 🚨 CRITICAL PHASE 4: LOCAL DIRECTORY FALLBACK (IF APIS ARE BLOCKED/OFFLINE)
+    if not all_paths:
+        logger.warning("⚠️ Absolute API Block Detected. Searching local asset cache folder...")
+        local_dir = Path(getattr(config, "DOWNLOADS_DIR", Path("downloads")))
+        local_assets = [str(p) for p in local_dir.glob("*.mp4") if p.stat().st_size > 50_000]
+        
+        if not local_assets:
+            # Check assets/videos directory as emergency alternative path
+            emergency_path = Path("assets/videos")
+            if emergency_path.exists():
+                local_assets = [str(p) for p in emergency_path.glob("*.mp4")]
+
+        if local_assets:
+            all_paths = random.sample(local_assets, min(len(local_assets), 5))
+            logger.info(f"♻️ Pipeline recovered safely using {len(all_paths)} cached local clips.")
+        else:
+            # Fatal barrier raise if even local folder doesn't have any video templates
+            raise RuntimeError("CRITICAL LIQUIDATION: No media clips could be pulled via API or Local Cache folders.")
+
+    logger.info(f"🚀 Media Engine finished execution. Total B-Rolls passed to pipeline: {len(all_paths)}")
+    return all_paths
