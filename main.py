@@ -1,7 +1,7 @@
 """
-main.py — Pipeline Orchestrator (ANTI-SPAM & INTENT ALIGNED v2.5 - THUMBNAIL INTEGRATED)
+main.py — Pipeline Orchestrator (ANTI-SPAM & INTENT ALIGNED v2.5 - HUMAN AUTOMATED TITLES)
 AI Dark Realities · Short-Form Video Pipeline
-──────────────────────────────────────────────
+─────────────────────────────────────────────────────────────────────────────────────
 """
 
 import argparse
@@ -11,6 +11,7 @@ import sys
 import time
 import os
 import shutil
+import random
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -41,6 +42,37 @@ logging.basicConfig(
 # Duplicate prevention — upload log file
 UPLOAD_LOG = Path("output/upload_log.json")
 UPLOAD_LOG.parent.mkdir(parents=True, exist_ok=True)
+
+
+def generate_psychology_hook_title(raw_title: str) -> str:
+    """
+    🌟 NEW HUMAN INJECTION ENGINE
+    Takes a raw or incomplete title/topic from Groq and converts it into a
+    high-retention, properly cased, automated clickbait title with dynamic emojis.
+    """
+    # Clean up the input string (remove hashtags if any)
+    clean_topic = raw_title.split("#")[0].strip().title()
+    
+    # Generic replacement block to keep the core theme intact
+    if not clean_topic or clean_topic.lower() in ["dark reality", "psychology fact", "video"]:
+        clean_topic = "Your Subconscious"
+
+    # High CTR Psychological Trigger Patterns (screenshot style optimized)
+    templates = [
+        f"Your Brain Has A Backdoor: {clean_topic} 🧠",
+        f"The Dark Secret Your Brain Hides From You About {clean_topic} 🤫",
+        f"Your Mind Is Not Your Own: The {clean_topic} Glitch 👤",
+        f"Why You're Sabotaging Yourself On Purpose With {clean_topic} 💀",
+        f"Your Eyes Betray You Every Time On {clean_topic} 👀",
+        f"Your Subconscious Is Controlling You via {clean_topic} 👁️",
+        f"The Hidden World Of {clean_topic} Awareness 🌌",
+        f"Silence Destroys Them Silently: {clean_topic} 🔕",
+        f"How Your Phone Uses {clean_topic} As A Dopamine Trap 📱"
+    ]
+    
+    # Random select patterns to avoid channel duplicate spam penalties
+    selected_title = random.choice(templates)
+    return selected_title[:95]  # Cap under 100 char limit for Shorts/Reels algorithm
 
 
 def _load_upload_log() -> list:
@@ -124,6 +156,21 @@ def run_pipeline(topic: str | None = None, skip_upload: bool = False) -> dict:
     # STEP 1: Script Generation
     logger.info("STEP 1/5 — Invoking Groq LLM for script engineering…")
     script_data = script_generator.generate_script(topic=topic)
+    
+    # 🌟 CRITICAL UPGRADE: Extract raw title and inject automated high-CTR psychological hook
+    seo_block = script_data.get("seo", {})
+    raw_title = seo_block.get("title") or script_data.get("title") or topic or "Dark Psychology"
+    
+    # Generate the high-retention structured title
+    human_optimized_title = generate_psychology_hook_title(raw_title)
+    logger.info(f"🎯 Automated Clickbait Title Locked: '{human_optimized_title}'")
+    
+    # Back-inject inside the script memory so ALL subsequent components read the same title
+    if "seo" not in script_data:
+        script_data["seo"] = {}
+    script_data["seo"]["title"] = human_optimized_title
+    script_data["title"] = human_optimized_title
+
     script_output = SCRIPTS_DIR / f"{stem}.json"
     script_output.write_text(json.dumps(script_data, indent=2), encoding="utf-8")
 
@@ -159,12 +206,8 @@ def run_pipeline(topic: str | None = None, skip_upload: bool = False) -> dict:
     logger.info("STEP 2.5 — Generating Eye-Catching Clickable Thumbnail Image…")
     thumb_keyword = keywords_list[0] if keywords_list else "dark mystery"
     
-    # Script se title/hook nikalna, fallback lagana agar na mile
-    seo_data = script_data.get("seo", {})
-    hook_text = seo_data.get("title") or script_data.get("title") or "DARK REALITY"
-    
-    # Clean hook text (remove hashtags for thumbnail writing)
-    hook_text = hook_text.split("#")[0].strip()
+    # Automatically tracks the newly generated clean hook text for thumbnail rendering
+    hook_text = script_data["seo"]["title"].split(":")[0].strip() # Takes the core psychological hook phrase
     
     thumbnail_path = media_fetcher.generate_professional_thumbnail(
         keyword=thumb_keyword,
@@ -193,11 +236,11 @@ def run_pipeline(topic: str | None = None, skip_upload: bool = False) -> dict:
     if not skip_upload:
         logger.info("STEP 5/5 — Dispatching multi-platform cloud upload sequences…")
         
-        # 🔥 MODIFIED: thumbnail_path ko uploader functions ke liye bhej diya gaya hai
+        # Will pass the updated dictionary seamlessly into the platform channels
         upload_results = uploader.upload_all_platforms(
             video_path     = video_path,
             seo            = script_data.get("seo", {}),
-            thumbnail_path = thumbnail_path,  # Passed professional custom layout
+            thumbnail_path = thumbnail_path,
         )
         if "success" in str(upload_results.get("youtube", "")):
             _log_upload(stem, upload_results)
