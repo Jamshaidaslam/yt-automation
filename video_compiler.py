@@ -9,7 +9,7 @@ TARGET_WIDTH = 720
 TARGET_HEIGHT = 1280
 
 def compile_final_video(video_clips_paths, voiceover_data, bgm_file_path, output_path):
-    logger.info("🎬 Initializing High-Speed Viral Production...")
+    logger.info("🎬 Initializing final audio-visual composite...")
 
     # 1. Audio Processing
     voice_clip = AudioFileClip(voiceover_data["audio_path"])
@@ -20,57 +20,44 @@ def compile_final_video(video_clips_paths, voiceover_data, bgm_file_path, output
         bgm_raw = AudioFileClip(bgm_file_path)
         bgm_clip = audio_loop(bgm_raw, duration=duration).volumex(0.06)
         audio_tracks.append(bgm_clip)
-
     final_audio = CompositeAudioClip(audio_tracks)
 
-    # 2. Visual Processing (Fast Cuts - Fixed 2.5s duration)
+    # 2. Visual Processing (Fast Cuts)
     processed_clips = []
     available_clips = list(video_clips_paths)
     random.shuffle(available_clips)
     
-    # 2.5 second ke cuts taake fast pacing bane
-    clip_dur = 2.5 
-    
+    clip_dur = 2.5 # Fast cuts
     for path in available_clips:
         try:
             clip = VideoFileClip(path).without_audio()
-            # Fast Cut & Zoom Effect
             clip = clip.resize(height=TARGET_HEIGHT).crop(x_center=TARGET_WIDTH//2, width=TARGET_WIDTH, height=TARGET_HEIGHT)
             clip = clip.fx(vfx.resize, lambda t: 1.0 + (0.05 * t))
             processed_clips.append(clip.set_duration(clip_dur))
-            
-            # Agar clips audio se lambi ho jaye to break kar dein
             if sum(c.duration for c in processed_clips) >= duration:
                 break
         except Exception as e:
-            logger.error(f"Clip processing error: {e}")
+            logger.error(f"Clip error: {e}")
 
-      
-    # Text Caption Example (Center, Yellow, Bold)
-   # 3. Final Composite with Auto-Wrapping Captions
-    # 'size' ko screen width se thoda kam rakhein taake text bahar na nikle
+    # 3. Final Composite (FIXED NAME ERROR)
+    final_video_concat = concatenate_videoclips(processed_clips, method="compose")
+    
+    # Text Caption Fix (Screen ke andar rahega)
     txt_clip = TextClip(
-        "MASTER THE SILENCE AND CONTROL THE ROOM", 
-        fontsize=60, 
-        color='yellow', 
-        font='Arial-Bold', 
-        method='caption', 
-        size=(TARGET_WIDTH - 100, None), # Yahan size fix kiya hai
-        align='center'
+        "MASTER THE SILENCE", 
+        fontsize=60, color='yellow', font='Arial-Bold', 
+        method='caption', size=(TARGET_WIDTH - 100, None)
     ).set_pos('center').set_duration(duration)
     
-    # Text ko "pop" effect dene ke liye simple approach
-    final_video = CompositeVideoClip([video, txt_clip])
-    txt_clip = TextClip("MASTER THE SILENCE", fontsize=70, color='yellow', font='Arial-Bold', stroke_color='black', stroke_width=2)
-    txt_clip = txt_clip.set_pos('center').set_duration(duration)
-    
-    final_video = CompositeVideoClip([final_video, txt_clip])
-    final_video = final_video.set_audio(final_audio).set_duration(duration)
+    # Yahan 'final_video_concat' use kiya hai, 'video' nahi
+    final_composite = CompositeVideoClip([final_video_concat, txt_clip])
+    final_composite = final_composite.set_audio(final_audio).set_duration(duration)
 
     # 4. Rendering
-    final_video.write_videofile(
+    logger.info(f"🚀 Rendering to: {output_path}")
+    final_composite.write_videofile(
         output_path, fps=24, codec="libx264", audio_codec="aac", preset="ultrafast"
     )
     
-    final_video.close()
+    final_composite.close()
     voice_clip.close()
