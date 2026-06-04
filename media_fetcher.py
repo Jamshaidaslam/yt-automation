@@ -275,6 +275,17 @@ def fetch_broll_clips(keywords: list, clips_per_keyword: int = None) -> list:
     downloads_dir = Path(getattr(config, "DOWNLOADS_DIR", "downloads"))
     downloads_dir.mkdir(parents=True, exist_ok=True)
 
+    # Diagnose API keys early — most common cause of zero clips
+    pexels_key   = getattr(config, "PEXELS_API_KEY",   None)
+    pixabay_key  = getattr(config, "PIXABAY_API_KEY",  None)
+    if not pexels_key or pexels_key == "YOUR_KEY_HERE":
+        logger.warning("⚠️  PEXELS_API_KEY is not set — Pexels search will fail.")
+    if not pixabay_key or pixabay_key == "YOUR_KEY_HERE":
+        logger.warning("⚠️  PIXABAY_API_KEY is not set — Pixabay search will fail.")
+
+    logger.info(f"📁 Downloads dir: {downloads_dir.resolve()}")
+    logger.info(f"🎯 clips_per_keyword={clips_per_keyword}, keywords={keywords}")
+
     all_paths: list  = []
     seen_ids:  set   = set()
 
