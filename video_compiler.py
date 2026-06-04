@@ -8,7 +8,7 @@ from moviepy.audio.fx.all import audio_loop
 from PIL import Image, ImageDraw, ImageFont
 import config
 
-# Fix for PIL ANTIALIAS error in newer versions
+# PIL compatibility fix
 try:
     Image.ANTIALIAS = Image.Resampling.LANCZOS
 except AttributeError:
@@ -17,113 +17,95 @@ except AttributeError:
 logger = logging.getLogger(__name__)
 
 # ─── Configuration ───────────────────────────────────────────────────────────
-TARGET_WIDTH = 720
-TARGET_HEIGHT = 1280
-MIN_DURATION = 35
-MAX_DURATION = 55
+TARGET_WIDTH, TARGET_HEIGHT = 720, 1280
+MIN_DURATION, MAX_DURATION = 35, 55
 FAST_CUT_DUR = 2.0
-CAPTION_COLORS = ["#00FF00", "#FFFF00"]
-CAPTION_POSITIONS = ["top", "center", "bottom"]
-WORDS_PER_CAPTION = 3
-CAPTION_FONTSIZE = 72
 
 def _build_caption_clips(voiceover_data, total_duration):
+    """ Builds caption clips with a strict fail-safe. """
     caption_clips = []
     words_data = voiceover_data.get("word_timings", [])
+    if not words_data: return []
 
-    if not words_data:
-        text = voiceover_data.get("text", "")
-        words = text.split()
-        if not words: return []
-        word_dur = total_duration / len(words)
-        words_data = [{"word": w, "start": i * word_dur, "end": (i + 1) * word_dur} for i, w in enumerate(words)]
-
-    chunks = [words_data[i:i + WORDS_PER_CAPTION] for i in range(0, len(words_data), WORDS_PER_CAPTION)]
-    
-    random.seed(42)
-    positions_cycle = CAPTION_POSITIONS.copy()
-    random.shuffle(positions_cycle)
-
-    for idx, chunk in enumerate(chunks):
-        chunk_text = " ".join(c["word"] for c in chunk)
-        chunk_start = chunk[0]["start"]
-        chunk_end = chunk[-1]["end"]
-        chunk_dur = max(chunk_end - chunk_start, 0.3)
-        color = CAPTION_COLORS[idx % len(CAPTION_COLORS)]
-        position = positions_cycle[idx % len(positions_cycle)]
-
-        pos_arg = ("center", 80) if position == "top" else (("center", TARGET_HEIGHT - 180) if position == "bottom" else "center")
-
+    chunks = [words_data[i:i+3] for i in range(0, len(words_data), 3)]
+    for chunk in chunks:
         try:
+            # Check if ImageMagick is available/working by trying to render a simple clip
             txt = TextClip(
-                chunk_text, fontsize=CAPTION_FONTSIZE, color=color,
-                font="Arial-Bold", method="caption", size=(TARGET_WIDTH - 80, None),
+                " ".join(c["word"] for c in chunk), fontsize=72, color='yellow',
+                font="Arial-Bold", method="caption", size=(640, None), 
                 stroke_color="black", stroke_width=3
-            ).set_start(chunk_start).set_duration(chunk_dur).set_pos(pos_arg)
+            ).set_start(chunk[0]["start"]).set_duration(max(chunk[-1]["end"]-chunk[0]["start"], 0.3)).set_pos("center")
             caption_clips.append(txt)
-        except Exception as e:
-            logger.warning(f"Caption failed for '{chunk_text}': {e}")
+        except Exception:
+            # If TextClip fails, we skip captions instead of crashing the whole pipeline
+            continue
     return caption_clips
 
 def generate_thumbnail(video_clip, title_text, output_path):
     try:
-        frame = video_clip.get_frame(1.0)
-        img = Image.fromarray(frame).resize((TARGET_WIDTH, TARGET_HEIGHT))
-        draw = ImageDraw.Draw(img)
-        
+        # Get frame safely
+        img = Image.fromarray(video_clip.get_frame(1.0)).resize((TARGET_WIDTH, TARGET_HEIGHT))
         font_path = str(config.FONTS_DIR / config.FONT_NAME)
         font = ImageFont.truetype(font_path, 72) if os.path.exists(font_path) else ImageFont.load_default()
         
-        draw.text((50, TARGET_HEIGHT - 200), title_text, font=font, fill=(255, 230, 0))
+        ImageDraw.Draw(img).text((50, TARGET_HEIGHT - 200), title_text[:40], font=font, fill=(255, 230, 0))
         thumb_path = output_path.replace(".mp4", "_thumbnail.jpg")
         img.save(thumb_path, "JPEG")
         return thumb_path
     except Exception as e:
-        logger.error(f"Thumb failed: {e}")
+        logger.warning(f"Thumbnail generation skipped: {e}")
         return None
 
 def compile_final_video(video_clips_paths, voiceover_data, bgm_file_path, output_path, title_text="Watch Till End"):
-    logger.info("🎬 Compilation Started...")
-    
-    voice_clip = AudioFileClip(voiceover_data["audio_path"])
-    duration = min(max(voice_clip.duration, MIN_DURATION), MAX_DURATION)
-    
-    # 3. Background Music (FIXED: Added NoneType check)
-    audio_tracks = [voice_clip]
-    if bgm_file_path and isinstance(bgm_file_path, str) and os.path.exists(bgm_file_path):
-        try:
-            bgm = audio_loop(AudioFileClip(bgm_file_path), duration=duration).volumex(0.06)
-            audio_tracks.append(bgm)
-        except Exception as e:
-            logger.warning(f"BGM load failed: {e}")
-    final_audio = CompositeAudioClip(audio_tracks)
+    try:
+        logger.info("🎬 Starting Compilation...")
+        voice_clip = AudioFileClip(voiceover_data["audio_path"])
+        duration = min(max(voice_clip.duration, MIN_DURATION), MAX_DURATION)
+        
+        # Audio
+        audio_tracks = [voice_clip]
+        if bgm_file_path and isinstance(bgm_file_path, str) and os.path.exists(bgm_file_path):
+            audio_tracks.append(audio_loop(AudioFileClip(bgm_file_path), duration=duration).volumex(0.06))
+        
+        # Video
+        processed_clips = []
+        total_dur = 0.0
+        random.shuffle(video_clips_paths)
+        
+        for path in video_clips_paths:
+            if total_dur >= duration: break
+            if path and os.path.exists(path):
+                try:
+                    clip = VideoFileClip(path).without_audio()
+                    clip = clip.resize(height=TARGET_HEIGHT).crop(x_center=TARGET_WIDTH/2, width=TARGET_WIDTH, height=TARGET_HEIGHT)
+                    clip = clip.fx(vfx.resize, lambda t: 1.0 + 0.03 * t)
+                    cut = min(FAST_CUT_DUR, duration - total_dur)
+                    processed_clips.append(clip.subclip(0, cut).set_duration(cut))
+                    total_dur += cut
+                except: continue
+        
+        if not processed_clips:
+            return None, None
 
-    # Clips
-    processed_clips = []
-    total_video_dur = 0.0
-    random.shuffle(video_clips_paths)
+        final_video_concat = concatenate_videoclips(processed_clips, method="compose")
+        
+        # Composite with Captions (Captions are optional/fail-safe)
+        captions = _build_caption_clips(voiceover_data, duration)
+        final_composite = CompositeVideoClip([final_video_concat] + captions).set_audio(CompositeAudioClip(audio_tracks)).set_duration(duration)
+        
+        # Write file
+        final_composite.write_videofile(output_path, fps=24, codec="libx264", audio_codec="aac", preset="ultrafast")
+        
+        thumb = generate_thumbnail(final_composite, title_text, output_path)
+        
+        # Manual cleanup of memory
+        final_composite.close()
+        final_video_concat.close()
+        voice_clip.close()
+        
+        return str(output_path), thumb
     
-    for path in video_clips_paths:
-        if total_video_dur >= duration: break
-        if not path or not os.path.exists(path): continue
-        try:
-            clip = VideoFileClip(path).without_audio().resize(height=TARGET_HEIGHT).crop(x_center=TARGET_WIDTH/2, width=TARGET_WIDTH, height=TARGET_HEIGHT)
-            clip = clip.fx(vfx.resize, lambda t: 1.0 + 0.03 * t)
-            cut_dur = min(FAST_CUT_DUR, duration - total_video_dur)
-            processed_clips.append(clip.subclip(0, cut_dur).set_duration(cut_dur))
-            total_video_dur += cut_dur
-        except: continue
-
-    final_video_concat = concatenate_videoclips(processed_clips, method="compose")
-    
-    # Final Composite
-    layers = [final_video_concat] + _build_caption_clips(voiceover_data, duration)
-    final_composite = CompositeVideoClip(layers, size=(TARGET_WIDTH, TARGET_HEIGHT)).set_audio(final_audio).set_duration(duration)
-    
-    final_composite.write_videofile(output_path, fps=24, codec="libx264", audio_codec="aac", preset="ultrafast")
-    
-    # Thumb
-    generate_thumbnail(final_composite, title_text, output_path)
-    
-    final_composite.close()
-    voice_clip.close()
+    except Exception as e:
+        logger.error(f"Critical error in compile_final_video: {e}")
+        return None, None
