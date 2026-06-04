@@ -1,7 +1,6 @@
 """
-video_compiler.py — Production Compositor Engine (MOVIEPY AUTOMATED ENGINE v4.6)
+video_compiler.py — Production Compositor Engine (MOVIEPY AUTOMATED ENGINE v4.7)
 AI Dark Realities · Short-Form Video Pipeline
-Fixed: Aligned single-file BGM pipeline mapping to prevent encoding exit breaks.
 ───────────────────────────────────────────────────────────────────────────────────
 """
 
@@ -13,36 +12,34 @@ from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVide
 logger = logging.getLogger(__name__)
 
 def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_file_path: str, output_path: str):
-    """Composes B-rolls, deep voiceprints, auto-ducked music, and ultra-high-retention single line caption chunks."""
     logger.info("🎬 Initializing final audio-visual composite blending layers...")
     
-    # Load voiceover
     voice_clip = AudioFileClip(voiceover_data["audio_path"])
     duration = voice_clip.duration
+    bgm_clip = None
 
-    # 1. Background Music (BGM) Target Layer Injection
-    if not os.path.exists(bgm_file_path) or os.path.getsize(bgm_file_path) == 0:
-        raise FileNotFoundError(f"Target BGM file asset missing or corrupt at layout node: {bgm_file_path}")
-    
-    logger.info(f"🎵 Blending cinematic active background score: {Path(bgm_file_path).name}")
-    bgm_clip = AudioFileClip(bgm_file_path).loop(duration=duration)
-    
-    # -22dB Dynamic Attenuation Rule for crystal-clear voice footprint
-    bgm_clip = bgm_clip.volumex(0.05) 
+    # Safe dynamic inclusion gate for background score
+    if bgm_file_path and os.path.exists(bgm_file_path) and os.path.getsize(bgm_file_path) > 20000:
+        try:
+            logger.info(f"🎵 Blending cinematic active background score: {Path(bgm_file_path).name}")
+            bgm_clip = AudioFileClip(bgm_file_path).loop(duration=duration).volumex(0.04)
+            final_audio = CompositeAudioClip([voice_clip, bgm_clip])
+        except Exception as audio_err:
+            logger.warning(f"⚠️ Audio device driver parsing failed on BGM. Switching to pure voice tracker. Error: {audio_err}")
+            final_audio = CompositeAudioClip([voice_clip])
+            bgm_clip = None
+    else:
+        logger.warning("⚠️ No valid BGM file path resolved. Processing with pure voice footprint.")
+        final_audio = CompositeAudioClip([voice_clip])
 
-    final_audio = CompositeAudioClip([voice_clip, bgm_clip])
-
-    # 2. B-Roll Stitching and Vertical Aspect Clipping Engine
     loaded_clips = [VideoFileClip(p).without_audio() for p in video_clips_paths]
     stitched_video = concatenate_videoclips(loaded_clips, method="compose").subclip(0, duration)
     
-    # Force absolute 9:16 vertical delivery ratios
     w, h = stitched_video.size
     target_w = int(h * (9 / 16))
     x1 = (w - target_w) // 2
     cropped_video = stitched_video.crop(x1=x1, y1=0, x2=x1+target_w, y2=h)
 
-    # 3. Dynamic Word Chunking Subtitles Engine (High-Retention Text Pacing)
     text_clips = []
     word_timings = voiceover_data["word_timings"]
     
@@ -65,10 +62,8 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_file_
                     .set_position(('center', 'center')))
         text_clips.append(txt_clip)
 
-    # Blend all layers together seamlessly
     final_composite = CompositeVideoClip([cropped_video] + text_clips).set_audio(final_audio)
 
-    # Output final compiled render stream
     logger.info(f"🚀 Launching production compiler encoding engine -> Target: {output_path}")
     final_composite.write_videofile(
         output_path,
@@ -79,11 +74,10 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_file_
         logger=None
     )
 
-    # Cleanup resources safely to prevent memory leaks or locking crashes
     final_composite.close()
     cropped_video.close()
     stitched_video.close()
     for c in loaded_clips: c.close()
     voice_clip.close()
-    bgm_clip.close()
+    if bgm_clip: bgm_clip.close()
     logger.info("✅ Final high-retention video compiled flawlessly!")
