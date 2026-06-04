@@ -1,105 +1,80 @@
-"""
-main.py — YouTube Automation Pipeline
-"""
+import os, logging, random
+from moviepy.editor import (
+    VideoFileClip, AudioFileClip, CompositeVideoClip,
+    CompositeAudioClip, concatenate_videoclips, TextClip
+)
+import moviepy.video.fx.all as vfx
+from moviepy.audio.fx.all import audio_loop
+from PIL import Image, ImageDraw, ImageFont
+import config
 
-import os, logging, random, sys, shutil
-from pathlib import Path
-from script_generator import generate_script
-from audio_generator import generate_voiceover
-from media_fetcher import fetch_broll_clips
-from video_compiler import compile_final_video
+try:
+    Image.ANTIALIAS = Image.Resampling.LANCZOS
+except AttributeError:
+    pass
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 logger = logging.getLogger(__name__)
 
-MEDIA_CACHE_DIR  = Path("output/media")
-FINAL_OUTPUT_DIR = Path("output/final_videos")
+TARGET_WIDTH, TARGET_HEIGHT = 720, 1280
+MIN_DURATION, MAX_DURATION = 35, 55
+FAST_CUT_DUR = 2.0
 
+def _build_caption_clips(voiceover_data, total_duration):
+    caption_clips = []
+    words_data = voiceover_data.get("word_timings", [])
+    if not words_data:
+        text = voiceover_data.get("text", "")
+        words = text.split()
+        if not words: return []
+        word_dur = total_duration / len(words)
+        words_data = [{"word": w, "start": i*word_dur, "end": (i+1)*word_dur} for i, w in enumerate(words)]
 
-def clean_and_prep():
-    if MEDIA_CACHE_DIR.exists():
-        shutil.rmtree(MEDIA_CACHE_DIR)
-    MEDIA_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    FINAL_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    chunks = [words_data[i:i+3] for i in range(0, len(words_data), 3)]
+    for idx, chunk in enumerate(chunks):
+        txt = TextClip(
+            " ".join(c["word"] for c in chunk), fontsize=72, color='yellow',
+            font="Arial-Bold", method="caption", size=(640, None), stroke_color="black", stroke_width=3
+        ).set_start(chunk[0]["start"]).set_duration(max(chunk[-1]["end"]-chunk[0]["start"], 0.3)).set_pos("center")
+        caption_clips.append(txt)
+    return caption_clips
 
+def generate_thumbnail(video_clip, title_text, output_path):
+    try:
+        img = Image.fromarray(video_clip.get_frame(1.0)).resize((TARGET_WIDTH, TARGET_HEIGHT))
+        font_path = str(config.FONTS_DIR / config.FONT_NAME)
+        font = ImageFont.truetype(font_path, 72) if os.path.exists(font_path) else ImageFont.load_default()
+        ImageDraw.Draw(img).text((50, TARGET_HEIGHT - 200), title_text, font=font, fill=(255, 230, 0))
+        thumb_path = output_path.replace(".mp4", "_thumbnail.jpg")
+        img.save(thumb_path, "JPEG")
+        return thumb_path
+    except: return None
 
-def execute_pipeline(topic: str):
-    logger.info(f"🚀 Pipeline starting for: {topic}")
-
-    clean_and_prep()
-
-    # 1. Script
-    logger.info("📝 Generating script...")
-    script_data = generate_script(topic)
-    if not script_data or not script_data.get("voiceover"):
-        logger.critical("❌ Script generation failed — empty voiceover text.")
-        sys.exit(1)
-
-    # 2. Voiceover
-    logger.info("🎙  Generating voiceover...")
-    voice_data = generate_voiceover(script_data["voiceover"], "main_voice")
-    if not voice_data or not voice_data.get("audio_path"):
-        logger.critical("❌ Voiceover generation failed.")
-        sys.exit(1)
-    if not os.path.exists(voice_data["audio_path"]):
-        logger.critical(f"❌ Audio file not found: {voice_data['audio_path']}")
-        sys.exit(1)
-
-    # 3. B-Roll Clips
-    # 20+ clips * 2s fast cut = 40-55s video (hits 35-55s target)
-    logger.info("🎞  Fetching B-roll clips...")
-    visual_queries = script_data.get(
-        "visual_queries",
-        ["dark atmosphere", "minimalist", "high status lifestyle"]
-    )
-    video_paths = fetch_broll_clips(visual_queries, clips_per_keyword=10)
-    if not video_paths:
-        logger.critical("❌ No video clips fetched. Check media_fetcher.")
-        sys.exit(1)
-    logger.info(f"✅ {len(video_paths)} clips ready.")
-
-    # 4. Compile
-    logger.info("🎬 Compiling final video...")
-    output_path  = FINAL_OUTPUT_DIR / "final_output.mp4"
-    bgm_path     = "assets/music/dark.mp3"
-    title_text   = script_data.get("title", topic)
-
-    result = compile_final_video(
-        video_clips_paths=video_paths,
-        voiceover_data=voice_data,
-        bgm_file_path=bgm_path,
-        output_path=str(output_path),
-        title_text=title_text,
-    )
-
-    # compile_final_video returns (video_path, thumbnail_path)
-    if isinstance(result, tuple):
-        final_video_path, thumbnail_path = result
-    else:
-        final_video_path = result
-        thumbnail_path   = None
-
-    # 5. Verify output
-    if not os.path.exists(final_video_path):
-        logger.critical(f"❌ Output video not found at: {final_video_path}")
-        sys.exit(1)
-
-    size_mb = os.path.getsize(final_video_path) / (1024 * 1024)
-    logger.info(f"✅ Video ready  → {final_video_path}  ({size_mb:.1f} MB)")
-    if thumbnail_path:
-        logger.info(f"🖼  Thumbnail   → {thumbnail_path}")
-
-    return final_video_path, thumbnail_path
-
-
-if __name__ == "__main__":
-    pool = [
-        "How to use the Half-Sentence Trap to make her obsess over you",
-        "The silent sub-cue that makes people instantly submit to your status",
-        "How to read a woman's true intentions in under 3 seconds",
-        "The psychological pause that forces authority in any room",
-        "Why being 'too available' kills your attraction and how to fix it"
-    ]
-
-    topic = random.choice(pool)
-    execute_pipeline(topic)
+def compile_final_video(video_clips_paths, voiceover_data, bgm_file_path, output_path, title_text):
+    voice_clip = AudioFileClip(voiceover_data["audio_path"])
+    duration = min(max(voice_clip.duration, MIN_DURATION), MAX_DURATION)
+    
+    audio_tracks = [voice_clip]
+    if bgm_file_path and isinstance(bgm_file_path, str) and os.path.exists(bgm_file_path):
+        audio_tracks.append(audio_loop(AudioFileClip(bgm_file_path), duration=duration).volumex(0.06))
+    
+    processed_clips = []
+    total_dur = 0.0
+    random.shuffle(video_clips_paths)
+    for path in video_clips_paths:
+        if total_dur >= duration: break
+        if path and os.path.exists(path):
+            try:
+                clip = VideoFileClip(path).without_audio().resize(height=TARGET_HEIGHT).crop(x_center=TARGET_WIDTH/2, width=TARGET_WIDTH, height=TARGET_HEIGHT)
+                cut = min(FAST_CUT_DUR, duration - total_dur)
+                processed_clips.append(clip.subclip(0, cut).set_duration(cut))
+                total_dur += cut
+            except: continue
+            
+    final_video = concatenate_videoclips(processed_clips, method="compose")
+    final_composite = CompositeVideoClip([final_video] + _build_caption_clips(voiceover_data, duration)).set_audio(CompositeAudioClip(audio_tracks)).set_duration(duration)
+    final_composite.write_videofile(output_path, fps=24, codec="libx264", audio_codec="aac", preset="ultrafast")
+    
+    thumb = generate_thumbnail(final_composite, title_text, output_path)
+    final_composite.close()
+    voice_clip.close()
+    return str(output_path), thumb
