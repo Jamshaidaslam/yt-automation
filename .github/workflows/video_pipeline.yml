@@ -2,12 +2,10 @@ name: Automated Video Production Pipeline
 
 on:
   schedule:
-    # 🎯 Slot 1: UTC 11:30 AM = PK 4:30 PM | UK 12:30 PM (Lunch Break) | USA 7:30 AM (Morning Scroll)
-    # Target: Initial UK Push + USA Morning Wave
+    # 🎯 Slot 1: UTC 11:30 AM = PK 4:30 PM
     - cron: '30 11 * * *'
     
-    # 🎯 Slot 2: UTC 18:30 PM (6:30 PM) = PK 11:30 PM | UK 7:30 PM | USA 2:30 PM (Prime Afternoon Traffic)
-    # Target: Mega USA High-Retention View Boost
+    # 🎯 Slot 2: UTC 18:30 PM = PK 11:30 PM
     - cron: '30 18 * * *'
 
   workflow_dispatch:
@@ -47,7 +45,7 @@ jobs:
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install cloudinary
+          pip install cloudinary pydub==0.25.1
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: Orchestrate pipeline execution
@@ -64,37 +62,38 @@ jobs:
           CLOUDINARY_CLOUD_NAME:     ${{ secrets.CLOUDINARY_CLOUD_NAME }}
           CLOUDINARY_API_KEY:        ${{ secrets.CLOUDINARY_API_KEY }}
           CLOUDINARY_API_SECRET:     ${{ secrets.CLOUDINARY_API_SECRET }}
-          
-          # Dynamic fallback synced with organic cron brackets
           UPLOAD_TO_YOUTUBE:         ${{ (github.event.schedule == '30 11 * * *' || github.event.schedule == '30 18 * * *' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
-          
         run: |
-          TOPIC="${{ github.event.inputs.topic }}"
-          SKIP="${{ github.event.inputs.skip_upload }}"
+          # Safe parsing layer to handle both cron runs and manual inputs safely
+          TOPIC=""
+          SKIP="false"
+          
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TOPIC="${{ github.event.inputs.topic }}"
+            SKIP="${{ github.event.inputs.skip_upload }}"
+          fi
 
           CMD="python main.py"
           
-          # Safe input quoting injection
+          # Force execute with manual topic parameter if passed safely
           if [ -n "$TOPIC" ]; then
             CMD="$CMD --topic \"$TOPIC\""
           fi
           
-          # Override priority check for skips
           if [ "$SKIP" = "true" ]; then
             CMD="$CMD --skip-upload"
           fi
 
-          echo "Running system command execution: $CMD"
+          echo "🚀 Executing System Master Command: $CMD"
           eval "$CMD"
 
       - name: Archive Production Videos & Thumbnails
         uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: compiled-shorts-${{ github.run_id }}
           path: |
+            output/final_videos/
             output/final_videos/*.mp4
-            output/audio/*_human.mp3
-            *.mp4
-          if-no-files-found: warn
+          # 🔥 STOPS THE GREEN ACCIDENT: If the video was not built, break the workflow here!
+          if-no-files-found: error
           retention-days: 7
