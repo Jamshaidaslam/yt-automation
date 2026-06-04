@@ -1,7 +1,7 @@
 """
-video_compiler.py — Production Compositor Engine (PRODUCTION CORE v5.0 - VISUAL FIX)
+video_compiler.py — Production Compositor Engine (PRODUCTION CORE v5.2 - FULL SYSTEM PATCH)
 AI Dark Realities · Short-Form Video Pipeline
-Fixed: Eliminated black screen layout bug and normalized caption scaling wrapping boundaries.
+Fixed: Eliminated late-stage black screens via video loop layers and forced safe text padding.
 ───────────────────────────────────────────────────────────────────────────────────
 """
 
@@ -23,7 +23,7 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_file_
     if bgm_file_path and os.path.exists(bgm_file_path) and os.path.getsize(bgm_file_path) > 20000:
         try:
             logger.info(f"🎵 Blending cinematic active background score: {Path(bgm_file_path).name}")
-            bgm_clip = AudioFileClip(bgm_file_path).loop(duration=duration).volumex(0.04)
+            bgm_clip = AudioFileClip(bgm_file_path).loop(duration=duration).volumex(0.05)
             final_audio = CompositeAudioClip([voice_clip, bgm_clip])
         except Exception as audio_err:
             logger.warning(f"⚠️ BGM parsing failed. Switching to pure voice tracker. Error: {audio_err}")
@@ -58,7 +58,9 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_file_
     if not processed_clips:
         raise RuntimeError("CRITICAL: Zero usable visual assets parsed. Video construction aborted.")
 
-    stitched_video = concatenate_videoclips(processed_clips, method="compose").subclip(0, duration)
+    # 🔥 FIX 1: Pure B-Roll loop generator. Footage ab black screen par nahi jayegi, aakhir tak loop hogi.
+    base_stitched = concatenate_videoclips(processed_clips, method="compose")
+    stitched_video = base_stitched.loop(duration=duration)
 
     # 4. High-Retention Caption Wrapping Subtitles Engine
     text_clips = []
@@ -77,16 +79,16 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_file_
         # Color coding triggers based on emotional phrasing nodes
         text_color = "#FFFF00" if "WAIT" in chunk_text or "SECRET" in chunk_text else ("#00FF00" if i % 4 == 0 else "#FFFFFF")
         
-        # Optimized typography specs to enforce wrapping bounds perfectly inside standard displays
-        txt_clip = (TextClip(chunk_text, font="Impact", fontsize=65, color=text_color, 
-                             stroke_color="black", stroke_width=4, method="caption",
-                             size=(TARGET_WIDTH - 200, None))
+        # 🔥 FIX 2: Safe margin layout width padding (TARGET_WIDTH - 300) taake text mobile screen se na kate
+        txt_clip = (TextClip(chunk_text, font="Impact", fontsize=60, color=text_color, 
+                             stroke_color="black", stroke_width=4.5, method="caption",
+                             size=(TARGET_WIDTH - 300, None))
                     .set_start(start_time)
                     .set_end(end_time)
-                    .set_position(('center', TARGET_HEIGHT * 0.7))) # Kept at lower third quadrant for focus
+                    .set_position(('center', TARGET_HEIGHT * 0.65))) # Perfectly placed at lower third safe zone
         text_clips.append(txt_clip)
 
-    # Compile the layout architecture together
+    # Compile the layout architecture together without black screen bleed leaks
     final_composite = CompositeVideoClip([stitched_video] + text_clips, size=(TARGET_WIDTH, TARGET_HEIGHT)).set_audio(final_audio)
 
     # 5. Master Render Out Execution Code
@@ -97,13 +99,14 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_file_
         codec="libx264",
         audio_codec="aac",
         threads=4,
-        preset="ultrafast", # Optimizes speedy encoding allocations inside GitHub infrastructure
+        preset="ultrafast",
         logger=None
     )
 
     # Close operational file streams cleanly to clear process tracking memory
     final_composite.close()
     stitched_video.close()
+    base_stitched.close()
     for c in processed_clips: c.close()
     voice_clip.close()
     if bgm_clip: bgm_clip.close()
