@@ -1,7 +1,7 @@
 """
-script_generator.py — Core Intelligence Engine (GROQ LLAMA3-70B DEEP DARK BLUEPRINT v3.1 - SYNTAX FIXED)
+script_generator.py — Core Intelligence Engine (GROQ LLAMA3-70B DEEP DARK BLUEPRINT v3.2 - FIXED)
 AI Dark Realities · Short-Form Video Pipeline
-Fixed: Escape and raw string containment to resolve unterminated string literal errors.
+Fixed: Eliminated multi-line string formatting entirely to bypass syntax compilation breaks.
 ───────────────────────────────────────────────────────────────────────────────────
 """
 
@@ -23,24 +23,25 @@ def generate_script(topic: str) -> dict:
 
     client = Groq(api_key=api_key)
 
-    # Elite psychological system prompt focusing strictly on high-retention dark hooks and viral loops
-    system_prompt = (
-        "You are an elite content strategist specializing in dark psychology, human behaviors, and viral mystery shorts "
-        "for USA/UK audiences. Your writing is cinematic, suspenseful, and hypnotic.\n\n"
-        "STRICT OUTPUT FORMAT:\n"
-        "You must return ONLY a raw JSON object. Do not include markdown code blocks, do not write any introductory or concluding prose.\n\n"
-        "JSON STRUCTURE:\n"
-        "{\n"
-        "  \"title\": \"A high-CTR clickbait title optimized for automated loop tracking\",\n"
-        "  \"voiceover\": \"The full text script to be spoken. MUST include the word 'WAIT' naturally as a mid-video dramatic cliffhanger pause block.\",\n"
-        "  \"scenes\": [\n"
-        "    {\n"
-        "      \"text_segment\": \"Exact short phrase matching the voiceover progression\",\n"
-        "      \"visual_query\": \"STRICT SEARCH TERMS. Use only terms like: 'dark psychology silhouette', 'subconscious mind aesthetic', 'mysterious glitch art', 'brain hacking visual', 'moody cinematic shadow', 'creepy psychological macro clip'. Avoid generic terms like coffee or corporate traffic.\"\n"
-        "    }\n"
-        "  ]\n"
+    # Array structure mapping to bypass Python's native multi-line literal parser limits
+    prompt_lines = [
+        "You are an elite content strategist specializing in dark psychology, human behaviors, and viral mystery shorts for USA/UK audiences.",
+        "Your writing is cinematic, suspenseful, and hypnotic.",
+        "STRICT OUTPUT FORMAT:",
+        "You must return ONLY a raw JSON object. Do not include markdown blocks, do not write any introductory or concluding prose.",
+        "JSON STRUCTURE:",
+        "{",
+        "  \"title\": \"A high-CTR clickbait title optimized for automated loop tracking\",",
+        "  \"voiceover\": \"The full text script to be spoken. MUST include the word 'WAIT' naturally as a mid-video cliffhanger pause.\",",
+        "  \"scenes\": [",
+        "    {",
+        "      \"text_segment\": \"Exact short phrase matching the voiceover progression\",",
+        "      \"visual_query\": \"STRICT SEARCH TERMS. Use only terms like: dark psychology silhouette, subconscious mind aesthetic, mysterious glitch art, brain hacking visual, moody cinematic shadow, creepy psychological macro clip.\"",
+        "    }",
+        "  ]",
         "}"
-    )
+    ]
+    system_prompt = "\n\n".join(prompt_lines)
 
     user_prompt = f"Create a chilling, highly educational short-form script about: {topic if topic else 'Dark Psychology'}. Ensure the final loop sentence connects back smoothly to the beginning hook line."
 
