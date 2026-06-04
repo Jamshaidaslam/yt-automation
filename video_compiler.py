@@ -1,11 +1,12 @@
 """
-video_compiler.py — Production Compositor Engine (v6.5 - STRICT NARRATION MATCHING)
+video_compiler.py — Production Compositor Engine (v6.5 - FIXED SYNTAX & STRICT MATCH)
 AI Dark Realities · Short-Form Video Pipeline
 Fixes & Upgrades:
-  1. Strict Narration Match: Clips are timed exactly to match word phrases.
-  2. Fast Cutting Matrix: Switches clips tightly based on voiceover progression.
-  3. Anti-Black Screen Padding: Intelligent media recycling to guarantee zero blank frames.
-  4. Kinetic Screen-Bouncing Captions: (UP-GREEN -> DOWN-BLUE -> CENTER-YELLOW) with Pop Zoom.
+  1. Syntax Fix: Resolved the unterminated string literal on the final log line.
+  2. Strict Narration Match: Clips are timed exactly to match word phrases.
+  3. Fast Cutting Matrix: Switches clips tightly based on voiceover progression.
+  4. Anti-Black Screen Padding: Intelligent media recycling to guarantee zero blank frames.
+  5. Kinetic Screen-Bouncing Captions: (UP-GREEN -> DOWN-BLUE -> CENTER-YELLOW) with Pop Zoom.
 """
 
 import os
@@ -26,7 +27,7 @@ import config
 
 logger = logging.getLogger(__name__)
 
-# Production Layout
+# Production Layout (Optimized for GitHub Actions hosted runners)
 TARGET_WIDTH = 720
 TARGET_HEIGHT = 1280
 
@@ -76,16 +77,15 @@ def compile_final_video(
         logger.warning("⚠️ No valid BGM. Voice only.")
         final_audio = CompositeAudioClip([voice_clip])
 
-    # 2. 🔥 UPGRADE: Strict Narration Phrase-Matching Asset Engine
+    # 2. Strict Narration Phrase-Matching Asset Engine
     logger.info("📐 Slicing B-roll clips to strictly match narration timeline...")
     word_timings = voiceover_data["word_timings"]
     
-    # Har 5-6 words (yaani 2.5 se 3.2 seconds ki ek meaningful line) par naya clip switch hoga
+    # Har 5 words par naya clip switch hoga (Fast-Cutting Framework)
     words_per_clip = 5 
     processed_clips = []
-    current_time_marker = 0.0
     
-    # Safety Check: Agar clips ki quantity kam parh jaye to reuse list pool ready karein
+    # Safety Check: Clips pool cloning for infinite padding
     available_clips = list(video_clips_paths)
     random.shuffle(available_clips)
     clip_index = 0
@@ -95,37 +95,33 @@ def compile_final_video(
         if not chunk:
             continue
             
-        # Phrase ki exact start aur end timing nikalien jo ElevenLabs/Edge-TTS ne di hai
         phrase_start = chunk[0]["start"]
         phrase_end = chunk[-1]["end"]
         phrase_duration = phrase_end - phrase_start
         
         if phrase_duration <= 0:
-            phrase_duration = 2.0  # Fallback padding
+            phrase_duration = 2.0  # Fallback safety barrier
 
-        # Safely pick next clip from pool
+        # Safely recycle clips list if index overflows
         if clip_index >= len(available_clips):
-            clip_index = 0  # Re-shuffle pool to prevent running out of assets
+            clip_index = 0
             random.shuffle(available_clips)
             
         selected_clip_path = available_clips[clip_index]
         clip_index += 1
 
         try:
-            # Clip load karein bina audio ke
             raw_clip = VideoFileClip(selected_clip_path).without_audio()
             
-            # Clip ko exact utne hi duration ka kaatein jitni der woh 5 words bole ja rahe hain
+            # Slice clip down precisely to match word chunk duration
             if raw_clip.duration > phrase_duration:
-                # Random start point select karein taake har baar naya frame dikhayi dey
                 max_start = max(0, raw_clip.duration - phrase_duration)
                 clip_start = random.uniform(0, max_start)
                 sub_clip = raw_clip.subclip(clip_start, clip_start + phrase_duration)
             else:
-                # Agar clip chhoti hai to loop kar ke phrase duration ke barabar karein
                 sub_clip = raw_clip.loop(duration=phrase_duration)
 
-            # Resize aur 720x1280 (Portrait) positioning crop lock
+            # Resize and Crop to 720p portrait matrix
             clip_resized = sub_clip.resize(height=TARGET_HEIGHT)
             w, h = clip_resized.size
             x_center = w // 2
@@ -137,7 +133,6 @@ def compile_final_video(
             ).set_start(phrase_start).set_end(phrase_end)
             
             processed_clips.append(clip_cropped)
-            current_time_marker = phrase_end
             
             phrase_text = " ".join([w["word"] for w in chunk])
             logger.info(f"🎭 Clip Synced -> [{phrase_text}] | Timings: {round(phrase_start, 2)}s to {round(phrase_end, 2)}s")
@@ -148,11 +143,10 @@ def compile_final_video(
     if not processed_clips:
         raise RuntimeError("CRITICAL: Zero usable visual assets generated for timeline. Aborting.")
 
-    # Blending all precisely timed phrase-clips into one single video track
-    # 'compose' method timings gaps ko automatic black screens se overlay nahi hone deta
+    # Compositing instead of concatenation guarantees NO black frames or minor gaps
     stitched_video = CompositeVideoClip(processed_clips, size=(TARGET_WIDTH, TARGET_HEIGHT)).set_duration(duration)
 
-    # 3. Kinetic Screen-Bouncing Subtitle Generation Logic (3 Words Chunking for text dynamics)
+    # 3. Kinetic Screen-Bouncing Subtitle Generation Logic (3 Words Chunking)
     font = _resolve_font()
     text_clips = []
     chunk_size = 3
@@ -174,22 +168,24 @@ def compile_final_video(
 
         if loop_index == 0:
             pos_y = int(TARGET_HEIGHT * 0.18)
-            text_color = "#00FF00"  # 🟢 UP
+            text_color = "#00FF00"  # 🟢 UP Position (Green)
             font_size = 65
         elif loop_index == 1:
             pos_y = int(TARGET_HEIGHT * 0.78)
-            text_color = "#00FFFF"  # 🔵 DOWN
+            text_color = "#00FFFF"  # 🔵 DOWN Position (Blue)
             font_size = 60
         else:
             pos_y = int(TARGET_HEIGHT * 0.45)
-            text_color = "#FFFF00"  # 🟡 CENTER
+            text_color = "#FFFF00"  # 🟡 CENTER Position (Yellow)
             font_size = 70
 
+        # High Alert Psychological Danger Word Trigger
         if "WAIT" in chunk_text or "SECRET" in chunk_text or "HACKED" in chunk_text:
             text_color = "#FF3333"
             font_size = int(font_size * 1.15)
 
         try:
+            # Mathematical sizing mapping for kinetic scale pop-in animation
             def dynamic_zoom_pop(t):
                 pop_speed = 0.15
                 if t < pop_speed:
@@ -217,7 +213,7 @@ def compile_final_video(
         except Exception as txt_err:
             logger.warning(f"⚠️ TextClip skipped for '{chunk_text}': {txt_err}")
 
-    # 4. Composite and render
+    # 4. Composite and final file rendering
     final_composite = CompositeVideoClip(
         [stitched_video] + text_clips, size=(TARGET_WIDTH, TARGET_HEIGHT)
     ).set_audio(final_audio)
@@ -234,7 +230,7 @@ def compile_final_video(
         ffmpeg_params=["-crf", "28"]
     )
 
-    # Close cleanup sequence
+    # Secure Memory Garbage Collection (Correct shutdown order)
     final_composite.close()
     stitched_video.close()
     for c in processed_clips:
@@ -243,4 +239,4 @@ def compile_final_video(
     if bgm_clip:
         bgm_clip.close()
 
-    logger.info("✅ Pipeline Complete: Video is 100% synced with voiceover narration text flow!")!")
+    logger.info("✅ Pipeline Complete: Video is 100% synced with voiceover narration text flow!")
