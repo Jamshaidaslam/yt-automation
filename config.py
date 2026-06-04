@@ -16,7 +16,7 @@ VIDEO_DIR = BASE_DIR / "output" / "media"
 
 # Automatic directory creation taake FileNotFoundError na aaye
 for d in [SCRIPTS_DIR, AUDIO_DIR, FINAL_VIDEOS_DIR, FONTS_DIR, MEDIA_DIR, VIDEO_DIR]:
-    d.mkdir(parents=True, exist_ok=True)
+    d.mkdir(parents=True, exist_ok=True)
 
 # ==========================================
 # 2. VIDEO & AUDIO SPECIFICATIONS (9:16 Shorts)
@@ -26,19 +26,15 @@ VIDEO_HEIGHT = 1920
 VIDEO_FPS = 30
 
 # Media Fetching Engine Parameters
-MEDIA_PER_KEYWORD = 4               # 🌟 INCREASED: 4 clips per keyword taake unique visuals milein
+MEDIA_PER_KEYWORD = 3
 MEDIA_ORIENTATION = "portrait"
 MEDIA_MIN_DURATION = 3
 MEDIA_MAX_DURATION = 15
 
 # Subtitle & Caption Animations Configuration
-SUBTITLE_ANIMATION_STYLE = "pop"    # fast-cutting text pop effect
-CAPTION_COLOR = "yellow"            # Accessibility matching branding
-HIGHLIGHT_COLOR = "green"           # High-retention text highlights
-
-# 🌟 NEW LAYOUT CONFIGURATION FOR VIDEO COMPILER v4.0
-MAX_WORDS_PER_CHUNK = 3             # 2 ya 3 words per subtitle frame (Perfect Human Pace)
-FONT_FILE = "AmericanCaptain-MdEY.otf" # Exact name mapping for font loader engine
+SUBTITLE_ANIMATION_STYLE = "pop"  # fast-cutting text pop effect
+CAPTION_COLOR = "yellow"          # Accessibility matching branding
+HIGHLIGHT_COLOR = "green"         # High-retention text highlights
 
 # ==========================================
 # 3. STOCK VIDEO API BASE URLS
@@ -57,7 +53,7 @@ API_TIMEOUT_SEC = 30
 # 5. YOUTUBE AUTOMATION & BRANDING FALLBACKS
 # ==========================================
 # Visual Branding Fallback
-FONT_NAME = "AmericanCaptain-MdEY.otf"  # Fallback font name
+FONT_NAME = "AmericanCaptain-MdEY.otf"  # Fallback font name
 
 # STRICT YOUTUBE OAUTH SCOPES (Fixes bad request invalid_scope)
 YOUTUBE_SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
