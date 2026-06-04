@@ -1,8 +1,8 @@
 """
-audio_generator.py — Voiceover Synthesis Engine (NUCLEAR HYPNOTIC EDGE-TTS v6.5 - CHRISTOPHER UPDATE)
+audio_generator.py — Voiceover Synthesis Engine (NUCLEAR HYPNOTIC EDGE-TTS v6.6 - FIXED SYNC)
 AI Dark Realities · Short-Form Video Pipeline
+Fixed: Eliminated cumulative offset delay bug causing post-trap caption desync.
 Optimized for: 100% Human Score Niche Distribution (USA/UK Focus)
-Formula: en-US-ChristopherNeural + Controlled Pacing (-5%) + Deep Authority Pitch (+0Hz Optimized)
 ─────────────────────────────────────────────────────────────────────────────────────
 """
 
@@ -34,7 +34,7 @@ _REAL_WORD_TIMINGS = []
 # Elite Voice profiles mapped exactly to your zero-cost unlimited human blueprint
 VOICE_PROFILES = {
     "guy_dark": {
-        "name": "en-US-ChristopherNeural", # 🌟 UPGRADED: Absolute alpha narrative engine for Dark Psychology
+        "name": "en-US-ChristopherNeural", # Absolute alpha narrative engine for Dark Psychology
         "rate": "-5%",                      # Slow, deep, intimidating pacing
         "pitch": "+0Hz"                     # Native frequency locked for maximum vocal clarity
     },
@@ -58,7 +58,6 @@ VOICE_PROFILES = {
 
 def _normalize_text_for_tts(raw_text: str) -> str:
     """
-    🌟 NEW PRE-PARSER ENGINE
     Cleans structural text formatting, expands complex script bugs, 
     and locks precise phonetic safety rules to bypass robotic voice clipping.
     """
@@ -81,7 +80,6 @@ def _normalize_text_for_tts(raw_text: str) -> str:
 def generate_voiceover(script: str, output_stem: str, voice_type: str = "guy_dark") -> dict:
     """
     Generates ultra-high retention humanized voiceovers using specific niche blueprints.
-    Available voice_type tokens: 'guy_dark' (Christopher Master), 'guy_classic', 'ryan_uk', 'andrew_story'
     """
     logger.info(f"🎙️ Initializing Nuclear Voice Engine using profile token: [{voice_type}]")
     audio_path = AUDIO_OUTPUT_DIR / f"{output_stem}.mp3"
@@ -208,20 +206,19 @@ def _extract_word_timings_real(text: str, total_duration: float) -> list:
         return _extract_word_timings_simulated(text, total_duration)
     
     raw_timings = []
-    accumulated_delay = 0.0  
 
     for word_obj in _REAL_WORD_TIMINGS:
         raw_word = word_obj["text"].strip(".,!?;:()\"'")
-        start = (word_obj["offset"] / 10_000_000.0) + accumulated_delay
+        start = word_obj["offset"] / 10_000_000.0
         end = start + (word_obj["duration"] / 10_000_000.0)
         
         if raw_word.lower() in ["umm", "like", "right", "um", ""]:
             continue
 
-        # Force structural retention hold-lock on suspense anchors
+        # CRITICAL FIX: Removed manual accumulated_delay arithmetic.
+        # Edge-TTS absolute native timestamps prevent post-trap desync drift.
         if raw_word.upper() == "WAIT":
             end = start + 1.2
-            accumulated_delay += 1.2 
             
         raw_timings.append({
             "word": raw_word if raw_word.upper() != "WAIT" else "WAIT...",
@@ -242,8 +239,8 @@ def _extract_word_timings_real(text: str, total_duration: float) -> list:
         
         if "WAIT" not in item["word"]:
             # Precise alignment tuning factors to keep visual word frames tightly focused
-            adjusted_start = max(0.0, adjusted_start - 0.05)
-            adjusted_end = max(0.0, adjusted_end - 0.02)
+            adjusted_start = max(0.0, adjusted_start - 0.03)
+            adjusted_end = max(0.0, adjusted_end - 0.01)
 
         if adjusted_end > total_duration:
             adjusted_end = total_duration
