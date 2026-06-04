@@ -2,10 +2,11 @@
 main.py — Master Automation Executive Workflow (PRODUCTION ENGINE v3.5 - BUG FIXED)
 AI Dark Realities · Short-Form Video Pipeline
 Fixes:
-  1. media_fetcher import added (was missing — pipeline crashed before B-roll fetch)
-  2. Keywords now extracted from script scenes (were being ignored before)
-  3. --skip-upload flag added (README mein mentioned tha but implement nahi tha)
-  4. BGM download os.system curl replaced with requests.get
+  1. media_fetcher import added
+  2. Keywords extracted from script scenes
+  3. --skip-upload flag implemented
+  4. BGM download: os.system curl replaced with requests.get
+  5. BGM timeout 30→15, multiple fallback URLs added (Mixkit GitHub Actions pe block hota tha)
 """
 
 import os
@@ -51,24 +52,32 @@ def dynamic_auto_music_downloader(topic: str) -> str:
         except Exception:
             pass
 
-    logger.info("📥 Downloading background music track...")
-    static_url = "https://assets.mixkit.co/music/preview/mixkit-glitchy-futuristic-ambient-mystery-1149.mp3"
+    # FIX: Multiple fallback URLs — Mixkit GitHub Actions pe block hota tha
+    # FIX: timeout 30 → 15 — pehle 30 sec wait karta tha har URL pe, isliye 7 min lag rahe the
+    bgm_urls = [
+        "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+        "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+        "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
+    ]
 
-    try:
-        # FIX: os.system(curl) replaced with requests.get — proper error handling
-        response = requests.get(static_url, timeout=30, stream=True)
-        if response.status_code == 200:
-            with open(target_track_path, "wb") as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-            if target_track_path.exists() and target_track_path.stat().st_size > 30000:
-                logger.info(f"✅ Background track loaded. Size: {target_track_path.stat().st_size} bytes")
-                return str(target_track_path)
-    except Exception as e:
-        logger.error(f"❌ BGM download failed: {e}")
+    for bgm_url in bgm_urls:
+        try:
+            logger.info(f"📥 Downloading BGM from: {bgm_url}")
+            response = requests.get(bgm_url, timeout=15, stream=True)
+            if response.status_code == 200:
+                with open(target_track_path, "wb") as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+                if target_track_path.exists() and target_track_path.stat().st_size > 30000:
+                    logger.info(f"✅ BGM downloaded. Size: {target_track_path.stat().st_size} bytes")
+                    return str(target_track_path)
+        except requests.exceptions.Timeout:
+            logger.warning(f"⏱️ BGM URL timed out: {bgm_url} — trying next...")
+        except Exception as e:
+            logger.warning(f"⚠️ BGM download failed ({bgm_url}): {e} — trying next...")
 
-    logger.warning("⚠️ No BGM available. Proceeding with voice-only audio.")
+    logger.warning("⚠️ All BGM URLs failed. Proceeding without background music.")
     return ""
 
 
@@ -94,7 +103,7 @@ def execute_pipeline(topic: str, skip_upload: bool = False):
             script_data["voiceover"], "temp_voice_stream", voice_type="guy_dark"
         )
 
-        # FIX: Keywords extract karo scenes se — pehle yeh bilkul nahi ho raha tha
+        # STEP 3: Extract keywords from scenes
         scenes = script_data.get("scenes", [])
         keywords = [
             scene.get("visual_query", "").strip()
@@ -104,17 +113,15 @@ def execute_pipeline(topic: str, skip_upload: bool = False):
         if not keywords:
             keywords = [topic]
 
-        # STEP 3: Fetch B-roll via media_fetcher (Pexels + Pixabay with fallback)
-        # FIX: Pehle media_fetcher import hi nahi tha, download_live_pexels_broll
-        # naam ka local function tha jo sirf Pexels se tha, koi fallback nahi tha
+        # STEP 4: Fetch B-roll clips
         video_clips_paths = fetch_broll_clips(keywords, clips_per_keyword=2)
         if not video_clips_paths:
             raise RuntimeError("Media engine returned zero clips. Check API keys.")
 
-        # STEP 4: Download BGM
+        # STEP 5: Download BGM
         resolved_bgm_path = dynamic_auto_music_downloader(topic)
 
-        # STEP 5: Compile video
+        # STEP 6: Compile video
         output_video_file = FINAL_OUTPUT_DIR / "final_dark_short_output.mp4"
         compile_final_video(
             video_clips_paths, voiceover_payload, resolved_bgm_path, str(output_video_file)
@@ -125,8 +132,7 @@ def execute_pipeline(topic: str, skip_upload: bool = False):
 
         logger.info(f"✨ PIPELINE SUCCESSFUL. Output size: {output_video_file.stat().st_size} bytes")
 
-        # STEP 6: Upload
-        # FIX: --skip-upload flag implement kiya — README mein tha par kaam nahi karta tha
+        # STEP 7: Upload
         if skip_upload:
             logger.info("⏭️ Upload step skipped (--skip-upload flag active).")
         else:
@@ -156,7 +162,6 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--topic", type=str, default="")
-    # FIX: --skip-upload implement kiya
     parser.add_argument("--skip-upload", action="store_true", help="Render only, do not upload.")
     args = parser.parse_args()
 
