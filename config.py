@@ -10,13 +10,14 @@ AUDIO_DIR = BASE_DIR / "output" / "audio"
 FINAL_VIDEOS_DIR = BASE_DIR / "output" / "final_videos"
 FONTS_DIR = BASE_DIR / "fonts"
 
-# CRITICAL FIX: Media fetcher is looking for MEDIA_DIR or VIDEO_DIR
 MEDIA_DIR = BASE_DIR / "output" / "media"
 VIDEO_DIR = BASE_DIR / "output" / "media"
 
-# Automatic directory creation taake FileNotFoundError na aaye
-for d in [SCRIPTS_DIR, AUDIO_DIR, FINAL_VIDEOS_DIR, FONTS_DIR, MEDIA_DIR, VIDEO_DIR]:
-    d.mkdir(parents=True, exist_ok=True)
+# FIX: DOWNLOADS_DIR was missing — media_fetcher.py was crashing with AttributeError
+DOWNLOADS_DIR = BASE_DIR / "output" / "downloads"
+
+for d in [SCRIPTS_DIR, AUDIO_DIR, FINAL_VIDEOS_DIR, FONTS_DIR, MEDIA_DIR, VIDEO_DIR, DOWNLOADS_DIR]:
+    d.mkdir(parents=True, exist_ok=True)
 
 # ==========================================
 # 2. VIDEO & AUDIO SPECIFICATIONS (9:16 Shorts)
@@ -32,14 +33,15 @@ MEDIA_MIN_DURATION = 3
 MEDIA_MAX_DURATION = 15
 
 # Subtitle & Caption Animations Configuration
-SUBTITLE_ANIMATION_STYLE = "pop"  # fast-cutting text pop effect
-CAPTION_COLOR = "yellow"          # Accessibility matching branding
-HIGHLIGHT_COLOR = "green"         # High-retention text highlights
+SUBTITLE_ANIMATION_STYLE = "pop"
+CAPTION_COLOR = "yellow"
+HIGHLIGHT_COLOR = "green"
 
 # ==========================================
 # 3. STOCK VIDEO API BASE URLS
+# FIX: Pexels URL was missing /search — correct endpoint is /videos/search
 # ==========================================
-PEXELS_BASE_URL = "https://api.pexels.com/videos/"
+PEXELS_BASE_URL = "https://api.pexels.com/videos/search"
 PIXABAY_BASE_URL = "https://pixabay.com/api/videos/"
 
 # ==========================================
@@ -52,10 +54,8 @@ API_TIMEOUT_SEC = 30
 # ==========================================
 # 5. YOUTUBE AUTOMATION & BRANDING FALLBACKS
 # ==========================================
-# Visual Branding Fallback
-FONT_NAME = "AmericanCaptain-MdEY.otf"  # Fallback font name
+FONT_NAME = "AmericanCaptain-MdEY.otf"
 
-# STRICT YOUTUBE OAUTH SCOPES (Fixes bad request invalid_scope)
 YOUTUBE_SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 
 # ==========================================
