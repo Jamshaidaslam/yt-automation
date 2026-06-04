@@ -1,8 +1,6 @@
 """
-media_fetcher.py — B-Roll Media & Clickable Thumbnail Downloader v6.2 (CONTEXT LOCKED)
-AI Dark Realities · Short-Form Video Pipeline
-Fallback System: Smart Context Lock → Pexels → Pixabay → Nuclear Keywords Backup → Local Assets Lock
-─────────────────────────────────────────────────────────────────────────────────────
+media_fetcher.py — B-Roll Media Fetcher v6.2
+Fallback: Pexels → Pixabay → Nuclear Keywords → Local Assets
 """
 
 import os
@@ -19,12 +17,7 @@ from PIL import Image, ImageDraw, ImageFont
 import config
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
 
-# ═══════════════
-# 🌟 NUCLEAR FALLBACK KEYWORDS - CHANNEL BOOST + SEARCHABLE 🌟
-# USA/UK Audience ke liye optimized. Har keyword = High search volume
-# ═══════════════
 NUCLEAR_FALLBACK_KEYWORDS = [
     "woman serious face closeup",
     "man intense stare dark room",
@@ -32,350 +25,332 @@ NUCLEAR_FALLBACK_KEYWORDS = [
     "person thinking alone window",
     "brain scan neural network",
     "shadow figure silhouette dark",
-    "psychological warfare mind control",
-    "narcissist manipulation closeup",
     "silence power dark room",
-    "toxic relationship red flag",
-    "deja vu glitch matrix effect",
-    "CIA interrogation dark room",
     "smartphone addiction scrolling",
     "money cash casino chips",
-    "dopamine brain reward system"
+    "dopamine brain reward system",
 ]
 
-def _search_pexels(keyword: str, per_page: int = 30) -> list[dict]:
-    """Call Pexels Videos search API."""
+CONTEXT_ROUTING = {
+    "airport":      ["airport terminal", "airplane runway close", "duty free shop luxury", "plane flying cloud"],
+    "phone":        ["smartphone addiction scrolling", "hand scrolling phone blue light", "typing screen closeup", "social media addict"],
+    "dopamine":     ["brain neural activity glow", "subconscious abstract animation", "matrix background glitch", "neon cyber wire"],
+    "money":        ["counting cash hands", "casino gambling chips", "wallet transaction closeup", "luxury diamond rich"],
+    "trust":        ["eye closeup blinking stare", "man serious face dramatic", "shadow person silhouette", "deceptive handshake look"],
+    "relationship": ["toxic couple argument silhouette", "alone crying dark room", "man breaking mirror portrait", "fake smile face"],
+}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+def _search_pexels(keyword: str, per_page: int = 30) -> list:
     try:
         headers = {"Authorization": config.PEXELS_API_KEY}
-        params = {
-            "query": keyword,
-            "per_page": per_page,
-            "orientation": config.MEDIA_ORIENTATION,  # "portrait"
-            "size": "medium",
+        params  = {
+            "query":       keyword,
+            "per_page":    per_page,
+            "orientation": config.MEDIA_ORIENTATION,
+            "size":        "medium",
         }
-
         resp = requests.get(config.PEXELS_BASE_URL, headers=headers, params=params, timeout=20)
         resp.raise_for_status()
-        data = resp.json()
-
+        data   = resp.json()
         videos = data.get("videos", [])
-        results = []
 
+        results = []
         for v in videos:
             duration = v.get("duration", 0)
             if not (config.MEDIA_MIN_DURATION <= duration <= config.MEDIA_MAX_DURATION):
                 continue
 
-            files = v.get("video_files", [])
             files_sorted = sorted(
-                [f for f in files if f.get("file_type") == "video/mp4"],
+                [f for f in v.get("video_files", []) if f.get("file_type") == "video/mp4"],
                 key=lambda f: f.get("width", 0),
                 reverse=True,
             )
-
-            chosen = None
-            for f in files_sorted:
-                if f.get("width", 9999) <= 1920:
-                    chosen = f
-                    break
+            chosen = next((f for f in files_sorted if f.get("width", 9999) <= 1920), None)
             if chosen is None and files_sorted:
                 chosen = files_sorted[-1]
 
             if chosen and chosen.get("link"):
                 results.append({
-                    "id": v["id"],
-                    "url": chosen["link"],
-                    "width": chosen.get("width", 0),
-                    "height": chosen.get("height", 0),
+                    "id":       v["id"],
+                    "url":      chosen["link"],
+                    "width":    chosen.get("width", 0),
+                    "height":   chosen.get("height", 0),
                     "duration": duration,
-                    "source": "pexels",
+                    "source":   "pexels",
                 })
 
         random.shuffle(results)
-        logger.info(f"Pexels '{keyword}': {len(results)} usable clips found.")
+        logger.info(f"Pexels '{keyword}': {len(results)} clips")
         return results
+
     except Exception as e:
-        logger.warning(f"⚠️ Pexels API request failed for '{keyword}': {e}")
+        logger.warning(f"Pexels failed for '{keyword}': {e}")
         return []
 
-def _search_pixabay(keyword: str, per_page: int = 30) -> list[dict]:
-    """Call Pixabay Videos API."""
+
+def _search_pixabay(keyword: str, per_page: int = 30) -> list:
     try:
         params = {
-            "key": config.PIXABAY_API_KEY,
-            "q": keyword,
+            "key":        config.PIXABAY_API_KEY,
+            "q":          keyword,
             "video_type": "film",
-            "per_page": per_page,
+            "per_page":   per_page,
             "safesearch": "true",
         }
-
         resp = requests.get(config.PIXABAY_BASE_URL, params=params, timeout=20)
         resp.raise_for_status()
-        data = resp.json()
 
-        hits = data.get("hits", [])
         results = []
-
-        for h in hits:
-            videos = h.get("videos", {})
-            clip = (
-                videos.get("large")
-                or videos.get("medium")
-                or videos.get("small")
-            )
-            if not clip:
-                continue
-
+        for h in resp.json().get("hits", []):
             duration = h.get("duration", 0)
             if not (config.MEDIA_MIN_DURATION <= duration <= config.MEDIA_MAX_DURATION):
                 continue
 
-            url = clip.get("url", "")
-            if not url:
+            videos = h.get("videos", {})
+            clip   = videos.get("large") or videos.get("medium") or videos.get("small")
+            if not clip or not clip.get("url"):
                 continue
 
             results.append({
-                "id": h["id"],
-                "url": url,
-                "width": clip.get("width", 0),
-                "height": clip.get("height", 0),
+                "id":       h["id"],
+                "url":      clip["url"],
+                "width":    clip.get("width", 0),
+                "height":   clip.get("height", 0),
                 "duration": duration,
-                "source": "pixabay",
-                "type": "film"
+                "source":   "pixabay",
             })
 
         random.shuffle(results)
-        logger.info(f"Pixabay '{keyword}': {len(results)} usable clips found.")
+        logger.info(f"Pixabay '{keyword}': {len(results)} clips")
         return results
+
     except Exception as e:
-        logger.warning(f"⚠️ Pixabay API request failed for '{keyword}': {e}")
+        logger.warning(f"Pixabay failed for '{keyword}': {e}")
         return []
 
-def generate_professional_thumbnail(keyword: str, hook_text: str, output_stem: str) -> str | None:
-    logger.info(f"🎨 Generating high-retention thumbnail for topic: '{keyword}'")
+
+# ══════════════════════════════════════════════════════════════════════════════
+def generate_professional_thumbnail(keyword: str, hook_text: str, output_stem: str):
+    """Fetch a stock photo and overlay bold text for a clickable thumbnail."""
+    logger.info(f"🎨 Generating thumbnail for: '{keyword}'")
 
     photo_url = None
-    headers = {"Authorization": config.PEXELS_API_KEY}
-    params = {"query": keyword, "per_page": 10, "orientation": "portrait"}
 
+    # Try Pexels photos
     try:
-        resp = requests.get("https://api.pexels.com/v1/search", headers=headers, params=params, timeout=15)
+        resp = requests.get(
+            "https://api.pexels.com/v1/search",
+            headers={"Authorization": config.PEXELS_API_KEY},
+            params={"query": keyword, "per_page": 10, "orientation": "portrait"},
+            timeout=15,
+        )
         if resp.status_code == 200:
             photos = resp.json().get("photos", [])
             if photos:
                 photo_url = random.choice(photos)["src"]["large2x"]
     except Exception as e:
-        logger.warning(f"Failed to fetch image from Pexels, trying Pixabay: {e}")
+        logger.warning(f"Pexels photo fetch failed: {e}")
 
+    # Try Pixabay photos
     if not photo_url:
         try:
-            pixabay_img_url = f"https://pixabay.com/api/?key={config.PIXABAY_API_KEY}&q={requests.utils.quote(keyword)}&image_type=photo&orientation=vertical"
-            resp = requests.get(pixabay_img_url, timeout=15)
+            resp = requests.get(
+                "https://pixabay.com/api/",
+                params={
+                    "key":          config.PIXABAY_API_KEY,
+                    "q":            keyword,
+                    "image_type":   "photo",
+                    "orientation":  "vertical",
+                    "per_page":     10,
+                },
+                timeout=15,
+            )
             if resp.status_code == 200:
                 hits = resp.json().get("hits", [])
                 if hits:
                     photo_url = random.choice(hits)["largeImageURL"]
         except Exception as e:
-            logger.error(f"Image API fallback failed: {e}")
+            logger.warning(f"Pixabay photo fetch failed: {e}")
 
     if not photo_url:
-        logger.warning("❌ Could not fetch unique thumbnail image. System will default to YouTube auto-frame.")
+        logger.warning("No thumbnail image found — YouTube will use auto-frame.")
         return None
 
     try:
         img_data = requests.get(photo_url, timeout=20).content
         img_temp = Path(tempfile.gettempdir()) / f"raw_thumb_{output_stem}.jpg"
-        with open(img_temp, "wb") as f:
-            f.write(img_data)
+        img_temp.write_bytes(img_data)
 
         t_w, t_h = 1080, 1920
         base_img = Image.open(img_temp).convert("RGBA").resize((t_w, t_h))
 
+        # Dark overlay for text readability
         overlay = Image.new("RGBA", (t_w, t_h), (0, 0, 0, 80))
         final_img = Image.alpha_composite(base_img, overlay)
         draw = ImageDraw.Draw(final_img)
 
+        # Font loading
         try:
             font_name = getattr(config, "FONT_NAME", "Impact.ttf")
-            font_path = config.FONTS_DIR / font_name
-            font = ImageFont.truetype(str(font_path), 110)
+            font = ImageFont.truetype(str(config.FONTS_DIR / font_name), 110)
         except Exception:
             font = ImageFont.load_default()
 
-        wrapped_lines = []
-        for phrase in hook_text.split("\n"):
-            wrapped_lines.extend(re.sub(r'\s+', ' ', phrase).strip().split(" "))
+        # Word wrap — 2 words per line
+        words = re.sub(r"\s+", " ", hook_text.replace("\n", " ")).strip().split()
+        lines = [" ".join(words[i:i+2]).upper() for i in range(0, len(words), 2)]
 
-        lines = []
-        for i in range(0, len(wrapped_lines), 2):
-            lines.append(" ".join(wrapped_lines[i:i+2]).upper())
-
-        current_y = int(t_h * 0.35)
+        y = int(t_h * 0.35)
         for line in lines[:4]:
             bbox = draw.textbbox((0, 0), line, font=font)
-            w = bbox[2] - bbox[0]
-            x = (t_w - w) // 2
-
-            text_color = (255, 255, 0, 255) if len(line) % 2 == 0 else (57, 255, 20, 255)
-
-            for adj_x, adj_y in [(-8, -8), (8, -8), (-8, 8), (8, 8), (-6, 0), (6, 0), (0, -6), (0, 6)]:
-                draw.text((x + adj_x, current_y + adj_y), line, font=font, fill=(0, 0, 0, 255))
-
-            draw.text((x, current_y), line, font=font, fill=text_color)
-            current_y += 140
+            x    = (t_w - (bbox[2] - bbox[0])) // 2
+            color = (255, 255, 0, 255) if len(line) % 2 == 0 else (57, 255, 20, 255)
+            # Outline
+            for dx, dy in [(-8,-8),(8,-8),(-8,8),(8,8),(-6,0),(6,0),(0,-6),(0,6)]:
+                draw.text((x+dx, y+dy), line, font=font, fill=(0,0,0,255))
+            draw.text((x, y), line, font=font, fill=color)
+            y += 140
 
         thumb_path = config.FINAL_VIDEOS_DIR / f"thumb_{output_stem}.jpg"
         final_img.convert("RGB").save(thumb_path, "JPEG", quality=95)
 
-        if img_temp.exists():
-            os.remove(img_temp)
+        try:
+            img_temp.unlink()
+        except Exception:
+            pass
 
-        logger.info(f"✅ Clickable Professional Thumbnail Generated successfully: {thumb_path.name}")
+        logger.info(f"✅ Thumbnail saved: {thumb_path.name}")
         return str(thumb_path)
 
     except Exception as e:
-        logger.error(f"Error drawing thumbnail layout: {e}")
+        logger.error(f"Thumbnail draw failed: {e}")
         return None
 
-@retry(stop=stop_after_attempt(config.API_RETRY_ATTEMPTS),
-       wait=wait_fixed(config.API_RETRY_WAIT_SEC))
+
+# ══════════════════════════════════════════════════════════════════════════════
+@retry(
+    stop=stop_after_attempt(config.API_RETRY_ATTEMPTS),
+    wait=wait_fixed(config.API_RETRY_WAIT_SEC),
+)
 def _download_clip(url: str, dest_path: Path) -> bool:
+    # BUG FIX 1: stat() on non-existent file raises FileNotFoundError — check exists() first
     if dest_path.exists() and dest_path.stat().st_size > 50_000:
         logger.info(f"Cache hit: {dest_path.name}")
         return True
 
-    logger.info(f"Downloading {url[:80]}…")
+    logger.info(f"Downloading: {url[:80]}…")
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
+
     with requests.get(url, stream=True, timeout=60) as r:
         r.raise_for_status()
-        dest_path.parent.mkdir(parents=True, exist_ok=True)
         with open(dest_path, "wb") as f:
             for chunk in r.iter_content(chunk_size=1 << 20):
-                f.write(chunk)
+                if chunk:                    # BUG FIX 2: skip empty keep-alive chunks
+                    f.write(chunk)
+
+    # BUG FIX 3: verify file wrote correctly before returning True
+    if not dest_path.exists() or dest_path.stat().st_size < 50_000:
+        dest_path.unlink(missing_ok=True)
+        raise RuntimeError(f"Downloaded file too small or missing: {dest_path.name}")
+
     logger.info(f"Saved → {dest_path.name} ({dest_path.stat().st_size // 1024} KB)")
     return True
+
 
 def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9_-]", "_", text.lower())[:40]
 
-# ═══════════════
-# 🌟 PUBLIC API - NUCLEAR CONTEXT ROUTING INTEGRATED 🌟
-# ═══════════════
 
-def fetch_broll_clips(keywords: list[str], clips_per_keyword: int = None) -> list[str]:
+# ══════════════════════════════════════════════════════════════════════════════
+def fetch_broll_clips(keywords: list, clips_per_keyword: int = None) -> list:
     """
-    Fetch and download stock B-roll videos using clean contextual keywords.
-    Implements advanced dictionary mapping to fix video-script drop issues.
+    Fetch and download B-roll clips.
+    Fallback chain: Pexels → Pixabay → Nuclear keywords → Local cache.
     """
     if clips_per_keyword is None:
         clips_per_keyword = getattr(config, "MEDIA_PER_KEYWORD", 2)
 
-    all_paths: list[str] = []
-    seen_ids: set[str] = set()
-    
-    # Clean input keywords
-    raw_keywords = [k.strip() for k in keywords if k.strip()]
+    downloads_dir = Path(getattr(config, "DOWNLOADS_DIR", "downloads"))
+    downloads_dir.mkdir(parents=True, exist_ok=True)
+
+    all_paths: list  = []
+    seen_ids:  set   = set()
+
+    # ── Context routing ───────────────────────────────────────────────────────
+    raw_keywords   = [k.strip() for k in keywords if k.strip()]
     joined_queries = " ".join(raw_keywords).lower()
 
-    # 🧠 HUMAN INTENT LOCK: Contextual Routing Matrix
-    CONTEXT_ROUTING = {
-        "airport": ["airport terminal", "airplane runway close", "duty free shop luxury", "plane flying cloud"],
-        "phone": ["smartphone addiction scrolling", "hand scrolling phone blue light", "typing screen closeup", "social media addict"],
-        "dopamine": ["brain neural activity glow", "subconscious abstract animation", "matrix background glitch", "neon cyber wire"],
-        "money": ["counting cash hands", "casino gambling chips", "wallet transaction closeup", "luxury diamond rich"],
-        "trust": ["eye closeup blinking stare", "man serious face dramatic", "shadow person silhouette", "deceptive handshake look"],
-        "relationship": ["toxic couple argument silhouette", "alone crying dark room", "man breaking mirror portrait", "fake smile face"]
-    }
-
-    # Intercept and route keywords based on core topic detection
     active_keywords = []
-    for trigger_word, dynamic_brolls in CONTEXT_ROUTING.items():
-        if trigger_word in joined_queries:
-            logger.info(f"🎯 CONTEXT ENGINE LOCK TRIGGERED: Routing video assets directly to cluster [{trigger_word.upper()}]")
-            active_keywords = dynamic_brolls
+    for trigger, brolls in CONTEXT_ROUTING.items():
+        if trigger in joined_queries:
+            logger.info(f"Context lock → [{trigger.upper()}]")
+            active_keywords = brolls
             break
 
-    # Fallback to standard Groq keys if no semantic dictionary trigger hits
     if not active_keywords:
-        active_keywords = raw_keywords
+        active_keywords = raw_keywords or random.sample(NUCLEAR_FALLBACK_KEYWORDS, 3)
 
-    if not active_keywords:
-        active_keywords = random.sample(NUCLEAR_FALLBACK_KEYWORDS, 3)
-
-    logger.info(f"🎬 Initiating asset search engine for keywords: {active_keywords}")
-
+    # ── Phase 1 & 2: Pexels → Pixabay per keyword ────────────────────────────
     for keyword in active_keywords:
-        candidates = []
-        
-        # Phase 1: Try Pexels Engine Search
         candidates = _search_pexels(keyword, per_page=20)
-        
-        # Phase 2: Try Pixabay Engine Search if Pexels returned nothing
         if not candidates:
-            logger.info(f"🔄 Empty hit on Pexels for '{keyword}'. Route mapping to Pixabay Engine...")
             candidates = _search_pixabay(keyword, per_page=20)
 
-        # Process and download valid candidate clips
-        downloaded_count = 0
+        downloaded = 0
         for clip in candidates:
-            if downloaded_count >= clips_per_keyword:
+            if downloaded >= clips_per_keyword:
                 break
-                
+
             clip_id = f"{clip['source']}_{clip['id']}"
             if clip_id in seen_ids:
                 continue
 
-            unique_hash = hashlib.md5(clip['url'].encode('utf-8')).hexdigest()[:10]
-            filename = f"broll_{_slug(keyword)}_{unique_hash}.mp4"
-            dest_path = Path(getattr(config, "DOWNLOADS_DIR", Path("downloads"))) / filename
+            uid       = hashlib.md5(clip["url"].encode()).hexdigest()[:10]
+            dest_path = downloads_dir / f"broll_{_slug(keyword)}_{uid}.mp4"
 
             try:
-                if _download_clip(clip['url'], dest_path):
+                if _download_clip(clip["url"], dest_path):
                     all_paths.append(str(dest_path))
                     seen_ids.add(clip_id)
-                    downloaded_count += 1
-            except Exception as download_error:
-                logger.warning(f"Failed to download clip {clip['url']}: {download_error}")
-                continue
+                    downloaded += 1
+            except Exception as e:
+                logger.warning(f"Download failed ({clip['url'][:60]}): {e}")
 
-    # 🚨 CRITICAL PHASE 3: GLOBAL LOGICAL FALLBACK IF NO B-ROLL WAS FETCHED
+    # ── Phase 3: Nuclear fallback keywords ───────────────────────────────────
     if not all_paths:
-        logger.warning("⚠️ Critical Alert: Main keyword queries returned zero tracks. Activating Nuclear Fallback Keywords...")
-        fallback_samples = random.sample(NUCLEAR_FALLBACK_KEYWORDS, 4)
-        
-        for fb_kw in fallback_samples:
+        logger.warning("No clips from main keywords — trying nuclear fallbacks...")
+        for fb_kw in random.sample(NUCLEAR_FALLBACK_KEYWORDS, 4):
             candidates = _search_pexels(fb_kw, per_page=15) or _search_pixabay(fb_kw, per_page=15)
-            if candidates:
-                for clip in candidates[:clips_per_keyword]:
-                    unique_hash = hashlib.md5(clip['url'].encode('utf-8')).hexdigest()[:10]
-                    filename = f"fallback_{_slug(fb_kw)}_{unique_hash}.mp4"
-                    dest_path = Path(getattr(config, "DOWNLOADS_DIR", Path("downloads"))) / filename
-                    try:
-                        if _download_clip(clip['url'], dest_path):
-                            all_paths.append(str(dest_path))
-                            if len(all_paths) >= 4:
-                                break
-                    except:
-                        continue
+            for clip in candidates[:clips_per_keyword]:
+                uid       = hashlib.md5(clip["url"].encode()).hexdigest()[:10]
+                dest_path = downloads_dir / f"fallback_{_slug(fb_kw)}_{uid}.mp4"
+                try:
+                    if _download_clip(clip["url"], dest_path):
+                        all_paths.append(str(dest_path))
+                except Exception:
+                    continue
             if len(all_paths) >= 4:
                 break
 
-    # 🚨 CRITICAL PHASE 4: LOCAL DIRECTORY FALLBACK (IF APIS ARE BLOCKED/OFFLINE)
+    # ── Phase 4: Local cache ──────────────────────────────────────────────────
     if not all_paths:
-        logger.warning("⚠️ Absolute API Block Detected. Searching local asset cache folder...")
-        local_dir = Path(getattr(config, "DOWNLOADS_DIR", Path("downloads")))
-        local_assets = [str(p) for p in local_dir.glob("*.mp4") if p.stat().st_size > 50_000]
-        
+        logger.warning("APIs returned nothing — searching local cache...")
+        local_assets = [
+            str(p) for p in downloads_dir.glob("*.mp4")
+            if p.stat().st_size > 50_000
+        ]
         if not local_assets:
-            # Check assets/videos directory as emergency alternative path
-            emergency_path = Path("assets/videos")
-            if emergency_path.exists():
-                local_assets = [str(p) for p in emergency_path.glob("*.mp4")]
+            emergency = Path("assets/videos")
+            if emergency.exists():
+                local_assets = [str(p) for p in emergency.glob("*.mp4")]
 
         if local_assets:
             all_paths = random.sample(local_assets, min(len(local_assets), 5))
-            logger.info(f"♻️ Pipeline recovered safely using {len(all_paths)} cached local clips.")
+            logger.info(f"Recovered {len(all_paths)} clips from local cache.")
         else:
-            raise RuntimeError("CRITICAL LIQUIDATION: No media clips could be pulled via API or Local Cache folders.")
+            raise RuntimeError("No clips available via API or local cache.")
 
-    logger.info(f"🚀 Media Engine finished execution. Total B-Rolls passed to pipeline: {len(all_paths)}")
+    logger.info(f"✅ Total clips ready: {len(all_paths)}")
     return all_paths
