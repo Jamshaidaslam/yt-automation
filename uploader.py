@@ -1,8 +1,6 @@
 """
-uploader.py — Secure Channel Publisher Engine (v7.0 - BUG FIXED)
-AI Dark Realities · Short-Form Video Pipeline
-Fix: selfDeclaredMadeWithAI removed — YouTube Data API v3 mein yeh field exist nahi karta,
-     HTTP 400 invalidParameter error deta tha.
+uploader.py — Secure Channel Publisher Engine (v7.1)
+Platforms: YouTube + Facebook + Instagram (Reels)
 """
 
 import json
@@ -28,7 +26,6 @@ except ImportError:
     HAS_CONFIG = False
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
 
 META_TOKEN = os.environ.get("META_ACCESS_TOKEN")
 FB_PAGE_ID = os.environ.get("FACEBOOK_PAGE_ID")
@@ -42,20 +39,24 @@ cloudinary.config(
 )
 
 
+# ══════════════════════════════════════════════════════════════════════════════
 def _get_youtube_service():
-    creds = None
     scopes = ["https://www.googleapis.com/auth/youtube.upload"]
 
-    client_id = os.environ.get("YOUTUBE_CLIENT_ID")
-    client_secret = os.environ.get("YOUTUBE_CLIENT_SECRET")
+    client_id      = os.environ.get("YOUTUBE_CLIENT_ID")
+    client_secret  = os.environ.get("YOUTUBE_CLIENT_SECRET")
     token_json_str = os.environ.get("YOUTUBE_TOKEN_JSON")
+    token_file     = Path("token.json")
 
+    creds = None
+
+    # Try environment variable credentials (GitHub Actions / CI)
     if token_json_str:
         try:
-            token_data = json.loads(token_json_str)
+            token_data    = json.loads(token_json_str)
             refresh_token = token_data.get("refresh_token")
             if refresh_token and client_id and client_secret:
-                logger.info("Rebuilding credentials from GitHub Secrets...")
+                logger.info("Rebuilding credentials from environment secrets...")
                 creds = Credentials(
                     token=None,
                     refresh_token=refresh_token,
@@ -63,70 +64,71 @@ def _get_youtube_service():
                     client_id=client_id,
                     client_secret=client_secret,
                 )
-        except Exception as exc:
-            logger.warning(f"Credentials parsing failed: {exc}")
+        except Exception as e:
+            logger.warning(f"Env credentials parsing failed: {e}")
 
-    token_file_path = Path("token.json")
-    if not creds and token_file_path.exists():
+    # Try local token file
+    if not creds and token_file.exists():
         try:
-            creds = Credentials.from_authorized_user_file(str(token_file_path), scopes)
-        except Exception as exc:
-            logger.warning(f"Local token file parsing failed: {exc}")
+            creds = Credentials.from_authorized_user_file(str(token_file), scopes)
+        except Exception as e:
+            logger.warning(f"Local token.json parsing failed: {e}")
 
+    # Refresh if expired
     if creds and creds.expired and creds.refresh_token:
         try:
-            logger.info("YouTube session expired. Refreshing token...")
+            logger.info("Refreshing expired YouTube token...")
             creds.refresh(Request())
-            if token_file_path.exists():
-                with open(token_file_path, "w") as tf:
-                    tf.write(creds.to_json())
-        except Exception as rex:
-            logger.error(f"Token refresh failed: {rex}")
+            if token_file.exists():
+                token_file.write_text(creds.to_json())
+        except Exception as e:
+            logger.error(f"Token refresh failed: {e}")
             creds = None
 
+    # Local OAuth flow as last resort
     if not creds:
         secret_path = Path("client_secrets.json")
         if secret_path.exists():
-            logger.info("Starting local OAuth flow for YouTube...")
-            flow = InstalledAppFlow.from_client_secrets_file(str(secret_path), scopes)
+            logger.info("Starting local OAuth flow...")
+            flow  = InstalledAppFlow.from_client_secrets_file(str(secret_path), scopes)
             creds = flow.run_local_server(port=0)
-            with open(token_file_path, "w") as tf:
-                tf.write(creds.to_json())
+            token_file.write_text(creds.to_json())
             logger.info("Fresh token saved to token.json")
         else:
-            logger.warning("YouTube auth keys missing. Skipping upload.")
+            logger.warning("No YouTube credentials found — skipping upload.")
             return None
 
     return build("youtube", "v3", credentials=creds)
 
 
+# ══════════════════════════════════════════════════════════════════════════════
 def upload_to_cloudinary(file_path: str, resource_type: str = "video") -> dict:
     try:
-        logger.info(f"Uploading {resource_type} to Cloudinary...")
-        upload_result = cloudinary.uploader.upload(
+        logger.info(f"Uploading {resource_type} to Cloudinary: {Path(file_path).name}")
+        result    = cloudinary.uploader.upload(
             file_path,
             resource_type=resource_type,
             folder="yt_automation",
             overwrite=True,
             invalidate=True,
         )
-        url = upload_result.get("secure_url")
-        public_id = upload_result.get("public_id")
-        logger.info(f"✅ Cloudinary {resource_type} upload successful: {url}")
+        url       = result.get("secure_url")
+        public_id = result.get("public_id")
+        logger.info(f"✅ Cloudinary upload done: {url}")
         return {"url": url, "public_id": public_id}
     except Exception as e:
-        logger.error(f"Cloudinary {resource_type} upload error: {e}")
+        logger.error(f"Cloudinary {resource_type} upload failed: {e}")
         return {"url": None, "public_id": None}
 
 
-def set_youtube_thumbnail_local(youtube, video_id: str, local_thumb_path: str):
+def set_youtube_thumbnail(youtube, video_id: str, thumb_path: str):
     try:
-        logger.info(f"Uploading thumbnail from: {local_thumb_path}")
+        logger.info(f"Setting YouTube thumbnail from: {thumb_path}")
         youtube.thumbnails().set(
             videoId=video_id,
-            media_body=MediaFileUpload(local_thumb_path, mimetype="image/jpeg"),
+            media_body=MediaFileUpload(thumb_path, mimetype="image/jpeg"),
         ).execute()
-        logger.info("✅ YouTube thumbnail set successfully!")
+        logger.info("✅ YouTube thumbnail set.")
     except Exception as e:
         logger.error(f"YouTube thumbnail upload failed: {e}")
 
@@ -134,20 +136,25 @@ def set_youtube_thumbnail_local(youtube, video_id: str, local_thumb_path: str):
 def cleanup_cloudinary(public_id: str, resource_type: str = "video"):
     try:
         cloudinary.uploader.destroy(public_id, resource_type=resource_type)
-        logger.info(f"✅ Cloudinary cleanup done: {public_id}")
+        logger.info(f"✅ Cloudinary cleanup: {public_id}")
     except Exception as e:
-        logger.error(f"Cloudinary cleanup error: {e}")
+        logger.error(f"Cloudinary cleanup failed: {e}")
 
 
+# ══════════════════════════════════════════════════════════════════════════════
 def upload_all_platforms(video_path: str, seo: dict, thumbnail_path: str = None) -> dict:
-    logger.info(f"Initiating publisher engine for: {video_path}")
+    logger.info(f"🚀 Starting upload pipeline for: {video_path}")
 
-    timestamp_fallback = datetime.now().strftime("%I:%M%p").lstrip("0")
-    title = seo.get("title") or f"Dark Psychology Fact {timestamp_fallback}"
-    title = title.split("#")[0].strip()[:100]
+    # BUG FIX 1: video_path existence not checked before upload attempts
+    if not os.path.exists(video_path):
+        logger.error(f"Video file not found: {video_path}")
+        return {"youtube": "failed_file_not_found",
+                "facebook": "skipped", "instagram": "skipped"}
 
-    description = seo.get("description", "Explore the hidden truths of human psychology.")
-    hashtags = seo.get("hashtags", ["#DarkPsychology", "#Mindset", "#Shorts"])
+    timestamp    = datetime.now().strftime("%I:%M%p").lstrip("0")
+    title        = (seo.get("title") or f"Short Video {timestamp}").split("#")[0].strip()[:100]
+    description  = seo.get("description", "")
+    hashtags     = seo.get("hashtags", ["#Shorts"])
 
     if "#Shorts" not in hashtags and "#shorts" not in hashtags:
         hashtags.append("#Shorts")
@@ -155,48 +162,47 @@ def upload_all_platforms(video_path: str, seo: dict, thumbnail_path: str = None)
     full_description = f"{description}\n\n" + " ".join(hashtags)
     results = {"youtube": "skipped", "facebook": "skipped", "instagram": "skipped"}
 
-    cloudinary_data = upload_to_cloudinary(video_path, resource_type="video")
-    cloudinary_url = cloudinary_data["url"]
+    # ── Cloudinary (needed for Meta platforms) ────────────────────────────────
+    cloudinary_data      = upload_to_cloudinary(video_path, resource_type="video")
+    cloudinary_url       = cloudinary_data["url"]
     cloudinary_public_id = cloudinary_data["public_id"]
 
     if not cloudinary_url:
-        logger.error("Cloudinary video upload failed — aborting Meta uploads.")
-        return results
+        logger.error("Cloudinary video upload failed — Meta uploads skipped.")
 
     cloud_thumb_url = None
-    cloud_thumb_id = None
+    cloud_thumb_id  = None
     if thumbnail_path and os.path.exists(thumbnail_path):
-        thumb_cloud_data = upload_to_cloudinary(thumbnail_path, resource_type="image")
-        cloud_thumb_url = thumb_cloud_data["url"]
-        cloud_thumb_id = thumb_cloud_data["public_id"]
+        thumb_data      = upload_to_cloudinary(thumbnail_path, resource_type="image")
+        cloud_thumb_url = thumb_data["url"]
+        cloud_thumb_id  = thumb_data["public_id"]
 
+    # ── YouTube ───────────────────────────────────────────────────────────────
     youtube = _get_youtube_service()
     if not youtube:
-        logger.warning("YouTube API service skipped.")
-        results["youtube"] = "saved_locally_without_upload"
+        results["youtube"] = "skipped_no_credentials"
     else:
         try:
             body = {
                 "snippet": {
-                    "title": title,
-                    "description": full_description,
-                    "tags": [tag.replace("#", "").strip() for tag in hashtags if tag.startswith("#")],
-                    "categoryId": "22",
+                    "title":                title,
+                    "description":          full_description,
+                    "tags":                 [t.replace("#", "").strip() for t in hashtags if t.startswith("#")],
+                    "categoryId":           "22",
+                    "defaultLanguage":      "en-US",
                     "defaultAudioLanguage": "en-US",
-                    "defaultLanguage": "en-US",
                 },
                 "status": {
-                    "privacyStatus": "public",
+                    "privacyStatus":           "public",
                     "selfDeclaredMadeForKids": False,
-                    # FIX: selfDeclaredMadeWithAI hata diya
-                    # YouTube Data API v3 mein yeh field valid nahi hai
-                    # iska hona HTTP 400 invalidParameter error deta tha
+                    # NOTE: selfDeclaredMadeWithAI removed — not a valid API field,
+                    # caused HTTP 400 invalidParameter error.
                 },
             }
 
-            media = MediaFileUpload(
-                str(video_path),
-                chunksize=1024 * 1024 * 2,
+            media   = MediaFileUpload(
+                video_path,
+                chunksize=2 * 1024 * 1024,
                 resumable=True,
                 mimetype="video/mp4",
             )
@@ -208,130 +214,147 @@ def upload_all_platforms(video_path: str, seo: dict, thumbnail_path: str = None)
 
             logger.info(f"Uploading to YouTube: '{title}'")
             response = None
+
+            # BUG FIX 2: No progress logging during chunked upload —
+            # long uploads appeared frozen. Now logs each chunk's progress.
             while response is None:
                 status_chunk, response = request.next_chunk()
+                if status_chunk:
+                    pct = int(status_chunk.progress() * 100)
+                    logger.info(f"YouTube upload progress: {pct}%")
 
-            youtube_id = response.get("id")
-            logger.info(f"✅ YouTube Upload Successful! Video ID: {youtube_id}")
-            results["youtube"] = f"success_id_{youtube_id}"
+            yt_id = response.get("id")
+            logger.info(f"✅ YouTube upload complete! ID: {yt_id}")
+            logger.info(f"   URL: https://www.youtube.com/shorts/{yt_id}")
+            results["youtube"] = f"success_id_{yt_id}"
 
-            if youtube_id and thumbnail_path and os.path.exists(thumbnail_path):
-                set_youtube_thumbnail_local(youtube, youtube_id, thumbnail_path)
+            if yt_id and thumbnail_path and os.path.exists(thumbnail_path):
+                set_youtube_thumbnail(youtube, yt_id, thumbnail_path)
 
-        except Exception as err:
-            logger.error(f"YouTube upload failed: {err}")
-            results["youtube"] = f"failed: {str(err)}"
+        except Exception as e:
+            logger.error(f"YouTube upload failed: {e}")
+            results["youtube"] = f"failed: {e}"
 
+    # ── Facebook ──────────────────────────────────────────────────────────────
     meta_caption = f"{title}\n\n{full_description}"
 
     if META_TOKEN and FB_PAGE_ID and cloudinary_url:
-        results["facebook"] = post_to_facebook_via_url(cloudinary_url, cloud_thumb_url, meta_caption)
+        results["facebook"] = _post_to_facebook(cloudinary_url, cloud_thumb_url, meta_caption)
     else:
-        logger.warning("Facebook skipped: Missing token, Page ID, or Cloudinary URL.")
+        logger.warning("Facebook skipped: missing token / page ID / video URL.")
 
+    # ── Instagram ─────────────────────────────────────────────────────────────
     if META_TOKEN and IG_ACCT_ID and cloudinary_url:
-        results["instagram"] = post_to_instagram_via_url(cloudinary_url, cloud_thumb_url, meta_caption)
+        results["instagram"] = _post_to_instagram(cloudinary_url, cloud_thumb_url, meta_caption)
     else:
-        logger.warning("Instagram skipped: Missing token, ID, or Cloudinary URL.")
+        logger.warning("Instagram skipped: missing token / account ID / video URL.")
 
-    if cloudinary_public_id or cloud_thumb_id:
-        logger.info("Waiting 3 minutes for Meta processing...")
+    # ── Cloudinary cleanup (after Meta has processed) ─────────────────────────
+    # BUG FIX 3: sleep(180) always ran even when Meta uploads were skipped —
+    # wasted 3 minutes for no reason. Now only sleeps if Meta actually uploaded.
+    meta_uploaded = (
+        results["facebook"].startswith("success") or
+        results["instagram"].startswith("success")
+    )
+    if meta_uploaded and (cloudinary_public_id or cloud_thumb_id):
+        logger.info("Waiting 3 minutes for Meta CDN processing before cleanup...")
         time.sleep(180)
-        if cloudinary_public_id:
-            cleanup_cloudinary(cloudinary_public_id, resource_type="video")
-        if cloud_thumb_id:
-            cleanup_cloudinary(cloud_thumb_id, resource_type="image")
 
+    if cloudinary_public_id:
+        cleanup_cloudinary(cloudinary_public_id, resource_type="video")
+    if cloud_thumb_id:
+        cleanup_cloudinary(cloud_thumb_id, resource_type="image")
+
+    logger.info(f"📊 Upload results: {results}")
     return results
 
 
-def post_to_facebook_via_url(video_url: str, thumb_url: str, caption: str) -> str:
+# ══════════════════════════════════════════════════════════════════════════════
+def _post_to_facebook(video_url: str, thumb_url: str, caption: str) -> str:
     try:
-        url = f"https://graph.facebook.com/v20.0/{FB_PAGE_ID}/videos"
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
-            "Accept-Language": "en-US,en;q=0.9",
-        }
         payload = {
-            "description": caption,
-            "file_url": video_url,
+            "description":  caption,
+            "file_url":     video_url,
             "access_token": META_TOKEN,
         }
         if thumb_url:
             payload["thumb_url"] = thumb_url
 
-        res = requests.post(url, data=payload, headers=headers, timeout=60).json()
+        res = requests.post(
+            f"https://graph.facebook.com/v20.0/{FB_PAGE_ID}/videos",
+            data=payload,
+            timeout=60,
+        ).json()
+
         if "id" in res:
-            logger.info(f"✅ Facebook Upload Successful! ID: {res['id']}")
+            logger.info(f"✅ Facebook upload done! ID: {res['id']}")
             return f"success_id_{res['id']}"
+
         logger.error(f"Facebook upload failed: {res}")
         return f"failed: {json.dumps(res)}"
+
     except Exception as e:
-        logger.error(f"Facebook upload exception: {e}")
-        return f"failed_exception: {str(e)}"
+        logger.error(f"Facebook exception: {e}")
+        return f"failed_exception: {e}"
 
 
-def post_to_instagram_via_url(video_url: str, thumb_url: str, caption: str) -> str:
+def _post_to_instagram(video_url: str, thumb_url: str, caption: str) -> str:
     try:
-        container_url = f"https://graph.facebook.com/v20.0/{IG_ACCT_ID}/media"
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36",
-            "Accept-Language": "en-US,en;q=0.9",
-        }
+        # Step 1: Create media container
         payload = {
-            "media_type": "REELS",
-            "video_url": video_url,
-            "caption": caption,
+            "media_type":   "REELS",
+            "video_url":    video_url,
+            "caption":      caption,
             "access_token": META_TOKEN,
         }
-
         if thumb_url:
             payload["cover_url"] = thumb_url
-            logger.info("🎯 Custom cover image set for Instagram Reel.")
         else:
             payload["cover_frame_time"] = 2000
 
-        req = requests.post(container_url, data=payload, headers=headers, timeout=60)
-        res_data = req.json()
+        res_data    = requests.post(
+            f"https://graph.facebook.com/v20.0/{IG_ACCT_ID}/media",
+            data=payload,
+            timeout=60,
+        ).json()
         creation_id = res_data.get("id")
 
         if not creation_id:
             logger.error(f"Instagram container creation failed: {res_data}")
-            return f"failed_container_creation: {json.dumps(res_data)}"
+            return f"failed_container: {json.dumps(res_data)}"
 
-        logger.info("Checking Instagram processing status...")
+        # Step 2: Poll processing status
+        logger.info("Polling Instagram processing status...")
         for i in range(15):
             time.sleep(15)
-            status_res = requests.get(
+            status = requests.get(
                 f"https://graph.facebook.com/v20.0/{creation_id}",
                 params={"fields": "status_code", "access_token": META_TOKEN},
-                headers=headers,
+                timeout=30,
             ).json()
-            status = status_res.get("status_code")
-            logger.info(f"Instagram status check {i + 1}/15: {status}")
+            code = status.get("status_code")
+            logger.info(f"Instagram status {i+1}/15: {code}")
 
-            if status == "FINISHED":
+            if code == "FINISHED":
                 break
-            elif status == "ERROR":
-                logger.error(f"Instagram processing error: {status_res}")
-                return f"failed_processing_error: {json.dumps(status_res)}"
+            if code == "ERROR":
+                logger.error(f"Instagram processing error: {status}")
+                return f"failed_processing: {json.dumps(status)}"
 
-        publish_url = f"https://graph.facebook.com/v20.0/{IG_ACCT_ID}/media_publish"
-        res = requests.post(
-            publish_url,
+        # Step 3: Publish
+        pub = requests.post(
+            f"https://graph.facebook.com/v20.0/{IG_ACCT_ID}/media_publish",
             data={"creation_id": creation_id, "access_token": META_TOKEN},
-            headers=headers,
             timeout=60,
-        )
-        pub_data = res.json()
+        ).json()
 
-        if "id" in pub_data:
-            logger.info(f"✅ Instagram Reel Published! ID: {pub_data['id']}")
-            return f"success_id_{pub_data['id']}"
-        else:
-            logger.error(f"Instagram publish failed: {pub_data}")
-            return f"failed_publish_error: {json.dumps(pub_data)}"
+        if "id" in pub:
+            logger.info(f"✅ Instagram Reel published! ID: {pub['id']}")
+            return f"success_id_{pub['id']}"
+
+        logger.error(f"Instagram publish failed: {pub}")
+        return f"failed_publish: {json.dumps(pub)}"
 
     except Exception as e:
-        logger.error(f"Instagram upload exception: {e}")
-        return f"failed_exception: {str(e)}"
+        logger.error(f"Instagram exception: {e}")
+        return f"failed_exception: {e}"
