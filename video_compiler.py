@@ -1,10 +1,10 @@
 """
-video_compiler.py — Core Video Rendering Engine v3.8 (SUSPENSE TRAP EDITION)
+video_compiler.py — Core Video Rendering Engine v4.0 (HUMAN CHUNKING & SUSPENSE TRAP)
 AI Dark Realities · Short-Form Video Pipeline
-Fixed: Programmatic center position override, 1.6x scale burst, and GOLD color flash for "WAIT..."
-Fixed: Real-time audio music ducking during the hook silence freeze frame to maximize tension.
+Fixed: High-Retention multi-word grouping layout (2-3 words per frame).
+Fixed: Maintained isolate frame override for the "WAIT..." suspense trap.
 Tested: Bracket alignment and Python 3.10+ syntax error-free.
-──────────────────────────────────────────────
+─────────────────────────────────────────────────────────────────────────────────────
 """
 
 import logging
@@ -35,9 +35,9 @@ W = config.VIDEO_WIDTH
 H = config.VIDEO_HEIGHT
 FPS = config.VIDEO_FPS
 
-FONT_SIZE = 95
+FONT_SIZE = 85  # Optimized to prevent blocking beautiful dark background elements
 CAPTION_YELLOW_COLOR = (255, 255, 0, 255)
-CAPTION_GOLD_COLOR = (255, 215, 0, 255) # Premium Gold for the Trap
+CAPTION_GOLD_COLOR = (255, 215, 0, 255)   # Premium Gold for the Trap
 CAPTION_GREEN_COLOR = (57, 255, 20, 255)
 CAPTION_WHITE_COLOR = (255, 255, 255, 255)
 CAPTION_STROKE_COLOR = (0, 0, 0, 255)
@@ -92,80 +92,136 @@ def _get_music_track(duration):
         return downloaded
     return None
 
-def _render_caption_frame_cached(t, word_timings):
+def _group_word_timings_into_chunks(word_timings, max_words=3):
     """
-    Renders word by word subtitles with DYNAMIC POSITIONING and KINETIC ZOOM.
-    Overrides everything when the hook "WAIT..." trap is triggered.
+    🌟 NEW DYNAMIC CHUNKING ENGINE
+    Combines individual words into clean humanized phrases (2-3 words)
+    while isolating "WAIT..." hooks into absolute structural blocks.
+    """
+    chunks = []
+    current_words = []
+    start_time = None
+    
+    for item in word_timings:
+        word = item["word"].upper().strip()
+        
+        # Immediate Split Anchor: If the trap keyword hits, flush existing queue and isolate it
+        if "WAIT" in word:
+            if current_words:
+                chunks.append({
+                    "text": " ".join(current_words),
+                    "start": start_time,
+                    "end": current_words_end_time,
+                    "is_trap": False
+                })
+                current_words = []
+            
+            chunks.append({
+                "text": word,
+                "start": item["start"],
+                "end": item["end"],
+                "is_trap": True
+            })
+            start_time = None
+            continue
+            
+        if not current_words:
+            start_time = item["start"]
+            
+        current_words.append(word)
+        current_words_end_time = item["end"]
+        
+        if len(current_words) >= max_words or word.endswith(('.', '?', '!')):
+            chunks.append({
+                "text": " ".join(current_words),
+                "start": start_time,
+                "end": current_words_end_time,
+                "is_trap": False
+            })
+            current_words = []
+            start_time = None
+            
+    if current_words:
+        chunks.append({
+            "text": " ".join(current_words),
+            "start": start_time,
+            "end": current_words_end_time,
+            "is_trap": False
+        })
+        
+    return chunks
+
+def _render_caption_frame_cached(t, chunk_timings):
+    """
+    Renders human-styled chunk phrases with dynamic positioning and kinetic burst.
     """
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
     
-    active_word = ""
-    word_index = 0
-    word_start = 0.0
-    word_end = 0.0
-    adjusted_time = t
+    active_text = ""
+    chunk_index = 0
+    chunk_start = 0.0
+    chunk_end = 0.0
+    is_trap_word = False
     
-    for idx, item in enumerate(word_timings):
-        if item["start"] <= adjusted_time <= item["end"]:
-            active_word = item["word"].upper().strip()
-            word_index = idx
-            word_start = item["start"]
-            word_end = item["end"]
+    for idx, item in enumerate(chunk_timings):
+        if item["start"] <= t <= item["end"]:
+            active_text = item["text"]
+            chunk_index = idx
+            chunk_start = item["start"]
+            chunk_end = item["end"]
+            is_trap_word = item["is_trap"]
             break
             
-    if not active_word:
+    if not active_text:
         return np.array(img)
-        
-    # CRITICAL TRIGGER INTERCEPTOR: "WAIT..." Hook Check
-    is_trap_word = "WAIT" in active_word
 
     if is_trap_word:
         # Hard lock to screen exact CENTER during the silence trap
         base_y = int(H * 0.48)
         text_color = CAPTION_GOLD_COLOR
     else:
-        # Dynamic positioning loop for regular content flow
-        random.seed(word_index + 99)
+        # Stable random seeding to keep the phrase cluster locked on its chosen path
+        random.seed(chunk_index + 125)
         position_choice = random.choice(['bottom', 'center', 'top'])
         
         if position_choice == 'bottom':
             base_y = int(H * 0.75)
             text_color = CAPTION_WHITE_COLOR
         elif position_choice == 'top':
-            base_y = int(H * 0.20)
+            base_y = int(H * 0.22)
             text_color = CAPTION_GREEN_COLOR
         else:
             base_y = int(H * 0.45)
             text_color = CAPTION_YELLOW_COLOR
 
     # Kinetic Zoom Scale Config
-    word_duration = max(0.05, word_end - word_start)
-    progress = (adjusted_time - word_start) / word_duration
+    chunk_duration = max(0.05, chunk_end - chunk_start)
+    progress = (t - chunk_start) / chunk_duration
     
     if is_trap_word:
-        # Massive screen burst effect for the hook trap (Starts at 1.1x and scales up to 1.6x)
-        zoom_factor = 1.1 + (0.5 * (progress / 1.0))
+        zoom_factor = 1.1 + (0.4 * (progress / 1.0))
     else:
-        if progress < 0.25:
-            zoom_factor = 1.0 + (0.25 * (progress / 0.25))
+        # Smooth and subtle human edit flow scaling instead of frantic single word popping
+        if progress < 0.20:
+            zoom_factor = 1.0 + (0.15 * (progress / 0.20))
         else:
-            zoom_factor = 1.25
+            zoom_factor = 1.15
         
     dynamic_font_size = int(FONT_SIZE * zoom_factor)
     font = _get_font(dynamic_font_size)
     
-    bbox = draw.textbbox((0, 0), active_word, font=font)
+    bbox = draw.textbbox((0, 0), active_text, font=font)
     text_w = bbox[2] - bbox[0]
     text_h = bbox[3] - bbox[1]
     
-    # Extreme screen retention shaker math
+    # Text Shaker Engine
     if is_trap_word:
-        shake_x = random.randint(-6, 6) # Extra violent shake for the freeze text
+        shake_x = random.randint(-6, 6)
         shake_y = random.randint(-4, 4)
     else:
-        shake_x = random.randint(-4, 4)
-        shake_y = random.randint(-2, 2)
+        shake_x = random.randint(-2, 2)
+        shake_y = random.randint(-1, 1)
     
     x = (W - text_w) // 2 + shake_x
     current_y = base_y - (text_h // 2) + shake_y
@@ -175,20 +231,24 @@ def _render_caption_frame_cached(t, word_timings):
     for adj_x, adj_y in [(-stroke_thickness, -stroke_thickness), (stroke_thickness, -stroke_thickness), 
                          (-stroke_thickness, stroke_thickness), (stroke_thickness, stroke_thickness), 
                          (-stroke_thickness, 0), (stroke_thickness, 0), (0, -stroke_thickness), (0, stroke_thickness)]:
-        draw.text((x + adj_x, current_y + adj_y), active_word, font=font, fill=CAPTION_STROKE_COLOR)
+        draw.text((x + adj_x, current_y + adj_y), active_text, font=font, fill=CAPTION_STROKE_COLOR)
         
-    draw.text((x, current_y), active_word, font=font, fill=text_color)
+    draw.text((x, current_y), active_text, font=font, fill=text_color)
     return np.array(img)
 
 def compile_video(media_paths, voiceover_data, output_stem):
-    logger.info("Starting video compilation engine with SUSPENSE COGNITIVE SYNC...")
+    logger.info("Starting video compilation engine with HUMAN CHUNK COGNITIVE SYNC...")
     final_path = config.FINAL_VIDEOS_DIR / (output_stem + ".mp4")
     THUMB_DURATION = 1.0
     voice_dur = voiceover_data["duration_sec"]
     potential_thumb = config.FINAL_VIDEOS_DIR / ("thumb_" + output_stem + ".jpg")
     has_thumb = potential_thumb.exists()
     total_dur = voice_dur + (THUMB_DURATION if has_thumb else 0.0)
+    
+    # Process word timings through the multi-word chunking sequence
     word_timings = voiceover_data["word_timings"]
+    chunk_timings = _group_word_timings_into_chunks(word_timings)
+    
     downloaded_music = None
 
     if not media_paths:
@@ -251,16 +311,14 @@ def compile_video(media_paths, voiceover_data, output_stem):
                 bg_audio = bg_audio.subclip(0, total_dur)
             
             # --- DYNAMIC SUSPENSE AUDIO DUCKING LOGIC ---
-            # Dhoondte hain ke WAIT lafz kab se kab tak hai timeline pe
             trap_start, trap_end = None, None
-            for item in word_timings:
-                if "WAIT" in item["word"].upper():
+            for item in chunk_timings:
+                if item["is_trap"]:
                     trap_start = item["start"]
                     trap_end = item["end"]
                     break
 
             if trap_start is not None and trap_end is not None:
-                # Custom lambda wrapper jo specific suspense trap timeframe par volume ko 90% mazeed drop kar dega
                 if has_thumb:
                     adjusted_start = trap_start + THUMB_DURATION
                     adjusted_end = trap_end + THUMB_DURATION
@@ -269,17 +327,13 @@ def compile_video(media_paths, voiceover_data, output_stem):
                     adjusted_end = trap_end
 
                 def volume_ducking_filter(gf, t):
-                    # gf(t) is a numpy array of shape (N, 2) for stereo audio frames
-                    factor = np.ones_like(t) * 0.25 # Base dark music volume (25%)
-                    # Sannata region logic check
+                    factor = np.ones_like(t) * 0.25  # Base background volume
                     duck_mask = (t >= adjusted_start) & (t <= adjusted_end)
-                    factor[duck_mask] = 0.02 # Intense drop to 2% volume for dramatic shock
-                    
-                    # Convert to column vectors for element-wise array multiplication
+                    factor[duck_mask] = 0.02         # Fall into deep silence pocket
                     return gf(t) * factor[:, np.newaxis]
                 
                 bg_audio = bg_audio.fl(volume_ducking_filter, keep_duration=True)
-                logger.info(f"🔒 Audio compression ducking filter locked on frame sequence [{trap_start}s - {trap_end}s]")
+                logger.info(f"🔒 Audio compression ducking filter locked on chunk frame [{trap_start}s - {trap_end}s]")
             else:
                 bg_audio = afx.volumex(bg_audio, 0.25)
             
@@ -295,9 +349,9 @@ def compile_video(media_paths, voiceover_data, output_stem):
         if has_thumb:
             logger.info(f"🎨 HD Thumbnail found: {potential_thumb.name}. Merging...")
             thumb_clip = (ImageClip(str(potential_thumb))
-                          .set_duration(THUMB_DURATION)
-                          .set_fps(FPS)
-                          .resize(newsize=(W, H)))
+                         .set_duration(THUMB_DURATION)
+                         .set_fps(FPS)
+                         .resize(newsize=(W, H)))
             final_visual_sequence = concatenate_videoclips([thumb_clip, video_sequence], method="compose")
         else:
             final_visual_sequence = video_sequence
@@ -306,12 +360,12 @@ def compile_video(media_paths, voiceover_data, output_stem):
 
         def make_caption_frame(t):
             adjusted_t = t - THUMB_DURATION if has_thumb else t
-            frame = _render_caption_frame_cached(adjusted_t, word_timings)
+            frame = _render_caption_frame_cached(adjusted_t, chunk_timings)
             return frame[:, :, :3]
 
         def make_caption_mask(t):
             adjusted_t = t - THUMB_DURATION if has_thumb else t
-            frame = _render_caption_frame_cached(adjusted_t, word_timings)
+            frame = _render_caption_frame_cached(adjusted_t, chunk_timings)
             return frame[:, :, 3] / 255.0
 
         caption_clip = VideoClip(make_caption_frame, duration=total_dur).set_fps(FPS)
