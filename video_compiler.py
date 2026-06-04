@@ -1,19 +1,18 @@
 """
-video_compiler.py — Production Compositor Engine (MOVIEPY AUTOMATED ENGINE v4.5)
+video_compiler.py — Production Compositor Engine (MOVIEPY AUTOMATED ENGINE v4.6)
 AI Dark Realities · Short-Form Video Pipeline
-Upgraded: Added 2-3 word absolute caption chunking & strict -22dB BGM volume compression.
+Fixed: Aligned single-file BGM pipeline mapping to prevent encoding exit breaks.
 ───────────────────────────────────────────────────────────────────────────────────
 """
 
 import os
-import random
 import logging
 from pathlib import Path
-from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip, concatenate_videoclips
+from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip, concatenate_videoclips, CompositeAudioClip
 
 logger = logging.getLogger(__name__)
 
-def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_dir: str, output_path: str):
+def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_file_path: str, output_path: str):
     """Composes B-rolls, deep voiceprints, auto-ducked music, and ultra-high-retention single line caption chunks."""
     logger.info("🎬 Initializing final audio-visual composite blending layers...")
     
@@ -21,16 +20,14 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_dir: 
     voice_clip = AudioFileClip(voiceover_data["audio_path"])
     duration = voice_clip.duration
 
-    # 1. Background Music (BGM) Auto-Ducking Layer
-    bgm_files = list(Path(bgm_dir).glob("*.mp3")) + list(Path(bgm_dir).glob("*.wav"))
-    if not bgm_files:
-        raise FileNotFoundError("No cinematic atmospheric music files found in raw directory.")
+    # 1. Background Music (BGM) Target Layer Injection
+    if not os.path.exists(bgm_file_path) or os.path.getsize(bgm_file_path) == 0:
+        raise FileNotFoundError(f"Target BGM file asset missing or corrupt at layout node: {bgm_file_path}")
     
-    selected_bgm = random.choice(bgm_files)
-    logger.info(f"🎵 Blending cinematic score track: {selected_bgm.name}")
-    bgm_clip = AudioFileClip(str(selected_bgm)).loop(duration=duration)
+    logger.info(f"🎵 Blending cinematic active background score: {Path(bgm_file_path).name}")
+    bgm_clip = AudioFileClip(bgm_file_path).loop(duration=duration)
     
-    # 🔥 CRITICAL FIX: -22dB Compression Rule (Locking bgm subtle ambient frequencies)
+    # -22dB Dynamic Attenuation Rule for crystal-clear voice footprint
     bgm_clip = bgm_clip.volumex(0.05) 
 
     final_audio = CompositeAudioClip([voice_clip, bgm_clip])
@@ -45,11 +42,10 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_dir: 
     x1 = (w - target_w) // 2
     cropped_video = stitched_video.crop(x1=x1, y1=0, x2=x1+target_w, y2=h)
 
-    # 3. Dynamic Word Chunking Subtitles Engine (High-Retention Text Flow)
+    # 3. Dynamic Word Chunking Subtitles Engine (High-Retention Text Pacing)
     text_clips = []
     word_timings = voiceover_data["word_timings"]
     
-    # Grouping rule: Maximum 2-3 words per chunk to maintain rapid retention pacing
     chunk_size = 2
     for i in range(0, len(word_timings), chunk_size):
         chunk = word_timings[i:i+chunk_size]
@@ -59,10 +55,8 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_dir: 
         start_time = chunk[0]["start"]
         end_time = chunk[-1]["end"]
         
-        # Determine bright custom color loops based on contextual structural definitions
         text_color = "#FFFF00" if "WAIT" in chunk_text.upper() else ("#00FF00" if i % 4 == 0 else "#FFFFFF")
         
-        # Compile Text Clip Object centered strictly within vertical safety zones
         txt_clip = (TextClip(chunk_text, font="Impact", fontsize=52, color=text_color, 
                              stroke_color="black", stroke_width=2.5, method="caption",
                              size=(target_w - 60, None))
@@ -75,7 +69,7 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_dir: 
     final_composite = CompositeVideoClip([cropped_video] + text_clips).set_audio(final_audio)
 
     # Output final compiled render stream
-    logger.info(f"🚀 Launching core production compiler encoding engine -> Target path: {output_path}")
+    logger.info(f"🚀 Launching production compiler encoding engine -> Target: {output_path}")
     final_composite.write_videofile(
         output_path,
         fps=30,
@@ -85,7 +79,7 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_dir: 
         logger=None
     )
 
-    # Cleanup resources safely to prevent memory leak crashes
+    # Cleanup resources safely to prevent memory leaks or locking crashes
     final_composite.close()
     cropped_video.close()
     stitched_video.close()
