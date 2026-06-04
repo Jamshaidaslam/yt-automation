@@ -45,10 +45,22 @@ def compile_final_video(video_clips_paths, voiceover_data, bgm_file_path, output
         except Exception as e:
             logger.error(f"Clip processing error: {e}")
 
-    # 3. Final Composite with Text Overlay (Caption Placeholder)
-    final_video = concatenate_videoclips(processed_clips, method="compose")
-    
+      
     # Text Caption Example (Center, Yellow, Bold)
+   # 3. Final Composite with Auto-Wrapping Captions
+    # 'size' ko screen width se thoda kam rakhein taake text bahar na nikle
+    txt_clip = TextClip(
+        "MASTER THE SILENCE AND CONTROL THE ROOM", 
+        fontsize=60, 
+        color='yellow', 
+        font='Arial-Bold', 
+        method='caption', 
+        size=(TARGET_WIDTH - 100, None), # Yahan size fix kiya hai
+        align='center'
+    ).set_pos('center').set_duration(duration)
+    
+    # Text ko "pop" effect dene ke liye simple approach
+    final_video = CompositeVideoClip([video, txt_clip])
     txt_clip = TextClip("MASTER THE SILENCE", fontsize=70, color='yellow', font='Arial-Bold', stroke_color='black', stroke_width=2)
     txt_clip = txt_clip.set_pos('center').set_duration(duration)
     
