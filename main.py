@@ -1,6 +1,9 @@
 """
-main.py — Pipeline Orchestrator (ANTI-SPAM & INTENT ALIGNED v2.5 - HUMAN AUTOMATED TITLES)
+main.py — Pipeline Orchestrator (ANTI-SPAM & INTENT ALIGNED v2.6 - SYSTEM REPAIR FIXED)
 AI Dark Realities · Short-Form Video Pipeline
+Fixed: Targeted precise config path mapping for asset cache purges.
+Fixed: Protected thumbnail rendering sequence with absolute safety catch blocks.
+Tested: Bracket alignment and Python 3.10+ syntax error-free.
 ─────────────────────────────────────────────────────────────────────────────────────
 """
 
@@ -120,19 +123,24 @@ def _log_upload(stem: str, results: dict):
 
 
 def _cleanup_old_cache_folders():
-    """🔥 REPEAT SCENE FIX: Purane downloaded assets ko pipeline shuru hone se pehle saaf karo."""
-    target_dirs = [Path("output/videos"), Path("assets/videos")]
+    """🔥 CRITICAL FIXED: Targets precise config mapping paths instead of ghost dirs to prevent repeat loops."""
+    target_dirs = []
+    if HAS_CONFIG_FILE and hasattr(config, "MEDIA_DIR"):
+        target_dirs.append(Path(config.MEDIA_DIR))
+    else:
+        target_dirs.append(Path("output/media"))
+        
     for folder in target_dirs:
         if folder.exists():
-            logger.info(f"🧹 Cleaning up old video assets cache folder: {folder}")
+            logger.info(f"🧹 Clearing core video stock database assets cache: {folder}")
             for item in folder.iterdir():
                 try:
-                    if item.is_file():
+                    if item.is_file() and not item.name.startswith("."):
                         item.unlink()
                     elif item.is_dir():
                         shutil.rmtree(item)
                 except Exception as e:
-                    logger.warning(f"Could not delete {item}: {e}")
+                    logger.warning(f"Could not purge cash segment {item}: {e}")
 
 
 def run_pipeline(topic: str | None = None, skip_upload: bool = False) -> dict:
@@ -150,14 +158,14 @@ def run_pipeline(topic: str | None = None, skip_upload: bool = False) -> dict:
         logger.info("=" * 60)
         sys.exit(0)
 
-    # 🔥 Run folder cleanup to ensure completely fresh stock videos are used
+    # 🔥 Clears the exact active stock directory before download execution
     _cleanup_old_cache_folders()
 
     # STEP 1: Script Generation
     logger.info("STEP 1/5 — Invoking Groq LLM for script engineering…")
     script_data = script_generator.generate_script(topic=topic)
     
-    # 🌟 CRITICAL UPGRADE: Extract raw title and inject automated high-CTR psychological hook
+    # Extract raw title and inject automated high-CTR psychological hook
     seo_block = script_data.get("seo", {})
     raw_title = seo_block.get("title") or script_data.get("title") or topic or "Dark Psychology"
     
@@ -202,18 +210,20 @@ def run_pipeline(topic: str | None = None, skip_upload: bool = False) -> dict:
         logger.error("Pipeline failure: No B-roll fetched.")
         sys.exit(1)
 
-    # 🌟 STEP 2.5: Professional Automatic Thumbnail Generation 🌟
+    # 🌟 STEP 2.5: Professional Automatic Thumbnail Generation (Wrapped with absolute fallback guard) 🌟
     logger.info("STEP 2.5 — Generating Eye-Catching Clickable Thumbnail Image…")
-    thumb_keyword = keywords_list[0] if keywords_list else "dark mystery"
-    
-    # Automatically tracks the newly generated clean hook text for thumbnail rendering
-    hook_text = script_data["seo"]["title"].split(":")[0].strip() # Takes the core psychological hook phrase
-    
-    thumbnail_path = media_fetcher.generate_professional_thumbnail(
-        keyword=thumb_keyword,
-        hook_text=hook_text,
-        output_stem=stem
-    )
+    thumbnail_path = None
+    try:
+        thumb_keyword = keywords_list[0] if keywords_list else "dark mystery"
+        hook_text = script_data["seo"]["title"].split(":")[0].strip() # Takes core hook phrase
+        
+        thumbnail_path = media_fetcher.generate_professional_thumbnail(
+            keyword=thumb_keyword,
+            hook_text=hook_text,
+            output_stem=stem
+        )
+    except Exception as thumb_err:
+        logger.error(f"⚠️ Thumbnail engine skipped due to safe intercept rule: {thumb_err}")
 
     # STEP 3: Voiceover Audio Synthesis
     logger.info("STEP 3/5 — Generating voiceover synthesis…")
@@ -236,13 +246,12 @@ def run_pipeline(topic: str | None = None, skip_upload: bool = False) -> dict:
     if not skip_upload:
         logger.info("STEP 5/5 — Dispatching multi-platform cloud upload sequences…")
         
-        # Will pass the updated dictionary seamlessly into the platform channels
         upload_results = uploader.upload_all_platforms(
             video_path     = video_path,
             seo            = script_data.get("seo", {}),
             thumbnail_path = thumbnail_path,
         )
-        if "success" in str(upload_results.get("youtube", "")):
+        if upload_results and "success" in str(upload_results.get("youtube", "")):
             _log_upload(stem, upload_results)
             logger.info("✅ Upload logged for duplicate prevention.")
     else:
