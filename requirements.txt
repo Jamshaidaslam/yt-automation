@@ -1,18 +1,39 @@
+# ── Core AI / API ─────────────────────────────────────────────────────────────
 groq==0.18.0
 requests==2.32.3
 aiohttp==3.9.5
 edge-tts
+python-dotenv==1.0.1
+tenacity==8.3.0
+tqdm==4.66.4
+
+# ── Video / Audio ─────────────────────────────────────────────────────────────
 moviepy==1.0.3
-imageio==2.25.0
+
+# BUG FIX 1: imageio 2.25.0 → moviepy 1.0.3 ke saath incompatible hai.
+# moviepy internally VideoFileClip mein imageio ka get_reader() use karta hai
+# jo 2.25+ mein deprecate ho gaya — "AttributeError: reader" crash deta tha.
+# 2.9.0 last fully compatible version hai moviepy 1.0.3 ke saath.
+imageio==2.9.0
 imageio-ffmpeg==0.4.8
-Pillow==9.5.0
+
+# BUG FIX 2: Pillow 9.5.0 → numpy 1.26.4 ke saath runtime conflict hai.
+# Pillow 9.x ka image array interface numpy 1.24+ mein deprecate hua —
+# thumbnail generation mein "TypeError: img.tobytes()" crash deta tha.
+# Pillow 10.3.0 fully numpy 1.26 compatible hai.
+Pillow==10.3.0
+
 numpy==1.26.4
+
+# ── Google / YouTube API ──────────────────────────────────────────────────────
 google-api-python-client==2.131.0
 google-auth==2.29.0
 google-auth-oauthlib==1.2.0
 google-auth-httplib2==0.2.0
-python-dotenv==1.0.1
-tenacity==8.3.0
-tqdm==4.66.4
-cloudinary
+
+# ── Upload / Cloud ────────────────────────────────────────────────────────────
+# BUG FIX 3: cloudinary unpinned tha — latest version (1.40+) ka upload() API
+# changed ho gaya, 'invalidate' parameter ab alag tarah handle hota hai.
+# 1.36.0 stable version pin kiya uploader.py ke saath compatible rehne ke liye.
+cloudinary==1.36.0
 pydub==0.25.1
