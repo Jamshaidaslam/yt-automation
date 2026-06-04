@@ -1,8 +1,7 @@
 """
-script_generator.py — Core Intelligence Engine (GROQ LLAMA3.3-70B VIRAL ENGINE v4.0)
+script_generator.py — Core Intelligence Engine (GROQ LLAMA3.3-70B HYPNOTIC LOOP v4.5)
 AI Dark Realities · Short-Form Video Pipeline
-Upgraded for: USA/UK High-Volume Premium Audience (Low-Competition Corporate & Social Engineering)
-Formula: 2-Second Freeze Hook + Strict Phrase Synchronization + Seamless Loop Architecture
+Upgraded for: USA/UK Premium Audience, 2-Second Mystery Vibe Silence, and Flawless Loopback
 ───────────────────────────────────────────────────────────────────────────────────
 """
 
@@ -16,10 +15,10 @@ logger = logging.getLogger(__name__)
 
 def generate_script(topic: str) -> dict:
     """
-    Generates an elite psychological script engineered for massive USA/UK audience retention.
-    Automatically forces high-CTR angles, hypnotic sub-second hooks, and precise visual tagging.
+    Generates a dark psychology script with a mandatory 2-second suspense pause 
+    immediately after the viral hook, moving directly into body data and an infinite loop.
     """
-    logger.info(f"🧠 Engineering viral psychological narrative blueprint for topic: [{topic}]")
+    logger.info(f"🧠 Engineering viral hypnotic loop blueprint for topic: [{topic}]")
     
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
@@ -27,53 +26,63 @@ def generate_script(topic: str) -> dict:
 
     client = Groq(api_key=api_key)
 
-    # 🚀 SYSTEM PROMPT: Engineered for 99th-percentile retention hooks & professional pacing
     prompt_lines = [
-        "You are the world's elite viral content architect specializing in dark psychology, behavioral economics, and hidden human manipulation tactics.",
-        "Your target audience is the USA and UK. They demand sharp, high-intellect, non-cringe, and deeply mysterious narratives.",
+        "You are the world's most dangerous viral short-form director specializing in hypnotic dark psychology content for USA/UK audiences.",
         
-        "CRITICAL SCRIPTWRITING RULES:",
-        "1. THE 2-SECOND FREEZE HOOK: The script must start with an aggressive, heart-stopping psychological hook. Do not say 'Welcome back' or 'In this video'. Start immediately with a shocking statement targeting the viewer's security, status, or autonomy (e.g., 'You are being silently evaluated right now...', 'The top 1% use a disturbing eye trick to control rooms...').",
-        "2. HIGH-VOLUME TARGET NICHES: If the user provides a generic topic, twist the angle into one of these three high-retention categories: Workplace/Corporate Sabotage, High-Status Body Language Control, or Social Engineering/Digital Addiction Mechanics.",
-        "3. WORD PACE & PHRASES: Write short, snappy sentences (maximum 4-6 words per segment) to allow fast visual cuts. Include the word 'WAIT.' as a dramatic, solitary mid-video cliffhanger pause.",
-        "4. PERFECT INFULENCER LOOP: The final sentence must seamlessly and grammatically connect back to the very first hook sentence of the script, making the video a 100% infinite loop.",
-        "5. EXACT VISUAL QUERIES: For each segment, provide 3 to 4 strict, high-quality search keywords for Pexels. Avoid generic terms. Use elite descriptors: 'dark corporate moody silhouette', 'intense eye contact macro', 'cyberpunk server glitch room', 'shadowy psychological mastermind', 'vintage concrete architecture moody close up'.",
+        "STRICT SCRIPT STRUCTURAL MATRIX (FOLLOW EXACTLY):",
+        "1. THE 2-SECOND SHOCKING HOOK: The first sentence must be an extreme psychological hook (4-6 words maximum). It must strike fear, status, or hidden control instantly. Do not say conversational fillers.",
+        
+        "2. THE MANDATORY SUSPENSE GAP (MYSTERY VIBE): Immediately after the very first sentence, you MUST insert a dedicated scene where the voiceover text is exactly '... WAIT. ...'. This triggers a 2-second absolute silence from the narrator while the dark music and room noise create a chilling suspense vibe on screen.",
+        
+        "3. THE BODY CONTENT: Keep sentences ultra-short (4-5 words max per scene block) using premium workplace manipulation, high-status body language, or social engineering topics.",
+        
+        "4. THE GRAMMATICAL LOOPBACK: The final sentence of the script must structurally, grammatically, and seamlessly flow directly back into the very first hook sentence without any logical gap, making it a 100% endless infinite loop.",
+        
+        "5. SPECIFIC VISUAL QUERIES: Provide elite cinematic keywords for Pexels that match dark psychology (e.g., 'mysterious shadow close up', 'psychological macro glitch', 'moody corporate mastermind silhouette').",
 
         "STRICT OUTPUT FORMAT:",
-        "You must return ONLY a raw JSON object. Do not include markdown wraps (like ```json), intro prose, or conversational filler.",
+        "Return ONLY a valid, raw JSON object. Do not include markdown wraps (like ```json), introduction prose, or trailing notes.",
         
-        "JSON STRUCTURE LAYOUT:",
+        "JSON EXPECTED LAYOUT STRUCTURE:",
         "{",
         "  \"title\": \"Extreme high-CTR clickbait title optimized for loops\",",
-        "  \"voiceover\": \"The complete raw text script to be spoken, including the word 'WAIT.'\",",
+        "  \"voiceover\": \"The full combined script text including the hook, the words '... WAIT. ...', the body, and the loopback tail.\",",
         "  \"scenes\": [",
         "    {",
-        "      \"text_segment\": \"Exact short word phrase (4-6 words max) progressing linearly through the voiceover\",",
-        "      \"visual_query\": \"3-4 strict specific search keywords matching this precise emotional or psychological segment\"",
+        "      \"text_segment\": \"The First Viral Hook Sentence Here\",",
+        "      \"visual_query\": \"intense psychological macro eye contact, dark moody silhouette\" ",
+        "    },",
+        "    {",
+        "      \"text_segment\": \"... WAIT. ...\",",
+        "      \"visual_query\": \"mysterious smoke floating shadow, cinematic dark static glitch\"",
+        "      \"note\": \"This forces the automated engine to render 2 seconds of pure ambient mystery vibe background sound without voiceover.\"",
+        "    },",
+        "    {",
+        "      \"text_segment\": \"First sentence of body content here\",",
+        "      \"visual_query\": \"dark concrete corporate architecture moody close up\"",
         "    }",
+        "    # Continue linear progression until the loopback sentence...",
         "  ]",
         "}"
     ]
     system_prompt = "\n\n".join(prompt_lines)
 
-    # Automatically engineer user prompt into an elite hook structure if it's empty
-    fallback_topic = "Corporate psychological tactics used by toxic managers or hidden power dynamics in public rooms"
+    fallback_topic = "Uncomfortable dark manipulation tricks used in high-status boardrooms and public spaces"
     active_topic = topic.strip() if topic and topic.strip() else fallback_topic
 
     user_prompt = (
-        f"Generate a masterfully crafted, chilling, and highly educational dark psychology script about: '{active_topic}'.\n"
-        f"Remember: First sentence must be a severe retention hook, sentences must be broken down into 4-6 word chunks in the scenes array, "
-        f"and the final sentence must loop perfectly into the first hook phrase."
+        f"Create a chilling, highly professional USA/UK target short script about: '{active_topic}'.\n"
+        f"Enforce the Matrix: Scene 1 is the lethal hook. Scene 2 is strictly text_segment '... WAIT. ...' for the mystery vibe silence. "
+        f"The subsequent scenes are short factual body steps, and the very last scene loops flawlessly back into Scene 1."
     )
 
-    # Execution via Llama-3.3-70b-versatile
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ],
-        temperature=0.68,  # Slightly raised for more creative, eerie metaphors
+        temperature=0.65,
         response_format={"type": "json_object"}
     )
 
@@ -82,12 +91,11 @@ def generate_script(topic: str) -> dict:
     try:
         data = json.loads(raw_json)
     except json.JSONDecodeError:
-        # Fallback regex parsing to catch loose strings
         match = re.search(r'\{.*\}', raw_json, re.DOTALL)
         if match:
             data = json.loads(match.group(0))
         else:
-            raise RuntimeError("Groq output stream dropped out of acceptable JSON parameters.")
+            raise RuntimeError("Groq model output corrupted outside expected JSON boundaries.")
 
-    logger.info("✅ Elite USA/UK Script successfully generated and structured.")
+    logger.info("✅ Hypnotic Loop Script Blueprint compiled using Llama-3.3.")
     return data
