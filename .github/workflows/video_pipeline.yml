@@ -2,11 +2,16 @@ name: Automated Video Production Pipeline
 
 on:
   schedule:
-    # 🎯 Slot 1: UTC 11:30 AM = PK 4:30 PM
-    - cron: '30 11 * * *'
+    # 🎯 SLOT 1: UTC 15:30 = PK 8:30 PM
+    # USA (New York): 11:30 AM (Lunch Break Premium Push)
+    # UK (London): 4:30 PM (End of School/Office Scroll)
+    - cron: '30 15 * * *'
     
-    # 🎯 Slot 2: UTC 18:30 PM = PK 11:30 PM
-    - cron: '30 18 * * *'
+    # 🎯 SLOT 2: UTC 21:30 = PK 2:30 AM (Raat)
+    # USA (New York): 5:30 PM (Prime Time After-Work Traffic)
+    # USA (Los Angeles): 2:30 PM (Late Afternoon High Retention Window)
+    # UK (London): 10:30 PM (Bedtime Endless Loop Scrolling)
+    - cron: '30 21 * * *'
 
   workflow_dispatch:
     inputs:
@@ -62,7 +67,7 @@ jobs:
           CLOUDINARY_CLOUD_NAME:     ${{ secrets.CLOUDINARY_CLOUD_NAME }}
           CLOUDINARY_API_KEY:        ${{ secrets.CLOUDINARY_API_KEY }}
           CLOUDINARY_API_SECRET:     ${{ secrets.CLOUDINARY_API_SECRET }}
-          UPLOAD_TO_YOUTUBE:         ${{ (github.event.schedule == '30 11 * * *' || github.event.schedule == '30 18 * * *' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
+          UPLOAD_TO_YOUTUBE:         'true'
         run: |
           TOPIC=""
           SKIP="false"
@@ -74,11 +79,12 @@ jobs:
 
           CMD="python main.py"
           
+          # Safe injection protection for custom topics
           if [ -n "$TOPIC" ]; then
             CMD="$CMD --topic \"$TOPIC\""
           fi
           
-          if [ "$SKIP" = "true" ]; then
+          if [ "$SKIP" = "true" ] || [ "$SKIP" = "True" ]; then
             CMD="$CMD --skip-upload"
           fi
 
