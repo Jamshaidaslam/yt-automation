@@ -2,15 +2,13 @@ name: Automated Video Production Pipeline
 
 on:
   schedule:
-    # 🎯 SLOT 1: UTC 15:30 = PK 8:30 PM
-    # USA (New York): 11:30 AM (Lunch Break Premium Push)
-    # UK (London): 4:30 PM (End of School/Office Scroll)
+    # 🎯 SLOT 1: UTC 15:30 = PK 8:30 PM (Lunch Break Premium Push)
     - cron: '30 15 * * *'
     
-    # 🎯 SLOT 2: UTC 21:30 = PK 2:30 AM (Raat)
-    # USA (New York): 5:30 PM (Prime Time After-Work Traffic)
-    # USA (Los Angeles): 2:30 PM (Late Afternoon High Retention Window)
-    # UK (London): 10:30 PM (Bedtime Endless Loop Scrolling)
+    # 🎯 SLOT 2: UTC 18:30 = PK 11:30 PM (USA Prime Time Afternoon Access)
+    - cron: '30 18 * * *'
+    
+    # 🎯 SLOT 3: UTC 21:30 = PK 2:30 AM (Bedtime Endless Scroll)
     - cron: '30 21 * * *'
 
   workflow_dispatch:
@@ -43,7 +41,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg imagemagick
           
-          # 🔥 CRITICAL MOVIEPY TEXT FIX: Bypasses security restrictions for custom subtitle rendering
+          # 🔥 MOVIEPY TEXT FIX: Bypasses security restrictions for custom subtitle rendering
           sudo sed -i 's/domain="path" rights="none" pattern="@\*"/domain="path" rights="read|write" pattern="@\*"/g' /etc/ImageMagick-6/policy.xml
           sudo sed -i 's/domain="coder" rights="none" pattern="PDF"/domain="coder" rights="read|write" pattern="PDF"/g' /etc/ImageMagick-6/policy.xml
 
@@ -79,7 +77,6 @@ jobs:
 
           CMD="python main.py"
           
-          # Safe injection protection for custom topics
           if [ -n "$TOPIC" ]; then
             CMD="$CMD --topic \"$TOPIC\""
           fi
