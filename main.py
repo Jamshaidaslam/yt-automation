@@ -5,14 +5,14 @@ Fixes:
   1. media_fetcher import added
   2. Keywords extracted from script scenes
   3. --skip-upload flag implemented
-  4. BGM download: os.system curl replaced with requests.get
-  5. BGM timeout 30→15, multiple fallback URLs added (Mixkit GitHub Actions pe block hota tha)
+  4. BGM download completely removed — sirf local assets/bgm or assets/music se lega
 """
 
 import os
 import shutil
 import logging
 import requests
+import random
 import sys
 from pathlib import Path
 from script_generator import generate_script
@@ -39,45 +39,20 @@ def clean_production_environment():
 
 
 def dynamic_auto_music_downloader(topic: str) -> str:
-    local_bgms = list(BGM_INPUT_DIR.glob("*.mp3")) + list(BGM_INPUT_DIR.glob("*.wav"))
-    if local_bgms:
-        logger.info("🎵 Using existing local background music file asset.")
-        return str(local_bgms[0])
+    # FIX: Download bilkul band — sirf local assets/bgm aur assets/music se lo
+    for search_dir in [BGM_INPUT_DIR, Path("assets/music")]:
+        if search_dir.exists():
+            tracks = (
+                list(search_dir.glob("*.mp3")) +
+                list(search_dir.glob("*.wav")) +
+                list(search_dir.glob("*.m4a"))
+            )
+            if tracks:
+                chosen = random.choice(tracks)
+                logger.info(f"🎵 Local BGM loaded: {chosen.name}")
+                return str(chosen)
 
-    target_track_path = BGM_INPUT_DIR / "dynamic_scraped_bgm.mp3"
-
-    if target_track_path.exists():
-        try:
-            target_track_path.unlink()
-        except Exception:
-            pass
-
-    # FIX: Multiple fallback URLs — Mixkit GitHub Actions pe block hota tha
-    # FIX: timeout 30 → 15 — pehle 30 sec wait karta tha har URL pe, isliye 7 min lag rahe the
-    bgm_urls = [
-        "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-        "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
-        "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
-    ]
-
-    for bgm_url in bgm_urls:
-        try:
-            logger.info(f"📥 Downloading BGM from: {bgm_url}")
-            response = requests.get(bgm_url, timeout=15, stream=True)
-            if response.status_code == 200:
-                with open(target_track_path, "wb") as f:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        if chunk:
-                            f.write(chunk)
-                if target_track_path.exists() and target_track_path.stat().st_size > 30000:
-                    logger.info(f"✅ BGM downloaded. Size: {target_track_path.stat().st_size} bytes")
-                    return str(target_track_path)
-        except requests.exceptions.Timeout:
-            logger.warning(f"⏱️ BGM URL timed out: {bgm_url} — trying next...")
-        except Exception as e:
-            logger.warning(f"⚠️ BGM download failed ({bgm_url}): {e} — trying next...")
-
-    logger.warning("⚠️ All BGM URLs failed. Proceeding without background music.")
+    logger.warning("⚠️ No local BGM found in assets/bgm or assets/music. Proceeding without music.")
     return ""
 
 
@@ -118,7 +93,7 @@ def execute_pipeline(topic: str, skip_upload: bool = False):
         if not video_clips_paths:
             raise RuntimeError("Media engine returned zero clips. Check API keys.")
 
-        # STEP 5: Download BGM
+        # STEP 5: Load local BGM
         resolved_bgm_path = dynamic_auto_music_downloader(topic)
 
         # STEP 6: Compile video
