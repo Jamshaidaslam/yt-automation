@@ -1,7 +1,7 @@
 """
-script_generator.py — Core Intelligence Engine (GROQ LLAMA3-70B DEEP DARK BLUEPRINT v3.0)
+script_generator.py — Core Intelligence Engine (GROQ LLAMA3-70B DEEP DARK BLUEPRINT v3.1 - SYNTAX FIXED)
 AI Dark Realities · Short-Form Video Pipeline
-Upgraded: Strict visual contextual keyword generation to fix generic B-roll leaks.
+Fixed: Escape and raw string containment to resolve unterminated string literal errors.
 ───────────────────────────────────────────────────────────────────────────────────
 """
 
@@ -28,8 +28,7 @@ def generate_script(topic: str) -> dict:
         "You are an elite content strategist specializing in dark psychology, human behaviors, and viral mystery shorts "
         "for USA/UK audiences. Your writing is cinematic, suspenseful, and hypnotic.\n\n"
         "STRICT OUTPUT FORMAT:\n"
-        "You must return ONLY a raw JSON object. Do not include markdown code blocks like ```json ... 
-```, do not write any introductory or concluding prose.\n\n"
+        "You must return ONLY a raw JSON object. Do not include markdown code blocks, do not write any introductory or concluding prose.\n\n"
         "JSON STRUCTURE:\n"
         "{\n"
         "  \"title\": \"A high-CTR clickbait title optimized for automated loop tracking\",\n"
@@ -43,7 +42,7 @@ def generate_script(topic: str) -> dict:
         "}"
     )
 
-    user_prompt = f"Create a chilling, highly educational short-form script about: {topic}. Ensure the final loop sentence connects back smoothly to the beginning hook line."
+    user_prompt = f"Create a chilling, highly educational short-form script about: {topic if topic else 'Dark Psychology'}. Ensure the final loop sentence connects back smoothly to the beginning hook line."
 
     response = client.chat.completions.create(
         model="llama3-70b-8192",
@@ -51,17 +50,15 @@ def generate_script(topic: str) -> dict:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ],
-        temperature=0.65, # Balanced variation footprint
+        temperature=0.65,
         response_format={"type": "json_object"}
     )
 
     raw_json = response.choices[0].message.content.strip()
     
-    # Safe JSON sanitization layers
     try:
         data = json.loads(raw_json)
     except json.JSONDecodeError:
-        # Emergency regex fallback block if markdown leaked
         match = re.search(r'\{.*\}', raw_json, re.DOTALL)
         if match:
             data = json.loads(match.group(0))
