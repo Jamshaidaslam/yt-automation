@@ -1,15 +1,11 @@
 """
-video_compiler.py — Production Compositor Engine (PRODUCTION CORE v5.3 - TIMEOUT FIXED)
+video_compiler.py — Production Compositor Engine (PRODUCTION CORE v5.5 - DYNAMIC CAPTIONS FIXED)
 AI Dark Realities · Short-Form Video Pipeline
-Fixes:
-  1. font="Impact" hardcoded crash fix — dynamic resolver
-  2. Double .close() bug fix
-  3. GitHub Actions timeout fix:
-     - Resolution 1080x1920 → 720x1280 (render 3x faster, YouTube Shorts accepts it)
-     - threads 4 → 2 (hosted runner pe 4 threads slow tha)
-     - preset ultrafast confirm
-     - Har clip max 8 sec tak trim — lambi clips render time barhaati thin
-     - TextClip subtitles disable option — agar phir bhi slow ho
+Fixes & Upgrades:
+  1. Kinetic Screen-Bouncing Captions Engine Added (UP-GREEN -> DOWN-BLUE -> CENTER-YELLOW)
+  2. 3-Words per Chunk Dynamic Sentence Formula Lock
+  3. Smooth Zoom-In Kinetic Animation Function (.fx resize)
+  4. GitHub Actions Environment Performance Optimized (720p Layout)
 """
 
 import os
@@ -23,25 +19,19 @@ from moviepy.editor import (
     concatenate_videoclips,
     CompositeAudioClip,
 )
+import moviepy.video.fx.all as vfx
 
 import config
 
 logger = logging.getLogger(__name__)
 
-# FIX: 720p render karo GitHub Actions pe — YouTube Shorts 720p perfectly accept karta hai
-# 1080p render mein 10-15 min lagते the, 720p mein 2-3 min
+# GitHub Actions optimization -> 720p accepts perfectly for Shorts/Reels
 TARGET_WIDTH = 720
 TARGET_HEIGHT = 1280
-
-# Har clip ka max duration — zyada lambi clips loop ke saath render slow karti hain
 MAX_CLIP_DURATION = 8.0
 
 
 def _resolve_font() -> str:
-    """
-    FIX: 'Impact' hardcoded tha — GitHub Actions Ubuntu pe crash karta tha.
-    Ab custom font try karta hai, phir system fonts, phir default.
-    """
     custom_font_path = config.FONTS_DIR / config.FONT_NAME
     if custom_font_path.exists():
         logger.info(f"🔤 Using custom font: {custom_font_path.name}")
@@ -95,11 +85,9 @@ def compile_final_video(
         try:
             clip = VideoFileClip(path).without_audio()
 
-            # FIX: Clip ko max 8 sec tak trim karo — lambi clips render slow karti hain
             if clip.duration > MAX_CLIP_DURATION:
                 clip = clip.subclip(0, MAX_CLIP_DURATION)
 
-            # FIX: 720x1280 pe resize — 1080p se 3x fast render
             clip_resized = clip.resize(height=TARGET_HEIGHT)
             w, h = clip_resized.size
             x_center = w // 2
@@ -120,11 +108,13 @@ def compile_final_video(
     base_stitched = concatenate_videoclips(processed_clips, method="compose")
     stitched_video = base_stitched.loop(duration=duration)
 
-    # 3. Subtitle generation
+    # 3. 🔥 UPGRADE: Kinetic Screen-Bouncing Subtitle Generation Logic
     font = _resolve_font()
     text_clips = []
     word_timings = voiceover_data["word_timings"]
-    chunk_size = 2
+    
+    # 3 words ka elite chunk formula lock kia ha
+    chunk_size = 3
 
     for i in range(0, len(word_timings), chunk_size):
         chunk = word_timings[i: i + chunk_size]
@@ -134,29 +124,59 @@ def compile_final_video(
         chunk_text = " ".join([item["word"] for item in chunk]).upper()
         start_time = chunk[0]["start"]
         end_time = chunk[-1]["end"]
+        clip_duration = end_time - start_time
+        
+        if clip_duration <= 0:
+            clip_duration = 0.1  # Safety fallback boundary
 
-        if "WAIT" in chunk_text or "SECRET" in chunk_text:
-            text_color = "#FFFF00"
-        elif i % 4 == 0:
+        # Dynamic Loop Counter for Screen Positions
+        loop_index = (i // chunk_size) % 3
+
+        if loop_index == 0:
+            # 🟢 UP POSITION (Neon Green Style)
+            pos_y = int(TARGET_HEIGHT * 0.18)
             text_color = "#00FF00"
+            font_size = 65  # 720p screen size ke mutabiq scaled down from 85
+        elif loop_index == 1:
+            # 🔵 DOWN POSITION (Electric Cyan Blue Style)
+            pos_y = int(TARGET_HEIGHT * 0.78)
+            text_color = "#00FFFF"
+            font_size = 60
         else:
-            text_color = "#FFFFFF"
+            # 🟡 CENTER POSITION (Bright Yellow Accent Style)
+            pos_y = int(TARGET_HEIGHT * 0.45)
+            text_color = "#FFFF00"
+            font_size = 70
+
+        # Special keywords detection trigger to lock focus
+        if "WAIT" in chunk_text or "SECRET" in chunk_text or "HACKED" in chunk_text:
+            text_color = "#FF3333"  # Crimson Red for high danger thrill triggers
+            font_size = int(font_size * 1.15)
 
         try:
+            # Define standard pop zoom interpolation curve
+            def dynamic_zoom_pop(t):
+                pop_speed = 0.15  # 0.15 seconds me animation deploy ho jayegi
+                if t < pop_speed:
+                    return 0.75 + (0.25 * (t / pop_speed))  # 75% se 100% smoothly popup karega
+                return 1.0
+
             txt_clip = (
                 TextClip(
                     chunk_text,
                     font=font,
-                    fontsize=50,  # 60 → 50 (720p ke liye proportional)
+                    fontsize=font_size,
                     color=text_color,
                     stroke_color="black",
-                    stroke_width=3,
+                    stroke_width=5,  # Strong heavy outline for high-retention readability
                     method="caption",
-                    size=(TARGET_WIDTH - 200, None),  # 300 → 200 (720p width)
+                    size=(TARGET_WIDTH - 120, None),
                 )
                 .set_start(start_time)
                 .set_end(end_time)
-                .set_position(("center", TARGET_HEIGHT * 0.65))
+                .set_duration(clip_duration)
+                .fx(vfx.resize, dynamic_zoom_pop)  # 🔥 Dynamic Zoom Activation Frame Hook
+                .set_position(("center", pos_y))
             )
             text_clips.append(txt_clip)
         except Exception as txt_err:
@@ -173,15 +193,13 @@ def compile_final_video(
         fps=30,
         codec="libx264",
         audio_codec="aac",
-        threads=2,        # FIX: 4 → 2 (GitHub Actions hosted runner pe 2 faster hai)
+        threads=2,
         preset="ultrafast",
         logger=None,
-        ffmpeg_params=["-crf", "28"]  # FIX: crf 28 = smaller file, faster encode
-                                       # default crf 23 tha, 28 pe quality thodi kam
-                                       # but GitHub Actions timeout nahi hoga
+        ffmpeg_params=["-crf", "28"]
     )
 
-    # FIX: Correct close order
+    # Correct close cleanup sequence
     final_composite.close()
     stitched_video.close()
     base_stitched.close()
@@ -191,4 +209,4 @@ def compile_final_video(
     if bgm_clip:
         bgm_clip.close()
 
-    logger.info("✅ Final video compiled successfully!")
+    logger.info("✅ Final video compiled successfully with Screen-Bouncing Kinetic Captions!")
