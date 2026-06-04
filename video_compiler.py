@@ -6,7 +6,6 @@ from moviepy.editor import (
 import moviepy.video.fx.all as vfx
 from moviepy.audio.fx.all import audio_loop
 from PIL import Image, ImageDraw, ImageFont
-import numpy as np
 import config
 
 # Fix for PIL ANTIALIAS error in newer versions
@@ -63,7 +62,7 @@ def _build_caption_clips(voiceover_data, total_duration):
             ).set_start(chunk_start).set_duration(chunk_dur).set_pos(pos_arg)
             caption_clips.append(txt)
         except Exception as e:
-            logger.warning(f"Caption failed: {e}")
+            logger.warning(f"Caption failed for '{chunk_text}': {e}")
     return caption_clips
 
 def generate_thumbnail(video_clip, title_text, output_path):
@@ -71,7 +70,7 @@ def generate_thumbnail(video_clip, title_text, output_path):
         frame = video_clip.get_frame(1.0)
         img = Image.fromarray(frame).resize((TARGET_WIDTH, TARGET_HEIGHT))
         draw = ImageDraw.Draw(img)
-        # Use font from config
+        
         font_path = str(config.FONTS_DIR / config.FONT_NAME)
         font = ImageFont.truetype(font_path, 72) if os.path.exists(font_path) else ImageFont.load_default()
         
@@ -85,14 +84,18 @@ def generate_thumbnail(video_clip, title_text, output_path):
 
 def compile_final_video(video_clips_paths, voiceover_data, bgm_file_path, output_path, title_text="Watch Till End"):
     logger.info("🎬 Compilation Started...")
+    
     voice_clip = AudioFileClip(voiceover_data["audio_path"])
     duration = min(max(voice_clip.duration, MIN_DURATION), MAX_DURATION)
     
-    # Music
+    # 3. Background Music (FIXED: Added NoneType check)
     audio_tracks = [voice_clip]
-    if bgm_file_path and os.path.exists(bgm_file_path):
-        bgm = audio_loop(AudioFileClip(bgm_file_path), duration=duration).volumex(0.06)
-        audio_tracks.append(bgm)
+    if bgm_file_path and isinstance(bgm_file_path, str) and os.path.exists(bgm_file_path):
+        try:
+            bgm = audio_loop(AudioFileClip(bgm_file_path), duration=duration).volumex(0.06)
+            audio_tracks.append(bgm)
+        except Exception as e:
+            logger.warning(f"BGM load failed: {e}")
     final_audio = CompositeAudioClip(audio_tracks)
 
     # Clips
@@ -102,6 +105,7 @@ def compile_final_video(video_clips_paths, voiceover_data, bgm_file_path, output
     
     for path in video_clips_paths:
         if total_video_dur >= duration: break
+        if not path or not os.path.exists(path): continue
         try:
             clip = VideoFileClip(path).without_audio().resize(height=TARGET_HEIGHT).crop(x_center=TARGET_WIDTH/2, width=TARGET_WIDTH, height=TARGET_HEIGHT)
             clip = clip.fx(vfx.resize, lambda t: 1.0 + 0.03 * t)
