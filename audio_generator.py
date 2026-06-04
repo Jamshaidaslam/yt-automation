@@ -1,8 +1,8 @@
 """
-audio_generator.py — Voiceover Synthesis Engine (NUCLEAR HYPNOTIC EDGE-TTS v6.5)
+audio_generator.py — Voiceover Synthesis Engine (NUCLEAR HYPNOTIC EDGE-TTS v6.6 - PITCH ERROR FIXED)
 AI Dark Realities · Short-Form Video Pipeline
 Optimized for: 100% Human Organic Dark Psychology Niche
-Formula: en-US-GuyNeural + Dynamic Pitch/Rate + Auto Background Music Mixer
+Fixes: Resolved edge_tts pitch validation string format exception (-12% -> -12Hz)
 ─────────────────────────────────────────────────────────────────────────────────────
 """
 
@@ -22,24 +22,24 @@ logger = logging.getLogger(__name__)
 # Directory Management
 AUDIO_OUTPUT_DIR = Path("output/audio")
 AUDIO_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-MUSIC_ASSETS_DIR = Path("assets/music")  # 🔥 Aapka banaya hua music folder
+MUSIC_ASSETS_DIR = Path("assets/music")
 
 # Human Realism Audio Parameters
 ROOM_NOISE_VOLUME = 0.04  # Background environment hiss
 BREATH_VOLUME = 0.08      # Organic human breathing simulation
-BG_MUSIC_VOLUME = 0.07    # 🔥 Music ka volume (Halka aur ghaibana background score)
+BG_MUSIC_VOLUME = 0.07    # Music volume layout
 
 _REAL_WORD_TIMINGS = []
 
-# Elite Voice profiles optimized with safe percentage modulations
+# 🔥 FIXED: Changed pitch syntax from '%' to 'Hz' to comply strictly with edge-tts data validation constraints
 VOICE_PROFILES = {
     "guy_dark": {
         "name": "en-US-GuyNeural",
-        "pitch": "-12%"       # Deeper bass for dark psychology authority
+        "pitch": "-12Hz"       # Deeper bass for dark psychology authority
     },
     "ryan_uk": {
         "name": "en-GB-RyanNeural",
-        "pitch": "-9%"        # Classy, deep British mystery tone
+        "pitch": "-9Hz"        # Classy, deep British mystery tone
     }
 }
 
@@ -59,7 +59,7 @@ def generate_voiceover(script: str, output_stem: str, voice_type: str = "guy_dar
     selected_voice = profile["name"]
     selected_pitch = profile["pitch"]
     
-    # 🔥 HUMAN RANDOMIZATION HACK: Speed har video mein thodi badalegi taake AI filter trace na kar sakay
+    # HUMAN RANDOMIZATION HACK: Speed modulation percentage
     selected_rate = f"-{random.randint(4, 7)}%" 
 
     logger.info(f"Deploying Edge-TTS Pipeline -> Voice: {selected_voice} | Rate: {selected_rate} | Pitch: {selected_pitch}")
@@ -121,30 +121,27 @@ def _add_human_effects(audio_path: str, output_stem: str) -> str:
     breath_audio = _generate_breath_sounds(duration)
     audio_components.extend([room_noise, breath_audio])
 
-    # 2. 🔥 AUTOMATIC REPO BACKGROUND MUSIC PICKER
+    # 2. AUTOMATIC REPO BACKGROUND MUSIC PICKER
     bg_music_clip = None
     if MUSIC_ASSETS_DIR.exists():
-        # Folder se sirf audio files (.mp3, .wav) filter karein
-        music_files = [f for f in MUSIC_ASSETS_DIR.iterdir() if f.suffix.lower() in ['.mp3', '.wav']]
+        music_files = [f for f in MUSIC_ASSETS_DIR.iterdir() if f.suffix.lower() in ['.mp3', '.wav', '.m4a']]
         
         if music_files:
             chosen_music = random.choice(music_files)
             logger.info(f"Successfully loaded background score from assets: {chosen_music.name}")
             
-            # Music load karein aur use video ki duration ke mutabiq cut/loop karein
             bg_music_clip = AudioFileClip(str(chosen_music))
             
             if bg_music_clip.duration < duration:
-                # Agar music chota hai to use loop karein (b-roll loop trick)
-                bg_music_clip = bg_music_clip.fx(os.path.loop, duration=duration)
+                # Fixed native moviepy looping bounds instead of calling .fx directly
+                bg_music_clip = bg_music_clip.loop(duration=duration)
             else:
                 bg_music_clip = bg_music_clip.subclip(0, duration)
                 
-            # Volume down taake voiceover dominate kare (Dark Psychology style)
             bg_music_clip = bg_music_clip.volumex(BG_MUSIC_VOLUME)
             audio_components.append(bg_music_clip)
         else:
-            logger.warning("assets/music folder khali hai! Koi mp3 file daalein.")
+            logger.warning("assets/music folder khali hai! Proceeding with ambiance matrix layers.")
     else:
         logger.warning("assets/music folder script ko nahi mila!")
 
@@ -157,7 +154,7 @@ def _add_human_effects(audio_path: str, output_stem: str) -> str:
         str(output_path),
         fps=44100,
         codec="mp3",
-        bitrate="192k",  # High quality bitrate for elite audio rendering
+        bitrate="192k",
         logger=None
     )
 
@@ -189,7 +186,7 @@ def _generate_breath_sounds(duration: float):
     n_samples = int(duration * fps)
     breath_track = np.zeros((n_samples, 2))
 
-    current_time = random.uniform(6, 10)  # Thoda jaldi saans ka cycle for suspense feel
+    current_time = random.uniform(6, 10)
     while current_time < duration:
         start_sample = int(current_time * fps)
         breath_len = int(0.24 * fps)
