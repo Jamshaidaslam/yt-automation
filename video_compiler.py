@@ -229,11 +229,40 @@ def compile_final_video(video_clips_paths, voiceover_data, bgm_file_path, output
 
     total_video_dur = 0.0
 
+    # Diagnostics: log what we received
+    logger.info(f"📂 Total clips received from media_fetcher: {len(available_clips)}")
+    for i, p in enumerate(available_clips):
+        exists = os.path.exists(p)
+        size   = os.path.getsize(p) // 1024 if exists else 0
+        logger.info(f"   [{i+1}] {p} | exists={exists} | size={size}KB")
+
+    failed_clips = []
+
     for path in available_clips:
         if total_video_dur >= duration:
             break
+
+        # BUG FIX: File existence + size check before VideoFileClip —
+        # corrupt or 0-byte files cause cryptic ffmpeg errors
+        if not os.path.exists(path):
+            logger.warning(f"Skipping missing file: {path}")
+            failed_clips.append((path, "file not found"))
+            continue
+        if os.path.getsize(path) < 10_000:
+            logger.warning(f"Skipping too-small file ({os.path.getsize(path)} bytes): {path}")
+            failed_clips.append((path, "file too small"))
+            continue
+
         try:
             clip = VideoFileClip(path).without_audio()
+
+            # BUG FIX: clip.duration < FAST_CUT_DUR check —
+            # very short clips (< 1s) cause subclip errors
+            if clip.duration < 1.0:
+                logger.warning(f"Skipping clip too short ({clip.duration:.2f}s): {path}")
+                clip.close()
+                failed_clips.append((path, f"too short: {clip.duration:.2f}s"))
+                continue
 
             # Resize & crop to vertical 9:16
             clip = clip.resize(height=TARGET_HEIGHT)
@@ -248,19 +277,33 @@ def compile_final_video(video_clips_paths, voiceover_data, bgm_file_path, output
             # Slight zoom-in (ken burns effect)
             clip = clip.fx(vfx.resize, lambda t: 1.0 + 0.03 * t)
 
-            # How much of this clip do we need?
             remaining = duration - total_video_dur
             cut_dur   = min(FAST_CUT_DUR, remaining, clip.duration)
             clip      = clip.subclip(0, cut_dur).set_duration(cut_dur)
 
             processed_clips.append(clip)
             total_video_dur += cut_dur
+            logger.info(f"✅ Clip added: {os.path.basename(path)} ({cut_dur:.1f}s) | total={total_video_dur:.1f}s")
 
         except Exception as e:
-            logger.error(f"Clip error ({path}): {e}")
+            logger.error(f"Clip processing failed ({os.path.basename(path)}): {e}")
+            failed_clips.append((path, str(e)))
+
+    if failed_clips:
+        logger.warning(f"⚠️  {len(failed_clips)} clip(s) failed:")
+        for p, reason in failed_clips:
+            logger.warning(f"   ✗ {os.path.basename(p)}: {reason}")
 
     if not processed_clips:
-        raise RuntimeError("No video clips could be processed. Check your clips folder.")
+        # Detailed error to help diagnose root cause
+        raise RuntimeError(
+            f"No video clips could be processed.\n"
+            f"  Clips received:  {len(available_clips)}\n"
+            f"  Clips failed:    {len(failed_clips)}\n"
+            f"  Failure reasons: {set(r for _, r in failed_clips)}\n"
+            f"  Check: API keys in GitHub Secrets, DOWNLOADS_DIR in config.py, "
+            f"network access to Pexels/Pixabay."
+        )
 
     # ── 5. Concatenate clips ─────────────────────────────────────────────────
     final_video_concat = concatenate_videoclips(processed_clips, method="compose")
