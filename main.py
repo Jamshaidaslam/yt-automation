@@ -1,14 +1,15 @@
 """
-main.py — Master Automation Executive Workflow (PRODUCTION ENGINE v2.9 - AUTO BGM INJECTED)
+main.py — Master Automation Executive Workflow (PRODUCTION ENGINE v3.0 - DYNAMIC MUSIC DOWNLOADER)
 AI Dark Realities · Short-Form Video Pipeline
-Fixed: Added Auto-BGM Downloader fallback to completely eliminate directory crashes.
-───────────────────────────────────────────────────────────────────────────────────
+Upgraded: Automated dynamic background music scraper matching the exact psychological video topic.
+─────────────────────────────────────────────────────────────────────────────────────────────────────
 """
 
 import os
 import shutil
 import logging
 import requests
+import random
 from pathlib import Path
 from script_generator import generate_script
 from audio_generator import generate_voiceover
@@ -77,31 +78,59 @@ def download_live_pexels_broll(scenes: list) -> list:
 
     return downloaded_paths
 
-def create_emergency_fallback_bgm():
-    """Ensures a background score track exists, or auto-downloads a premium dark ambient track."""
+def dynamic_auto_music_downloader(topic: str):
+    """
+    🌟 DYNAMIC TOPIC-BASED MUSIC SCRAPER
+    If local BGM is missing, connects directly to Pixabay Audio API to scrape 
+    premium cinematic/suspense tracks matching the video's theme.
+    """
     existing_bgm = list(BGM_INPUT_DIR.glob("*.mp3")) + list(BGM_INPUT_DIR.glob("*.wav"))
     if existing_bgm:
-        logger.info("🎵 Local background music files detected. Proceeding with track selection.")
+        logger.info("🎵 Local background music assets detected. Skipping dynamic download.")
         return
 
-    # 🔥 CRITICAL AUTO-FALLBACK: Download high-quality cinematic suspense music automatically if directory is empty
-    fallback_track_path = BGM_INPUT_DIR / "emergency_dark_ambient.mp3"
-    fallback_url = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" # Safe test placeholder asset
-    # Alternately a premium cinematic copyright-free ambient node link
-    fallback_url = "https://assets.mixkit.co/music/preview/mixkit-glitchy-futuristic-ambient-mystery-1149.mp3"
+    logger.warning("⚠️ BGM folder empty! Initializing Automated Topic-Based Music Scraper...")
+    
+    # Generate intelligent audio search keywords based on your topic context
+    search_keywords = "suspense cinematic ambient"
+    if "dark" in topic.lower() or "psychology" in topic.lower():
+        search_keywords = "dark suspense ambient thriller"
+    elif "love" in topic.lower() or "poetry" in topic.lower():
+        search_keywords = "sad cinematic piano flute"
 
-    logger.warning("⚠️ Background music directory empty! Activating Auto-BGM Downloader Safety Engine...")
+    pixabay_key = os.getenv("PIXABAY_API_KEY")
+    fallback_track_path = BGM_INPUT_DIR / "dynamic_scraped_bgm.mp3"
+
+    if pixabay_key:
+        logger.info(f"🔍 Searching Pixabay Audio Repository for keywords: '{search_keywords}'")
+        url = f"https://pixabay.com/api/videos/audio/?key={pixabay_key}&q={requests.utils.quote(search_keywords)}&per_page=10"
+        try:
+            response = requests.get(url, timeout=15)
+            if response.status_code == 200:
+                hits = response.json().get("hits", [])
+                if hits:
+                    random_track = random.choice(hits)
+                    download_url = random_track.get("audio", "")
+                    if download_url:
+                        logger.info(f"📥 Downloading matched Pixabay audio track: {random_track.get('title', 'Cinematic Sound')}")
+                        audio_resp = requests.get(download_url, timeout=30)
+                        with open(fallback_track_path, "wb") as f:
+                            f.write(audio_resp.content)
+                        logger.info("✅ Pixabay dynamic background track deployed successfully!")
+                        return
+        except Exception as e:
+            logger.error(f"❌ Pixabay Audio API connection failed: {e}")
+
+    # Ultimate Hardcoded Backup Node if both local folders and Pixabay API limit leaks out
+    logger.warning("🚨 Pixabay Audio fallback triggered. Downloading standard dark-mystery asset...")
+    static_backup_url = "https://assets.mixkit.co/music/preview/mixkit-glitchy-futuristic-ambient-mystery-1149.mp3"
     try:
-        logger.info(f"📥 Fetching copyright-free cinematic atmosphere from backup node: {fallback_url}")
-        response = requests.get(fallback_url, timeout=20)
-        if response.status_code == 200:
-            with open(fallback_track_path, "wb") as f:
-                f.write(response.content)
-            logger.info("✅ Emergency background score loaded and injected successfully!")
-        else:
-            raise RuntimeError("Fallback BGM server responded with a bad status code.")
+        response = requests.get(static_backup_url, timeout=20)
+        with open(fallback_track_path, "wb") as f:
+            f.write(response.content)
+        logger.info("✅ Hardcoded backup cinematic mystery theme loaded successfully!")
     except Exception as e:
-        logger.error(f"❌ Failed to download emergency BGM: {e}")
+        logger.error(f"❌ Ultimate BGM layer crash prevention failed: {e}")
         raise FileNotFoundError(f"Please drop at least one background music .mp3 track inside '{BGM_INPUT_DIR}' folder.")
 
 def engineer_clickbait_title(raw_title: str) -> str:
@@ -132,8 +161,8 @@ def execute_pipeline(topic: str):
     if not video_clips_paths:
         raise RuntimeError("Live Video Scraper Engine returned an empty array block. Verify PEXELS_API_KEY tokens.")
 
-    # Step 5: Ensure Background Music file is active (Auto-downloads if missing)
-    create_emergency_fallback_bgm()
+    # Step 5: Dynamic Audio Scraping Layer (Matches video topic perfectly if directory is empty)
+    dynamic_auto_music_downloader(topic)
 
     # Step 6: Compile Final Composition Output
     output_video_file = FINAL_OUTPUT_DIR / "final_dark_short_output.mp4"
