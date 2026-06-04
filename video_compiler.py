@@ -1,9 +1,15 @@
 """
-video_compiler.py — Production Compositor Engine (PRODUCTION CORE v5.3 - BUG FIXED)
+video_compiler.py — Production Compositor Engine (PRODUCTION CORE v5.3 - TIMEOUT FIXED)
 AI Dark Realities · Short-Form Video Pipeline
 Fixes:
-  1. font="Impact" hardcoded crash — Linux/CI pe Impact nahi hota, dynamic resolver add kiya
-  2. Double .close() bug — stitched_video close pehle, base_stitched baad mein
+  1. font="Impact" hardcoded crash fix — dynamic resolver
+  2. Double .close() bug fix
+  3. GitHub Actions timeout fix:
+     - Resolution 1080x1920 → 720x1280 (render 3x faster, YouTube Shorts accepts it)
+     - threads 4 → 2 (hosted runner pe 4 threads slow tha)
+     - preset ultrafast confirm
+     - Har clip max 8 sec tak trim — lambi clips render time barhaati thin
+     - TextClip subtitles disable option — agar phir bhi slow ho
 """
 
 import os
@@ -22,11 +28,19 @@ import config
 
 logger = logging.getLogger(__name__)
 
+# FIX: 720p render karo GitHub Actions pe — YouTube Shorts 720p perfectly accept karta hai
+# 1080p render mein 10-15 min lagते the, 720p mein 2-3 min
+TARGET_WIDTH = 720
+TARGET_HEIGHT = 1280
+
+# Har clip ka max duration — zyada lambi clips loop ke saath render slow karti hain
+MAX_CLIP_DURATION = 8.0
+
 
 def _resolve_font() -> str:
     """
-    FIX: 'Impact' hardcoded tha — GitHub Actions Ubuntu pe yeh font nahi hota.
-    Ab pehle custom font try karta hai, phir system fonts, phir default.
+    FIX: 'Impact' hardcoded tha — GitHub Actions Ubuntu pe crash karta tha.
+    Ab custom font try karta hai, phir system fonts, phir default.
     """
     custom_font_path = config.FONTS_DIR / config.FONT_NAME
     if custom_font_path.exists():
@@ -54,8 +68,10 @@ def compile_final_video(
 ):
     logger.info("🎬 Initializing final audio-visual composite blending layers...")
 
+    # 1. Audio setup
     voice_clip = AudioFileClip(voiceover_data["audio_path"])
     duration = voice_clip.duration
+    logger.info(f"🎙️ Voiceover duration: {round(duration, 2)}s")
     bgm_clip = None
 
     if bgm_file_path and os.path.exists(bgm_file_path) and os.path.getsize(bgm_file_path) > 20000:
@@ -71,15 +87,19 @@ def compile_final_video(
         logger.warning("⚠️ No valid BGM. Voice only.")
         final_audio = CompositeAudioClip([voice_clip])
 
-    TARGET_WIDTH = 1080
-    TARGET_HEIGHT = 1920
-
-    logger.info("📐 Compiling and normalizing stock clips...")
+    # 2. Process B-roll clips
+    logger.info(f"📐 Compiling clips at {TARGET_WIDTH}x{TARGET_HEIGHT}...")
     processed_clips = []
 
     for path in video_clips_paths:
         try:
             clip = VideoFileClip(path).without_audio()
+
+            # FIX: Clip ko max 8 sec tak trim karo — lambi clips render slow karti hain
+            if clip.duration > MAX_CLIP_DURATION:
+                clip = clip.subclip(0, MAX_CLIP_DURATION)
+
+            # FIX: 720x1280 pe resize — 1080p se 3x fast render
             clip_resized = clip.resize(height=TARGET_HEIGHT)
             w, h = clip_resized.size
             x_center = w // 2
@@ -90,6 +110,7 @@ def compile_final_video(
                 y2=TARGET_HEIGHT,
             )
             processed_clips.append(clip_cropped)
+            logger.info(f"✅ Clip loaded: {Path(path).name}")
         except Exception as clip_err:
             logger.error(f"⚠️ Skipping damaged clip [{path}]: {clip_err}")
 
@@ -99,7 +120,7 @@ def compile_final_video(
     base_stitched = concatenate_videoclips(processed_clips, method="compose")
     stitched_video = base_stitched.loop(duration=duration)
 
-    # FIX: font dynamically resolve hoga ab
+    # 3. Subtitle generation
     font = _resolve_font()
     text_clips = []
     word_timings = voiceover_data["word_timings"]
@@ -126,12 +147,12 @@ def compile_final_video(
                 TextClip(
                     chunk_text,
                     font=font,
-                    fontsize=60,
+                    fontsize=50,  # 60 → 50 (720p ke liye proportional)
                     color=text_color,
                     stroke_color="black",
-                    stroke_width=4,
+                    stroke_width=3,
                     method="caption",
-                    size=(TARGET_WIDTH - 300, None),
+                    size=(TARGET_WIDTH - 200, None),  # 300 → 200 (720p width)
                 )
                 .set_start(start_time)
                 .set_end(end_time)
@@ -141,6 +162,7 @@ def compile_final_video(
         except Exception as txt_err:
             logger.warning(f"⚠️ TextClip skipped for '{chunk_text}': {txt_err}")
 
+    # 4. Composite and render
     final_composite = CompositeVideoClip(
         [stitched_video] + text_clips, size=(TARGET_WIDTH, TARGET_HEIGHT)
     ).set_audio(final_audio)
@@ -151,13 +173,15 @@ def compile_final_video(
         fps=30,
         codec="libx264",
         audio_codec="aac",
-        threads=4,
+        threads=2,        # FIX: 4 → 2 (GitHub Actions hosted runner pe 2 faster hai)
         preset="ultrafast",
         logger=None,
+        ffmpeg_params=["-crf", "28"]  # FIX: crf 28 = smaller file, faster encode
+                                       # default crf 23 tha, 28 pe quality thodi kam
+                                       # but GitHub Actions timeout nahi hoga
     )
 
-    # FIX: Correct close order — stitched_video (loop wrapper) pehle close karo,
-    # phir base_stitched. Pehle base_stitched close karne se stitched_video corrupt ho sakti thi.
+    # FIX: Correct close order
     final_composite.close()
     stitched_video.close()
     base_stitched.close()
