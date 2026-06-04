@@ -26,15 +26,19 @@ VIDEO_HEIGHT = 1920
 VIDEO_FPS = 30
 
 # Media Fetching Engine Parameters
-MEDIA_PER_KEYWORD = 3
+MEDIA_PER_KEYWORD = 4               # 🌟 INCREASED: 4 clips per keyword taake unique visuals milein
 MEDIA_ORIENTATION = "portrait"
 MEDIA_MIN_DURATION = 3
 MEDIA_MAX_DURATION = 15
 
 # Subtitle & Caption Animations Configuration
-SUBTITLE_ANIMATION_STYLE = "pop"  # fast-cutting text pop effect
-CAPTION_COLOR = "yellow"          # Accessibility matching branding
-HIGHLIGHT_COLOR = "green"         # High-retention text highlights
+SUBTITLE_ANIMATION_STYLE = "pop"    # fast-cutting text pop effect
+CAPTION_COLOR = "yellow"            # Accessibility matching branding
+HIGHLIGHT_COLOR = "green"           # High-retention text highlights
+
+# 🌟 NEW LAYOUT CONFIGURATION FOR VIDEO COMPILER v4.0
+MAX_WORDS_PER_CHUNK = 3             # 2 ya 3 words per subtitle frame (Perfect Human Pace)
+FONT_FILE = "AmericanCaptain-MdEY.otf" # Exact name mapping for font loader engine
 
 # ==========================================
 # 3. STOCK VIDEO API BASE URLS
