@@ -1,7 +1,7 @@
 """
-script_generator.py — Core Intelligence Engine (GROQ LLAMA3-70B DEEP DARK BLUEPRINT v3.2 - FIXED)
+script_generator.py — Core Intelligence Engine (GROQ LLAMA3.3-70B BLUEPRINT v3.3 - MODEL FIXED)
 AI Dark Realities · Short-Form Video Pipeline
-Fixed: Eliminated multi-line string formatting entirely to bypass syntax compilation breaks.
+Fixed: Replaced decommissioned Llama3-70b with the latest supported Llama-3.3-70b-versatile API model.
 ───────────────────────────────────────────────────────────────────────────────────
 """
 
@@ -45,8 +45,9 @@ def generate_script(topic: str) -> dict:
 
     user_prompt = f"Create a chilling, highly educational short-form script about: {topic if topic else 'Dark Psychology'}. Ensure the final loop sentence connects back smoothly to the beginning hook line."
 
+    # 🔥 FIX: Deployed the latest upgraded Llama-3.3-70b model to fix decommissioning error
     response = client.chat.completions.create(
-        model="llama3-70b-8192",
+        model="llama-3.3-70b-versatile",
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
@@ -66,5 +67,5 @@ def generate_script(topic: str) -> dict:
         else:
             raise RuntimeError("Groq pipeline output could not be formatted into proper JSON context.")
 
-    logger.info("✅ Script successfully compiled and contextualized.")
+    logger.info("✅ Script successfully compiled and contextualized using Llama-3.3.")
     return data
