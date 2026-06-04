@@ -1,9 +1,6 @@
 """
-main.py — Master Neural Influence Pipeline (PRO-VIRAL v8.0)
-Architecture:
-  1. Viral Loop Sequencing: Forces infinite video retention.
-  2. Multi-Timezone Dispatch: Schedules for USA/UK peak hours.
-  3. Visual Metaphor Mapping: Maps scripts to high-authority visual queries.
+main.py — Master Neural Influence Pipeline (PRO-VIRAL v8.1)
+Update: Increased clip density for 50s+ duration.
 """
 
 import os, logging, random, sys, shutil
@@ -12,7 +9,6 @@ from script_generator import generate_script
 from audio_generator import generate_voiceover
 from media_fetcher import fetch_broll_clips
 from video_compiler import compile_final_video
-from uploader import upload_all_platforms
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 logger = logging.getLogger(__name__)
@@ -21,44 +17,29 @@ MEDIA_CACHE_DIR = Path("output/media")
 FINAL_OUTPUT_DIR = Path("output/final_videos")
 
 def clean_and_prep():
-    """Reset environment for new viral cycle."""
     if MEDIA_CACHE_DIR.exists(): shutil.rmtree(MEDIA_CACHE_DIR)
     MEDIA_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     FINAL_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-def engineer_metadata(script_data):
-    """Engineers high-CTR clickbait with perfect loop hooks."""
-    raw_title = script_data.get("title", "The Unspoken Code")
-    # Ensuring the title is a cliffhanger
-    hook = f"{raw_title.replace('...', '')}..." 
-    tags = ["#DarkPsychology", "#MindControl", "#Status", "#ReadPeople", "#Viral"]
-    return f"🧠 {hook} {' '.join(tags)}"
 
 def execute_pipeline(topic: str):
     logger.info(f"🚀 Initializing Viral Pipeline for: {topic}")
     try:
         clean_and_prep()
 
-        # 1. Script with Infinite Loop Hook
+        # 1. Script
         script_data = generate_script(topic)
         
-        # 2. Voice (Deep British Authority)
+        # 2. Voice (Aapka trained RVC Model yahan call ho raha hai)
         voice_data = generate_voiceover(script_data["voiceover"], "main_voice")
 
-        # 3. Fetching Visual Metaphors (Targeting 1M+ View Aesthetics)
-        visual_queries = script_data.get("visual_queries", ["dark atmosphere", "minimalist psychology"])
-        video_paths = fetch_broll_clips(visual_queries, clips_per_keyword=2)
+        # 3. Fetching Visuals (Limit 10 clips per keyword = 20-30 clips total)
+        # 20+ clips * 2.5s = 50 seconds video.
+        visual_queries = script_data.get("visual_queries", ["dark atmosphere", "minimalist psychology", "high status lifestyle"])
+        video_paths = fetch_broll_clips(visual_queries, clips_per_keyword=10) 
 
-        # 4. Cinematic Render (Vignette + Zoom)
+        # 4. Cinematic Render
         output_path = FINAL_OUTPUT_DIR / "final_viral_production.mp4"
         compile_final_video(video_paths, voice_data, "assets/music/dark.mp3", str(output_path))
-
-        # 5. Metadata & Deployment
-        seo = {
-            "title": engineer_metadata(script_data),
-            "description": f"{script_data['voiceover'][:150]}... Follow for daily neural codes.",
-            "hashtags": ["#DarkPsychology", "#Manipulation", "#Status", "#Shorts"]
-        }
         
         logger.info(f"✅ Pipeline complete: {output_path}")
         return output_path
@@ -68,12 +49,7 @@ def execute_pipeline(topic: str):
         sys.exit(1)
 
 if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--topic", type=str, default="")
-    args = parser.parse_args()
-
-    # Fallback pool for USA/UK Viral content
+    # Ab 50 second ki video ke liye topic pool ready hai
     pool = [
         "How to use the Half-Sentence Trap to make her obsess over you",
         "The silent sub-cue that makes people instantly submit to your status",
@@ -82,5 +58,5 @@ if __name__ == "__main__":
         "Why being 'too available' kills your attraction and how to fix it"
     ]
     
-    topic = args.topic if args.topic else random.choice(pool)
+    topic = random.choice(pool)
     execute_pipeline(topic)
