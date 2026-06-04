@@ -1,7 +1,7 @@
 """
-main.py — Master Automation Executive Workflow (PRODUCTION ENGINE v2.8 - LIVE DOWNLOADER)
+main.py — Master Automation Executive Workflow (PRODUCTION ENGINE v2.9 - AUTO BGM INJECTED)
 AI Dark Realities · Short-Form Video Pipeline
-Fixed: Replaced local asset fallbacks with live automated Pexels API media downloader.
+Fixed: Added Auto-BGM Downloader fallback to completely eliminate directory crashes.
 ───────────────────────────────────────────────────────────────────────────────────
 """
 
@@ -55,9 +55,7 @@ def download_live_pexels_broll(scenes: list) -> list:
                 data = response.json()
                 videos = data.get("videos", [])
                 if videos:
-                    # Select premium mobile resolution stream safely
                     video_files = videos[0].get("video_files", [])
-                    # Filter for clean vertical HD streams
                     hd_files = [f for f in video_files if f.get("quality") == "hd" or f.get("width", 0) >= 720]
                     target_file = hd_files[0] if hd_files else (video_files[0] if video_files else None)
                     
@@ -80,13 +78,31 @@ def download_live_pexels_broll(scenes: list) -> list:
     return downloaded_paths
 
 def create_emergency_fallback_bgm():
-    """Generates an asset folder and ensures a background score file exists."""
-    # Agar assets/bgm khali ho to crash na ho, system ensure karega background track ko
-    test_bgm = BGM_INPUT_DIR / "ambient_suspense.mp3"
-    if not any(BGM_INPUT_DIR.glob("*.mp3")):
-        logger.warning(f"⚠️ Background music directory empty. Please drop a cinematic score track in {BGM_INPUT_DIR}")
-        # Placeholder indicator to prevent initial boot failure if assets aren't pushed yet
-        raise FileNotFoundError(f"Please drop at least one cinematic background music .mp3 track inside the '{BGM_INPUT_DIR}' directory.")
+    """Ensures a background score track exists, or auto-downloads a premium dark ambient track."""
+    existing_bgm = list(BGM_INPUT_DIR.glob("*.mp3")) + list(BGM_INPUT_DIR.glob("*.wav"))
+    if existing_bgm:
+        logger.info("🎵 Local background music files detected. Proceeding with track selection.")
+        return
+
+    # 🔥 CRITICAL AUTO-FALLBACK: Download high-quality cinematic suspense music automatically if directory is empty
+    fallback_track_path = BGM_INPUT_DIR / "emergency_dark_ambient.mp3"
+    fallback_url = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" # Safe test placeholder asset
+    # Alternately a premium cinematic copyright-free ambient node link
+    fallback_url = "https://assets.mixkit.co/music/preview/mixkit-glitchy-futuristic-ambient-mystery-1149.mp3"
+
+    logger.warning("⚠️ Background music directory empty! Activating Auto-BGM Downloader Safety Engine...")
+    try:
+        logger.info(f"📥 Fetching copyright-free cinematic atmosphere from backup node: {fallback_url}")
+        response = requests.get(fallback_url, timeout=20)
+        if response.status_code == 200:
+            with open(fallback_track_path, "wb") as f:
+                f.write(response.content)
+            logger.info("✅ Emergency background score loaded and injected successfully!")
+        else:
+            raise RuntimeError("Fallback BGM server responded with a bad status code.")
+    except Exception as e:
+        logger.error(f"❌ Failed to download emergency BGM: {e}")
+        raise FileNotFoundError(f"Please drop at least one background music .mp3 track inside '{BGM_INPUT_DIR}' folder.")
 
 def engineer_clickbait_title(raw_title: str) -> str:
     """Forces AI raw titles into elite automated psychology loop hooks."""
@@ -116,7 +132,7 @@ def execute_pipeline(topic: str):
     if not video_clips_paths:
         raise RuntimeError("Live Video Scraper Engine returned an empty array block. Verify PEXELS_API_KEY tokens.")
 
-    # Step 5: Ensure Background Music file is active
+    # Step 5: Ensure Background Music file is active (Auto-downloads if missing)
     create_emergency_fallback_bgm()
 
     # Step 6: Compile Final Composition Output
@@ -131,6 +147,5 @@ if __name__ == "__main__":
     parser.add_argument("--topic", type=str, default="")
     args = parser.parse_args()
     
-    # Safe fallback parameter allocation
     target_topic = args.topic if args.topic.strip() else "How your phone uses dark psychology as a dopamine trap"
     execute_pipeline(target_topic)
