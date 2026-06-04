@@ -2,12 +2,8 @@ name: Automated Video Production Pipeline
 
 on:
   schedule:
-    # 🎯 Slot 1: UTC 11:30 AM = PK 4:30 PM
     - cron: '30 11 * * *'
-    
-    # 🎯 Slot 2: UTC 18:30 PM = PK 11:30 PM
     - cron: '30 18 * * *'
-
   workflow_dispatch:
     inputs:
       topic:
@@ -37,8 +33,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg imagemagick
-          
-          # 🔥 CRITICAL MOVIEPY FIX: Modify ImageMagick security policy to allow text/font rendering
           sudo sed -i 's/domain="path" rights="none" pattern="@\*"/domain="path" rights="read|write" pattern="@\*"/g' /etc/ImageMagick-6/policy.xml
           sudo sed -i 's/domain="coder" rights="none" pattern="PDF"/domain="coder" rights="read|write" pattern="PDF"/g' /etc/ImageMagick-6/policy.xml
 
@@ -64,22 +58,17 @@ jobs:
           CLOUDINARY_API_SECRET:     ${{ secrets.CLOUDINARY_API_SECRET }}
           UPLOAD_TO_YOUTUBE:         ${{ (github.event.schedule == '30 11 * * *' || github.event.schedule == '30 18 * * *' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
         run: |
-          # Safe parsing layer to handle both cron runs and manual inputs safely
           TOPIC=""
           SKIP="false"
-          
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TOPIC="${{ github.event.inputs.topic }}"
             SKIP="${{ github.event.inputs.skip_upload }}"
           fi
 
           CMD="python main.py"
-          
-          # Force execute with manual topic parameter if passed safely
           if [ -n "$TOPIC" ]; then
             CMD="$CMD --topic \"$TOPIC\""
           fi
-          
           if [ "$SKIP" = "true" ]; then
             CMD="$CMD --skip-upload"
           fi
@@ -94,6 +83,5 @@ jobs:
           path: |
             output/final_videos/
             output/final_videos/*.mp4
-          # 🔥 STOPS THE GREEN ACCIDENT: If the video was not built, break the workflow here!
           if-no-files-found: error
           retention-days: 7
