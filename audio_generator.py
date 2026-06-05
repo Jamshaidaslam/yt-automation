@@ -1,16 +1,7 @@
 """
-audio_generator.py — Production Voice Synthesis Layer (v4.1 - PODCAST FILTER)
+audio_generator.py — Production Voice Synthesis Layer (v5.0 - REALTIME SYNC LOCK)
 AI Dark Realities · Short-Form Video Pipeline
 ───────────────────────────────────────────────────────────────────────────────────
-
-FIXES v4.1:
-  - Podcast Style filter added (Filter 2) — applied after TTS render via ffmpeg:
-      highpass=80Hz    → removes low rumble, sounds professional
-      lowpass=8000Hz   → removes harsh highs, reduces ear fatigue
-      equalizer 1kHz +2dB → voice presence and clarity
-      equalizer 5kHz -3dB → removes TTS harshness/sibilance
-      acompressor       → consistent volume, no loud/soft jumps
-  - Word timing capture unchanged (still plain text — sync stays accurate)
 """
 
 import os
@@ -29,12 +20,6 @@ BASE_RATE  = "+4%"
 BASE_PITCH = "-2Hz"
 
 # ─── Podcast Style Filter (Filter 2) ──────────────────────────────────────────
-# Professional podcast mastering chain — same used by top USA/UK creators
-# highpass=80        → Cut low rumble & mic noise
-# lowpass=8000       → Cut harsh TTS high frequencies
-# equalizer 1kHz +2  → Boost voice presence & clarity
-# equalizer 5kHz -3  → Reduce TTS sibilance (ssss sounds)
-# acompressor        → Even out loud/soft — listener doesn't get fatigued
 PODCAST_FILTER = (
     "highpass=f=80,"
     "lowpass=f=8000,"
@@ -44,27 +29,8 @@ PODCAST_FILTER = (
 )
 
 
-def build_audio_ssml(text_script: str) -> str:
-    """Builds SSML for audio rendering with natural pauses."""
-    script = text_script.replace(", ",  ', <break time="200ms"/> ')
-    script = script.replace(". ",  '. <break time="400ms"/> ')
-    script = script.replace("! ",  '! <break time="350ms"/> ')
-    script = script.replace("? ",  '? <break time="350ms"/> ')
-
-    return f"""<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">
-        <voice name="{VOICE_ID}">
-            <prosody rate="{BASE_RATE}" pitch="{BASE_PITCH}">
-                {script}
-            </prosody>
-        </voice>
-    </speak>"""
-
-
 def apply_podcast_filter(input_path: Path, output_path: Path) -> bool:
-    """
-    Applies podcast mastering filter chain via ffmpeg.
-    Returns True if successful, False if ffmpeg not available.
-    """
+    """Applies professional podcast mastering filter chain via ffmpeg."""
     try:
         result = subprocess.run(
             [
@@ -72,7 +38,7 @@ def apply_podcast_filter(input_path: Path, output_path: Path) -> bool:
                 "-i", str(input_path),
                 "-af", PODCAST_FILTER,
                 "-acodec", "libmp3lame",
-                "-q:a", "2",          # High quality MP3
+                "-q:a", "2",
                 str(output_path)
             ],
             capture_output=True,
@@ -89,37 +55,50 @@ def apply_podcast_filter(input_path: Path, output_path: Path) -> bool:
         return False
 
 
-async def _render_audio_only(ssml_content: str, output_path: Path):
-    """Pass 1: Render raw TTS audio using SSML."""
-    communicate = edge_tts.Communicate(ssml_content, VOICE_ID, is_ssml=True)
-    async for chunk in communicate.stream():
-        if chunk["type"] == "audio":
-            with open(output_path, "ab") as f:
-                f.write(chunk["data"])
-
-
-async def _capture_word_timings(plain_text: str) -> list:
+async def _render_and_extract_timings(plain_text: str, raw_audio_path: Path) -> list:
     """
-    Pass 2: Capture word timings using plain text (no SSML).
-    Plain text gives accurate WordBoundary events — SSML break tags
-    shift audio timeline but boundary ticks don't follow, causing sync drift.
+    Unified Single-Pass Stream Core: Fetches high quality audio binary data 
+    and handles conversational millisecond alignment concurrently.
     """
     word_timings = []
+    # edge_tts.Communicate does not take is_ssml in standard versions, we use safe string parameters
     communicate = edge_tts.Communicate(plain_text, VOICE_ID, rate=BASE_RATE, pitch=BASE_PITCH)
+    
+    # Track natural timing shifts based on text dynamics
+    accumulated_pause = 0.0
+
     async for chunk in communicate.stream():
-        if chunk["type"] == "WordBoundary":
-            start_sec    = chunk["offset"]   / 10_000_000.0
+        if chunk["type"] == "audio":
+            with open(raw_audio_path, "ab") as f:
+                f.write(chunk["data"])
+        
+        elif chunk["type"] == "WordBoundary":
+            # Convert offset ticks directly to structural seconds
+            start_sec = (chunk["offset"] / 10_000_000.0) + accumulated_pause
             duration_sec = chunk["duration"] / 10_000_000.0
+            word_clean = chunk["text"]
+            
+            # Smart Custom SSML Break Emulation via Text Analytics
+            break_duration = 0.0
+            if word_clean.endswith(".") or word_clean.endswith("!") or word_clean.endswith("?"):
+                break_duration = 0.40
+            elif word_clean.endswith(","):
+                break_duration = 0.20
+            
             word_timings.append({
-                "word":  chunk["text"],
+                "word": word_clean.upper(),
                 "start": round(start_sec, 3),
-                "end":   round(start_sec + duration_sec, 3)
+                "end": round(start_sec + duration_sec, 3)
             })
+            
+            # Shift timeline buffer for the next incoming word stream
+            accumulated_pause += break_duration
+
     return word_timings
 
 
 def generate_voiceover(text_script: str, output_filename: str, voice_type: str = "guy_dark") -> dict:
-    logger.info(f"🎙️ Generating voiceover | Voice: {VOICE_ID} | Filter: Podcast Style")
+    logger.info(f"🎙️ Activating Realtime Sync Unified Stream Matrix...")
 
     output_dir = Path("output/media")
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -127,69 +106,52 @@ def generate_voiceover(text_script: str, output_filename: str, voice_type: str =
     raw_audio_path    = output_dir / f"{output_filename}_raw.mp3"
     target_audio_path = output_dir / f"{output_filename}.mp3"
 
-    # Clean old files
+    # Wipe stale session components
     for p in [raw_audio_path, target_audio_path]:
         if p.exists():
             try: p.unlink()
             except: pass
 
-    # ── Pass 1: Render TTS audio with SSML ───────────────────────────────────
-    ssml_content = build_audio_ssml(text_script)
+    # Clean text payload string from formatting bugs
+    clean_text_stream = " ".join(text_script.strip().split())
+
+    # Execute Single-Pass Execution Core
     try:
-        asyncio.run(_render_audio_only(ssml_content, raw_audio_path))
-        logger.info("✅ TTS render complete")
-    except Exception as e:
-        logger.error(f"❌ SSML render failed: {e} — falling back to plain")
-        communicate = edge_tts.Communicate(text_script, VOICE_ID, rate=BASE_RATE, pitch=BASE_PITCH)
-        asyncio.run(communicate.save(str(raw_audio_path)))
+        word_timings = asyncio.run(_render_and_extract_timings(clean_text_stream, raw_audio_path))
+        logger.info(f"✅ Realtime Audio Render Complete. Synced words: {len(word_timings)}")
+    except Exception as stream_err:
+        logger.critical(f"❌ Core TTS stream layer crashed: {stream_err}")
+        word_timings = []
 
-    # ── Apply Podcast Filter via ffmpeg ───────────────────────────────────────
+    # ── Master Podcast Filter Execution Node ─────────────────────────────────
     filter_success = apply_podcast_filter(raw_audio_path, target_audio_path)
-
     if not filter_success:
-        # If filter failed, use raw audio directly
         import shutil
         shutil.copy(str(raw_audio_path), str(target_audio_path))
-        logger.warning("⚠️ Using unfiltered audio")
+        logger.warning("⚠️ Bypassed audio master track. Reverted to unfiltered audio stream.")
 
-    # Clean up raw temp file
-    try:
-        raw_audio_path.unlink()
-    except:
-        pass
+    # Drop intermediate files safely
+    if raw_audio_path.exists():
+        try: raw_audio_path.unlink()
+        except: pass
 
-    # ── Pass 2: Capture word timings (plain text — accurate sync) ─────────────
-    word_timings = []
-    try:
-        word_timings = asyncio.run(_capture_word_timings(text_script))
-        logger.info(f"✅ Word timings synced: {len(word_timings)} words")
-    except Exception as e:
-        logger.error(f"❌ Word timing failed: {e}")
-
-    # ── Fallback timing ───────────────────────────────────────────────────────
-    if not word_timings:
-        logger.warning("⚠️ Using estimated timing fallback")
-        current_time = 0.0
-        for word in text_script.split():
-            dur = 0.38 if len(word) > 5 else 0.28
-            word_timings.append({
-                "word":  word,
-                "start": round(current_time, 3),
-                "end":   round(current_time + dur, 3)
-            })
-            current_time += dur + 0.04
-
-    # ── Real audio duration ───────────────────────────────────────────────────
+    # Get absolute final duration values
     try:
         from moviepy.editor import AudioFileClip
         real_duration = AudioFileClip(str(target_audio_path)).duration
     except:
         real_duration = word_timings[-1]["end"] if word_timings else 30.0
 
-    logger.info(f"🎙️ Done | Duration: {real_duration:.2f}s | Words: {len(word_timings)}")
+    # ── Safe CTA Overlap Filter ──────────────────────────────────────────────
+    # Trims out subtitle captions for the last 3.5 seconds so they don't clash with the permanent CTA block
+    safe_cutoff_mark = max(0.0, real_duration - 3.5)
+    word_timings = [word for word in word_timings if word["start"] < safe_cutoff_mark]
+    logger.info(f"🛡️ CTA Protection Layer applied. Safe captions pool size: {len(word_timings)}")
+
+    logger.info(f"🎙️ Done | Absolute Duration: {real_duration:.2f}s | Active Word Elements: {len(word_timings)}")
 
     return {
         "audio_path":   str(target_audio_path),
         "word_timings": word_timings,
         "duration":     real_duration
-}
+      }
