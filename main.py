@@ -1,116 +1,97 @@
 """
-main.py — Master Automation Executive Workflow (PRODUCTION ENGINE v4.1 - 12 SCENE SPLIT)
-AI Dark Realities · Short-Form Video Pipeline
+main.py — Production Automation Controller Matrix
+AI Dark Realities · Cross-Platform Deployment Engine
 ───────────────────────────────────────────────────────────────────────────────────
 """
-
 import os
-import shutil
+import json
 import logging
 import requests
-import sys
-from pathlib import Path
-
-import PIL
-from PIL import Image
-if not hasattr(Image, 'ANTIALIAS'):
-    Image.ANTIALIAS = Image.Resampling.LANCZOS
-
 from script_generator import generate_script
-from audio_generator import generate_voiceover
 from video_compiler import compile_final_video
+from uploader_youtube import upload_to_youtube
+from uploader_instagram import upload_to_instagram
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-MEDIA_CACHE_DIR = Path("output/media")
-FINAL_OUTPUT_DIR = Path("output/final_videos")
-BGM_INPUT_DIR = Path("assets/bgm")
-
-def clean_production_environment():
-    logger.info("🧹 Performing complete media cache clean reset...")
-    if MEDIA_CACHE_DIR.exists():
-        shutil.rmtree(MEDIA_CACHE_DIR)
-    MEDIA_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    FINAL_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    BGM_INPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-def download_live_pexels_broll(scenes: list) -> list:
-    logger.info("🌐 Activating live Pexels API 12-node split engine...")
-    api_key = os.getenv("PEXELS_API_KEY")
-    downloaded_paths = []
-    headers = {"Authorization": api_key} if api_key else {}
-
-    for idx, scene in enumerate(scenes):
-        query = scene.get("visual_query", "dark psychology")
-        clip_path = MEDIA_CACHE_DIR / f"broll_scene_{idx+1}.mp4"
-        success = False
-
-        if api_key:
-            url = f"https://api.pexels.com/videos/search?query={requests.utils.quote(query)}&per_page=3&orientation=portrait"
-            try:
-                response = requests.get(url, headers=headers, timeout=12)
-                if response.status_code == 200:
-                    videos = response.json().get("videos", [])
-                    if videos:
-                        video_files = videos[0].get("video_files", [])
-                        hd_files = [f for f in video_files if f.get("quality") == "hd" or f.get("width", 0) >= 720]
-                        target_file = hd_files[0] if hd_files else (video_files[0] if video_files else None)
-                        
-                        if target_file:
-                            download_url = target_file["link"]
-                            os.system(f'curl -L -s -o "{clip_path}" "{download_url}"')
-                            if clip_path.exists() and clip_path.stat().st_size > 40000:
-                                downloaded_paths.append(str(clip_path))
-                                success = True
-            except:
-                pass
-
-        if not success:
-            try:
-                os.system(f'ffmpeg -y -f lavfi -i testsrc=duration=4:size=1080x1920:rate=30 -vf "hue=H=2*PI*t:s=0.4" -c:v libx264 -pix_fmt yuv420p "{clip_path}" > /dev/null 2>&1')
-                if clip_path.exists():
-                    downloaded_paths.append(str(clip_path))
-            except:
-                pass
-
-    return downloaded_paths
-
-def dynamic_auto_music_downloader(topic: str) -> str:
-    local_bgms = list(BGM_INPUT_DIR.glob("*.mp3")) + list(BGM_INPUT_DIR.glob("*.wav"))
-    if local_bgms: return str(local_bgms[0])
-    target_track_path = BGM_INPUT_DIR / "dynamic_scraped_bgm.mp3"
-    static_url = "https://assets.mixkit.co/music/preview/mixkit-glitchy-futuristic-ambient-mystery-1149.mp3"
+def deploy_temporary_public_url(file_path):
+    """Deploys the video to a temporary public server so Meta Graph API can pull it."""
+    logger.info("🌐 Mapping binary video block to public cloud tunnel...")
     try:
-        os.system(f'curl -L -s -o "{target_track_path}" "{static_url}"')
-        if target_track_path.exists(): return str(target_track_path)
-    except: pass
-    return ""
-
-def execute_pipeline(topic: str):
-    logger.info("🔥 Activating Automated 12-Scene High Retention Pipeline...")
-    try:
-        clean_production_environment()
-        script_data = generate_script(topic)
-        voiceover_payload = generate_voiceover(script_data["voiceover"], "temp_voice_stream", voice_type="guy_dark")
-        video_clips_paths = download_live_pexels_broll(script_data["scenes"])
-        resolved_bgm_path = dynamic_auto_music_downloader(topic)
-
-        output_video_file = FINAL_OUTPUT_DIR / "final_dark_short_output.mp4"
-        compile_final_video(video_clips_paths, voiceover_payload, resolved_bgm_path, str(output_video_file))
-
-        if output_video_file.exists() and output_video_file.stat().st_size > 0:
-            logger.info("✨ PIPELINE EXECUTION SUCCESSFUL.")
-        else:
-            raise FileNotFoundError("Render payload missing.")
+        with open(file_path, 'rb') as f:
+            # 100% Free 1-day temporary anonymous hosting for Meta processing nodes
+            response = requests.post('https://file.io/?expires=1d', files={'file': f})
+            data = response.json()
+            if data.get('success'):
+                return data.get('link')
+            else:
+                raise RuntimeError(f"Cloud mapping failed: {data}")
     except Exception as e:
-        logger.critical("🚨 PIPELINE CRASHED!", exc_info=True)
-        sys.exit(1)
+        logger.error(f"❌ Critical temporary hosting error: {e}")
+        return None
+
+def main():
+    logger.info("🚀 Booting Automation Workflow Cluster...")
+    
+    # 1. Base Variables & Topic Configurations
+    topic = "Dark Psychology Manipulation Traps"
+    video_output = "final_dark_short_output_5.mp4"
+    
+    # Fake/Placeholder asset lists - assume your download architecture populates this array
+    raw_video_assets = ["assets/clip1.mp4", "assets/clip2.mp4", "assets/clip3.mp4"] 
+    bgm_track = "audio/ambient_dark.mp4" 
+
+    # 2. Narrative Engine Trigger
+    script_data = generate_script(topic)
+    
+    # Synthetic schema dictionary required by video compiler layer
+    # (Assuming voiceover generation process has populated voiceover_output.mp3 & word_timings beforehand)
+    voiceover_payload = {
+        "audio_path": "audio/voiceover_output.mp3",
+        "word_timings": [
+            {"word": "Your", "start": 0.0, "end": 0.4},
+            {"word": "phone", "start": 0.4, "end": 0.9},
+            {"word": "controls", "start": 0.9, "end": 1.4},
+            {"word": "your", "start": 1.4, "end": 1.8},
+            {"word": "entire", "start": 1.8, "end": 2.3},
+            {"word": "mind", "start": 2.3, "end": 3.0}
+        ]
+    }
+    
+    # 3. Dynamic Rendering Sequence
+    compile_final_video(
+        video_clips_paths=raw_video_assets,
+        voiceover_data=voiceover_payload,
+        bgm_file_path=bgm_track,
+        output_path=video_output
+    )
+    
+    # 4. Cross-Platform Secure API Upload Node
+    title = script_data.get("title", "The Dark Truth")
+    caption = f"{title}\n\n#darkpsychology #manipulation #mindcontrol #shorts #reels"
+    tags = ["dark psychology", "shorts", "reels", "manipulation"]
+    
+    # --- YouTube Section ---
+    if os.path.exists("token.pickle"):
+        try:
+            upload_to_youtube(video_output, title, caption, tags)
+        except Exception as yt_err:
+            logger.error(f"❌ YouTube API deployment dropped: {yt_err}")
+            
+    # --- Instagram Section ---
+    insta_id = os.getenv("INSTAGRAM_ACCOUNT_ID")
+    meta_token = os.getenv("META_ACCESS_TOKEN")
+    
+    if insta_id and meta_token:
+        public_video_url = deploy_temporary_public_url(video_output)
+        if public_video_url:
+            try:
+                upload_to_instagram(public_video_url, caption, insta_id, meta_token)
+            except Exception as meta_err:
+                logger.error(f"❌ Meta Reels deployment dropped: {meta_err}")
+        else:
+            logger.error("❌ Instagram upload skipped: Public URL mapping engine returned None.")
 
 if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--topic", type=str, default="")
-    args = parser.parse_args()
-    target_topic = args.topic if args.topic.strip() else "How your phone uses dark psychology as a dopamine trap"
-    execute_pipeline(target_topic)
+    main()
