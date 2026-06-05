@@ -128,3 +128,10 @@ def generate_script(topic: str):
         response_format={"type": "json_object"}
     )
     return json.loads(response.choices[0].message.content)
+    
+import random
+
+def pick_topic_for_run():
+    """Selects a random topic from the pool."""
+    from script_generator import TOPIC_POOL # Import here to avoid circularity
+    return random.choice(TOPIC_POOL)["topic"]
