@@ -1,112 +1,130 @@
-import os, logging, random
-from moviepy.editor import (
-    VideoFileClip, AudioFileClip, CompositeVideoClip,
-    CompositeAudioClip, concatenate_videoclips, TextClip
-)
-import moviepy.video.fx.all as vfx
-from moviepy.audio.fx.all import audio_loop
-from PIL import Image, ImageDraw, ImageFont
-import config
+"""
+main.py — Master Automation Executive Workflow (PRODUCTION ENGINE v3.7 - ULTRA CLEAN)
+AI Dark Realities · Short-Form Video Pipeline
+───────────────────────────────────────────────────────────────────────────────────
+"""
 
-# PIL compatibility fix
-try:
-    Image.ANTIALIAS = Image.Resampling.LANCZOS
-except AttributeError:
-    pass
+import os
+import shutil
+import logging
+import requests
+import sys
+from pathlib import Path
+from script_generator import generate_script
+from audio_generator import generate_voiceover
+from video_compiler import compile_final_video
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 logger = logging.getLogger(__name__)
 
-TARGET_WIDTH, TARGET_HEIGHT = 720, 1280
-MIN_DURATION, MAX_DURATION = 35, 55
-FAST_CUT_DUR = 2.0
+MEDIA_CACHE_DIR = Path("output/media")
+FINAL_OUTPUT_DIR = Path("output/final_videos")
+BGM_INPUT_DIR = Path("assets/bgm")
 
-def _build_caption_clips(voiceover_data, total_duration):
-    caption_clips = []
-    words_data = voiceover_data.get("word_timings", [])
-    
-    # Text fallback
-    if not words_data:
-        text = voiceover_data.get("text", "")
-        if not text: return []
-        words = text.split()
-        word_dur = total_duration / len(words)
-        words_data = [{"word": w, "start": i*word_dur, "end": (i+1)*word_dur} for i, w in enumerate(words)]
+def clean_production_environment():
+    logger.info("🧹 Performing complete media cache clean reset...")
+    if MEDIA_CACHE_DIR.exists():
+        shutil.rmtree(MEDIA_CACHE_DIR)
+    MEDIA_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    FINAL_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    BGM_INPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    chunks = [words_data[i:i+3] for i in range(0, len(words_data), 3)]
-    
-    for idx, chunk in enumerate(chunks):
+def download_live_pexels_broll(scenes: list) -> list:
+    logger.info("🌐 Activating live Pexels API media scraper engine...")
+    api_key = os.getenv("PEXELS_API_KEY")
+    if not api_key:
+        logger.warning("⚠️ PEXELS_API_KEY missing!")
+        return []
+
+    downloaded_paths = []
+    headers = {"Authorization": api_key}
+
+    for idx, scene in enumerate(scenes):
+        query = scene.get("visual_query", "dark psychology")
+        logger.info(f"🔍 Searching Pexels for Clip [{idx+1}]: '{query}'")
+        url = f"https://api.pexels.com/videos/search?query={requests.utils.quote(query)}&per_page=5&orientation=portrait"
         try:
-            # Fallback for TextClip failure: simple logging instead of crashing
-            txt = TextClip(
-                " ".join(c["word"] for c in chunk), fontsize=72, color='yellow',
-                font="Arial-Bold", method="caption", size=(640, None), 
-                stroke_color="black", stroke_width=3
-            ).set_start(chunk[0]["start"]).set_duration(max(chunk[-1]["end"]-chunk[0]["start"], 0.3)).set_pos("center")
-            caption_clips.append(txt)
+            response = requests.get(url, headers=headers, timeout=15)
+            if response.status_code == 200:
+                videos = response.json().get("videos", [])
+                if videos:
+                    video_files = videos[0].get("video_files", [])
+                    hd_files = [f for f in video_files if f.get("quality") == "hd" or f.get("width", 0) >= 720]
+                    target_file = hd_files[0] if hd_files else (video_files[0] if video_files else None)
+                    
+                    if target_file:
+                        download_url = target_file["link"]
+                        clip_path = MEDIA_CACHE_DIR / f"broll_scene_{idx+1}.mp4"
+                        os.system(f'curl -L -s -o "{clip_path}" "{download_url}"')
+                        if clip_path.exists() and clip_path.stat().st_size > 100000:
+                            downloaded_paths.append(str(clip_path))
+                            logger.info(f"✅ Downloaded clip saved: {clip_path}")
         except Exception as e:
-            logger.warning(f"TextClip failed, skipping caption: {e}")
-            continue
-    return caption_clips
+            logger.error(f"❌ Scraper failure on scene [{idx+1}]: {e}")
+    return downloaded_paths
 
-def generate_thumbnail(video_clip, title_text, output_path):
-    try:
-        # Generate thumbnail from the middle of the video
-        frame = video_clip.get_frame(video_clip.duration / 2)
-        img = Image.fromarray(frame).resize((TARGET_WIDTH, TARGET_HEIGHT))
-        
-        font_path = str(config.FONTS_DIR / config.FONT_NAME)
-        font = ImageFont.truetype(font_path, 72) if os.path.exists(font_path) else ImageFont.load_default()
-        
-        draw = ImageDraw.Draw(img)
-        draw.text((50, TARGET_HEIGHT - 200), title_text[:30], font=font, fill=(255, 230, 0))
-        
-        thumb_path = output_path.replace(".mp4", "_thumbnail.jpg")
-        img.save(thumb_path, "JPEG")
-        return thumb_path
-    except Exception as e:
-        logger.warning(f"Thumbnail gen failed: {e}")
-        return None
+def dynamic_auto_music_downloader(topic: str) -> str:
+    local_bgms = list(BGM_INPUT_DIR.glob("*.mp3")) + list(BGM_INPUT_DIR.glob("*.wav"))
+    if local_bgms:
+        logger.info("🎵 Using existing local background music file asset.")
+        return str(local_bgms[0])
 
-def compile_final_video(video_clips_paths, voiceover_data, bgm_file_path, output_path, title_text):
+    target_track_path = BGM_INPUT_DIR / "dynamic_scraped_bgm.mp3"
+    if target_track_path.exists():
+        try: target_track_path.unlink()
+        except: pass
+
+    logger.info("📥 Downloading verified Premium Suspense Background score via native curl pipe...")
+    static_url = "https://assets.mixkit.co/music/preview/mixkit-glitchy-futuristic-ambient-mystery-1149.mp3"
+    
     try:
-        voice_clip = AudioFileClip(voiceover_data["audio_path"])
-        duration = min(max(voice_clip.duration, MIN_DURATION), MAX_DURATION)
-        
-        audio_tracks = [voice_clip]
-        if bgm_file_path and isinstance(bgm_file_path, str) and os.path.exists(bgm_file_path):
-            audio_tracks.append(audio_loop(AudioFileClip(bgm_file_path), duration=duration).volumex(0.06))
-        
-        processed_clips = []
-        total_dur = 0.0
-        random.shuffle(video_clips_paths)
-        
-        for path in video_clips_paths:
-            if total_dur >= duration: break
-            if path and os.path.exists(path):
-                try:
-                    clip = VideoFileClip(path).without_audio().resize(height=TARGET_HEIGHT).crop(x_center=TARGET_WIDTH/2, width=TARGET_WIDTH, height=TARGET_HEIGHT)
-                    cut = min(FAST_CUT_DUR, duration - total_dur)
-                    processed_clips.append(clip.subclip(0, cut).set_duration(cut))
-                    total_dur += cut
-                except: continue
-        
-        final_video_concat = concatenate_videoclips(processed_clips, method="compose")
-        
-        # Caption handling
-        captions = _build_caption_clips(voiceover_data, duration)
-        final_composite = CompositeVideoClip([final_video_concat] + captions).set_audio(CompositeAudioClip(audio_tracks)).set_duration(duration)
-        
-        final_composite.write_videofile(output_path, fps=24, codec="libx264", audio_codec="aac", preset="ultrafast")
-        
-        thumb = generate_thumbnail(final_composite, title_text, output_path)
-        
-        # Cleanup
-        final_composite.close()
-        final_video_concat.close()
-        voice_clip.close()
-        
-        return str(output_path), thumb
-        
+        os.system(f'curl -L -s -o "{target_track_path}" "{static_url}"')
+        if target_track_path.exists() and target_track_path.stat().st_size > 30000:
+            logger.info(f"✅ Premium background track loaded successfully!")
+            return str(target_track_path)
     except Exception as e:
-        logger.error(f"Critical error in compile_final_video: {e}")
-        return None, None
+        logger.error(f"❌ Audio stream pipe down: {e}")
+    return ""
+
+def engineer_clickbait_title(raw_title: str) -> str:
+    clean_title = raw_title.replace('"', '').strip()
+    if not clean_title.endswith("..."):
+        clean_title += "..."
+    return f"🧠 {clean_title} #darkpsychology #manipulation #shorts"
+
+def execute_pipeline(topic: str):
+    logger.info("🔥 Activating Automated Dark Realities Script Sequence Pipeline...")
+    try:
+        clean_production_environment()
+
+        script_data = generate_script(topic)
+        engineered_title = engineer_clickbait_title(script_data.get("title", "The Dark Truth"))
+        logger.info(f"🎯 Structured Production Title: {engineered_title}")
+
+        voiceover_payload = generate_voiceover(script_data["voiceover"], "temp_voice_stream", voice_type="guy_dark")
+
+        video_clips_paths = download_live_pexels_broll(script_data["scenes"])
+        if not video_clips_paths:
+            raise RuntimeError("Live Video Scraper Engine returned empty stack.")
+
+        resolved_bgm_path = dynamic_auto_music_downloader(topic)
+
+        output_video_file = FINAL_OUTPUT_DIR / "final_dark_short_output.mp4"
+        compile_final_video(video_clips_paths, voiceover_payload, resolved_bgm_path, str(output_video_file))
+
+        if output_video_file.exists() and output_video_file.stat().st_size > 0:
+            logger.info(f"✨ PIPELINE EXECUTION SUCCESSFUL. Size: {output_video_file.stat().st_size} bytes")
+        else:
+            raise FileNotFoundError("Render complete but output target payload is missing.")
+
+    except Exception as pipeline_error:
+        logger.critical("🚨 PIPELINE CRASHED INSIDE MASTER RUN LAYER!", exc_info=True)
+        sys.exit(1)
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--topic", type=str, default="")
+    args = parser.parse_args()
+    target_topic = args.topic if args.topic.strip() else "How your phone uses dark psychology as a dopamine trap"
+    execute_pipeline(target_topic)
