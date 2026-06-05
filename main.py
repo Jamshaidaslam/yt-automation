@@ -1,5 +1,5 @@
 """
-main.py — Master Automation Executive Workflow (PRODUCTION ENGINE v3.8 - FIXED NO CLIPS)
+main.py — Master Automation Executive Workflow (PRODUCTION ENGINE v3.9 - PILLOW FIX)
 AI Dark Realities · Short-Form Video Pipeline
 ───────────────────────────────────────────────────────────────────────────────────
 """
@@ -10,6 +10,13 @@ import logging
 import requests
 import sys
 from pathlib import Path
+
+# 🔥 HOTFIX: Pillow v10+ compatibility layer for MoviePy resizing bug
+import PIL
+from PIL import Image
+if not hasattr(Image, 'ANTIALIAS'):
+    Image.ANTIALIAS = Image.Resampling.LANCZOS
+
 from script_generator import generate_script
 from audio_generator import generate_voiceover
 from video_compiler import compile_final_video
@@ -63,11 +70,9 @@ def download_live_pexels_broll(scenes: list) -> list:
             except Exception as e:
                 logger.error(f"❌ Pexels download failed on scene [{idx+1}]: {e}")
 
-        # 🎯 BULLETPROOF EMERGENCY FALLBACK: Agar API key na ho ya download down ho, to automatic safe motion clip generate hogi
         if not success:
             logger.warning(f"⚠️ Falling back to high-retention composite visual asset loop for scene [{idx+1}]")
             try:
-                # FFMPEG built-in matrix generator code taake video kabhi khali na rahe
                 os.system(f'ffmpeg -y -f lavfi -i testsrc=duration=5:size=1080x1920:rate=30 -vf "hue=H=2*PI*t:s=0.5" -c:v libx264 -pix_fmt yuv420p "{clip_path}" > /dev/null 2>&1')
                 if clip_path.exists():
                     downloaded_paths.append(str(clip_path))
@@ -112,7 +117,6 @@ def execute_pipeline(topic: str):
 
         video_clips_paths = download_live_pexels_broll(script_data["scenes"])
         
-        # 🎯 SAFETY CEILING VERIFICATION LOCK
         if not video_clips_paths:
             logger.critical("🚨 Empty clip array stack detected inside scraper. Creating direct root fallback clip...")
             fallback_clip = MEDIA_CACHE_DIR / "root_fallback_scene.mp4"
