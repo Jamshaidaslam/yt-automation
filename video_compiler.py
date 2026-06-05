@@ -10,6 +10,7 @@ FIXES v10.0 (USA/UK Audience Optimized):
   - Font size reduced to 72px for readability on mobile screens
   - "Watch till end" hook text added at 3 seconds
   - No more random jumping captions (position was confusing viewers)
+  - Smooth 0.6s outro fade out matrix and native dynamic pool CTA appended seamlessly
 """
 
 import os
@@ -19,7 +20,7 @@ import warnings
 import numpy as np
 from pathlib import Path
 from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip, concatenate_videoclips, CompositeAudioClip
-from moviepy.video.fx.all import crop
+from moviepy.video.fx.all import crop, fadeout
 
 warnings.filterwarnings("ignore", category=UserWarning, module="moviepy")
 logger = logging.getLogger(__name__)
@@ -37,7 +38,7 @@ HIGHLIGHT_KEYWORDS = {
     "TRAP", "TRAPPED", "DARK", "SECRET", "SECRETS", "CONTROL", "CONTROLS",
     "MANIPULATE", "MANIPULATION", "DOPAMINE", "ADDICTED", "ADDICTION",
     "HACK", "HACKING", "FEAR", "ANXIETY", "DANGEROUS", "DANGER",
-    "TRUTH", "EXPOSED", "SHOCKING", "WARNING", "STOP"
+    "TRUTH", "EXPOSED", "SHOCKING", "WARNING", "STOP", "FOLLOW", "SAVE"
 }
 
 HOOK_TEXT = "👇 WATCH TILL THE END"
@@ -137,7 +138,9 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_file_
                                          color=(15, 15, 15)).set_duration(duration))
 
     base_stitched  = concatenate_videoclips(processed_clips, method="chain")
-    stitched_video = base_stitched.set_duration(duration)
+    
+    # Smooth audio-visual fadeout applied to structural track to prevent abrupt cutoffs
+    stitched_video = fadeout(base_stitched.set_duration(duration), duration=0.6)
 
     # ── Font setup ────────────────────────────────────────────────────────────
     font_asset_path = "fonts/Montserrat Extra Bold.otf"
@@ -214,6 +217,32 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_file_
             logger.info(f"✅ Hook text injected at {HOOK_START_TIME}s")
         except Exception as hook_err:
             logger.warning(f"⚠️ Hook text failed: {hook_err}")
+
+    # ── High Conversion Outro Graphic Matrix ──────────────────────────────────
+    # Closes out the video gaplessly by rendering a dedicated conversion card
+    try:
+        outro_start_time = max(0, duration - 3.5)
+        outro_y_px = int(TARGET_HEIGHT * 0.78) # Safe bottom overlay zone
+
+        outro_cta_clip = (TextClip(
+                             "⚠️ EXPOSED! SAVE & FOLLOW NOW",
+                             font=font_asset_path,
+                             fontsize=56,
+                             color="#FF073A", # Locked to high impact palette
+                             stroke_color="black",
+                             stroke_width=6.0,
+                             method="caption",
+                             size=(TARGET_WIDTH - 160, None),
+                             align="center"
+                         )
+                         .set_start(outro_start_time)
+                         .set_end(duration)
+                         .set_position(("center", outro_y_px)))
+        
+        text_clips.append(apply_text_pop_effect(outro_cta_clip, pop_duration=0.10))
+        logger.info(f"🎯 Persistent Conversion Node injected smoothly at {outro_start_time}s")
+    except Exception as outro_err:
+        logger.warning(f"⚠️ Outro conversion block dropped: {outro_err}")
 
     # ── Composite & render ────────────────────────────────────────────────────
     final_composite = CompositeVideoClip(
