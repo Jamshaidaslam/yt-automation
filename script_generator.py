@@ -4,6 +4,7 @@ script_generator.py — VIRAL DOMINATION ENGINE v3.0
 import json
 import os
 import logging
+import random  # Yahan import move kar diya
 from groq import Groq
 
 logger = logging.getLogger(__name__)
@@ -128,10 +129,7 @@ def generate_script(topic: str):
         response_format={"type": "json_object"}
     )
     return json.loads(response.choices[0].message.content)
-    
-import random
 
-    def pick_topic_for_run():
+def pick_topic_for_run():
     """Selects a random topic from the pool."""
-    # Direct access, no need to re-import
     return random.choice(TOPIC_POOL)["topic"]
