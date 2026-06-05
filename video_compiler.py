@@ -30,7 +30,7 @@ CAPTION_FONT_SIZE    = 72     # Readable on 5-6" mobile screens
 CAPTION_COLOR        = "#FFFFFF"  # Always white base
 CAPTION_STROKE_COLOR = "black"
 CAPTION_STROKE_WIDTH = 7.0    # Strong outline for readability on any background
-CAPTION_HIGHLIGHT_COLOR = "#FFFF00"  # Yellow ONLY for high-impact keywords
+CAPTION_HIGHLIGHT_COLOR = "#FF073A"  # Yellow ONLY for high-impact keywords
 
 # Words that get yellow highlight treatment
 HIGHLIGHT_KEYWORDS = {
@@ -140,9 +140,9 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_file_
     stitched_video = base_stitched.set_duration(duration)
 
     # ── Font setup ────────────────────────────────────────────────────────────
-    font_asset_path = "fonts/AmericanCaptain-MdEY.otf"
+    font_asset_path = "fonts/Montserrat Extra Bold.otf"
     if not os.path.exists(font_asset_path):
-        font_asset_path = "Impact"
+        font_asset_path = "Arial Black"
 
     # ── FIXED caption Y position (pixels from top) ────────────────────────────
     caption_y_px = int(TARGET_HEIGHT * CAPTION_Y_POSITION)   # 1382px
