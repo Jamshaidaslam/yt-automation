@@ -1,5 +1,5 @@
 """
-main.py — Master Automation Executive Workflow (PRODUCTION ENGINE v3.9 - PILLOW FIX)
+main.py — Master Automation Executive Workflow (PRODUCTION ENGINE v4.0 - FULL SCALE TIMINGS)
 AI Dark Realities · Short-Form Video Pipeline
 ───────────────────────────────────────────────────────────────────────────────────
 """
@@ -9,9 +9,10 @@ import shutil
 import logging
 import requests
 import sys
+import re
 from pathlib import Path
 
-# 🔥 HOTFIX: Pillow v10+ compatibility layer for MoviePy resizing bug
+# Hotfix layer matrix for Pillow compatibility tracking
 import PIL
 from PIL import Image
 if not hasattr(Image, 'ANTIALIAS'):
@@ -71,38 +72,26 @@ def download_live_pexels_broll(scenes: list) -> list:
                 logger.error(f"❌ Pexels download failed on scene [{idx+1}]: {e}")
 
         if not success:
-            logger.warning(f"⚠️ Falling back to high-retention composite visual asset loop for scene [{idx+1}]")
+            logger.warning(f"⚠️ Falling back to high-retention structural base loop for scene [{idx+1}]")
             try:
-                os.system(f'ffmpeg -y -f lavfi -i testsrc=duration=5:size=1080x1920:rate=30 -vf "hue=H=2*PI*t:s=0.5" -c:v libx264 -pix_fmt yuv420p "{clip_path}" > /dev/null 2>&1')
+                os.system(f'ffmpeg -y -f lavfi -i testsrc=duration=7:size=1080x1920:rate=30 -vf "hue=H=2*PI*t:s=0.3" -c:v libx264 -pix_fmt yuv420p "{clip_path}" > /dev/null 2>&1')
                 if clip_path.exists():
                     downloaded_paths.append(str(clip_path))
-                    logger.info(f"⚡ Engineered safe emergency visual asset track framework: {clip_path}")
             except Exception as ffmpeg_err:
-                logger.error(f"❌ Failed to generate emergency local clip: {ffmpeg_err}")
+                logger.error(f"❌ Failed to generate local asset loop: {ffmpeg_err}")
 
     return downloaded_paths
 
 def dynamic_auto_music_downloader(topic: str) -> str:
     local_bgms = list(BGM_INPUT_DIR.glob("*.mp3")) + list(BGM_INPUT_DIR.glob("*.wav"))
-    if local_bgms:
-        return str(local_bgms[0])
-
+    if local_bgms: return str(local_bgms[0])
     target_track_path = BGM_INPUT_DIR / "dynamic_scraped_bgm.mp3"
     static_url = "https://assets.mixkit.co/music/preview/mixkit-glitchy-futuristic-ambient-mystery-1149.mp3"
-    
     try:
         os.system(f'curl -L -s -o "{target_track_path}" "{static_url}"')
-        if target_track_path.exists() and target_track_path.stat().st_size > 30000:
-            return str(target_track_path)
-    except Exception as e:
-        logger.error(f"❌ Audio score stream download failed: {e}")
+        if target_track_path.exists(): return str(target_track_path)
+    except: pass
     return ""
-
-def engineer_clickbait_title(raw_title: str) -> str:
-    clean_title = raw_title.replace('"', '').strip()
-    if not clean_title.endswith("..."):
-        clean_title += "..."
-    return f"🧠 {clean_title} #darkpsychology #manipulation #shorts"
 
 def execute_pipeline(topic: str):
     logger.info("🔥 Activating Automated Dark Realities Script Sequence Pipeline...")
@@ -110,28 +99,18 @@ def execute_pipeline(topic: str):
         clean_production_environment()
 
         script_data = generate_script(topic)
-        engineered_title = engineer_clickbait_title(script_data.get("title", "The Dark Truth"))
-        logger.info(f"🎯 Structured Production Title: {engineered_title}")
-
         voiceover_payload = generate_voiceover(script_data["voiceover"], "temp_voice_stream", voice_type="guy_dark")
 
         video_clips_paths = download_live_pexels_broll(script_data["scenes"])
-        
-        if not video_clips_paths:
-            logger.critical("🚨 Empty clip array stack detected inside scraper. Creating direct root fallback clip...")
-            fallback_clip = MEDIA_CACHE_DIR / "root_fallback_scene.mp4"
-            os.system(f'ffmpeg -y -f lavfi -i mandelbrot=duration=10:size=1080x1920:rate=30 -c:v libx264 -pix_fmt yuv420p "{fallback_clip}" > /dev/null 2>&1')
-            video_clips_paths.append(str(fallback_clip))
-
         resolved_bgm_path = dynamic_auto_music_downloader(topic)
 
         output_video_file = FINAL_OUTPUT_DIR / "final_dark_short_output.mp4"
         compile_final_video(video_clips_paths, voiceover_payload, resolved_bgm_path, str(output_video_file))
 
         if output_video_file.exists() and output_video_file.stat().st_size > 0:
-            logger.info(f"✨ PIPELINE EXECUTION SUCCESSFUL. Output File: {output_video_file}")
+            logger.info("✨ PIPELINE EXECUTION SUCCESSFUL.")
         else:
-            raise FileNotFoundError("Render complete but output target payload is missing.")
+            raise FileNotFoundError("Render payload missing.")
 
     except Exception as pipeline_error:
         logger.critical("🚨 PIPELINE CRASHED INSIDE MASTER RUN LAYER!", exc_info=True)
