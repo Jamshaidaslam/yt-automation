@@ -1,6 +1,6 @@
 """
 script_generator.py — Ultimate Viral Dark Psychology Engine
-AI Dark Realities · USA/UK Viral Shorts Generator (PRODUCTION FIXED v4.0)
+AI Dark Realities · USA/UK Viral Shorts Generator (FAST CUTS CONFIG)
 ───────────────────────────────────────────────────────────────────────────────────
 """
 import json
@@ -9,11 +9,10 @@ import re
 import logging
 from groq import Groq
 
-# ✅ FIXED: Resolved NameError on logger definition
 logger = logging.getLogger(__name__)
 
 def generate_script(topic: str) -> dict:
-    logger.info(f"🧠 Generating viral dark psychology script for topic: [{topic}]")
+    logger.info(f"🧠 Generating fast-paced dark psychology script for topic: [{topic}]")
     api_key = os.getenv("GROQ_API_KEY")
 
     if not api_key:
@@ -22,81 +21,44 @@ def generate_script(topic: str) -> dict:
     client = Groq(api_key=api_key)
 
     prompt_lines = [
-        "You are a world-class viral content architect specializing in Dark Psychology, Human Behavior, Hidden Truths, Manipulation Tactics, Cognitive Biases, Forbidden Knowledge, and Mystery-based short-form videos for USA, UK, Canada, and Australia audiences.",
-        "Your mission is to create highly addictive YouTube Shorts, TikTok, Instagram Reels, and Facebook Reels scripts engineered for maximum audience retention, curiosity, watch time, shares, comments, and replays.",
+        "You are a world-class viral content architect specializing in Dark Psychology and high-retention short-form videos.",
+        "Your mission is to engineer a highly addictive script with dramatic pacing.",
         
-        "CONTENT STYLE:",
-        "- Extremely cinematic and emotionally intense.",
-        "- Dark, mysterious, psychologically powerful, and intellectually stimulating.",
-        "- Every sentence must increase curiosity.",
-        "- Sound like a hidden secret.",
-        "- Create an irresistible need to hear the ending.",
+        "VOICEOVER & NATURAL PACING REQUIREMENTS:",
+        "- MUST contain between 90 and 120 words total.",
+        "- Use frequent commas (,) and punctuation marks. This forces the TTS engine to take natural human breaths and avoid sounding robotic.",
+        "- End with a continuous loop sentence that perfectly feeds back into the first hook sentence.",
 
-        "HOOK REQUIREMENTS:",
-        "- First sentence must instantly stop scrolling.",
-        "- Start with a shocking fact, disturbing question, hidden truth, or counterintuitive statement.",
-        "- Create tension in the first 3 seconds.",
-        "- Avoid generic introductions.",
-
-        "RETENTION REQUIREMENTS:",
-        "- Every scene must reveal new information.",
-        "- No filler content.",
-        "- Escalate suspense continuously.",
-        "- Build curiosity loops.",
-        "- Every sentence must naturally pull viewers to the next sentence.",
-
-        "VOICEOVER REQUIREMENTS:",
-        "- MUST contain between 90 and 130 words in total duration.",
-        "- MUST be one continuous paragraph inside the 'voiceover' JSON key.",
-        "- Duration target: 35-55 seconds.",
-        "- Structure: Hook → Explanation → Revelation → Twist → Conclusion.",
-        "- End with a loop sentence that connects back to the opening line smoothly.",
-
-        "SCENE REQUIREMENTS:",
-        "- Generate EXACTLY 5 scenes.",
-        "- Scenes must be chronological.",
-        "- Each scene should visually match its voiceover progression.",
-        "- Each scene must increase mystery and intensity.",
-
-        "VISUAL QUERY REQUIREMENTS:",
-        "- Each scene must contain Pexels-friendly search keywords.",
-        "- Use keyword phrases only. No full sentences.",
-        "- Focus on psychology, mystery, shadows, loneliness, fear, manipulation, technology, surveillance, power, secrets, and human emotions.",
+        "FAST CUTS & SCENE REQUIREMENTS:",
+        "- Generate EXACTLY 12 small chronological scenes. This ensures a fast cut every 2 to 3 seconds.",
+        "- Each scene must have a very short, hyper-focused portrait visual query for Pexels.",
 
         "STRICT OUTPUT FORMAT:",
-        "- Return ONLY valid JSON.",
-        "- No markdown syntax codeblocks like ```json.",
-        "- No explanations or text outside JSON.",
+        "- Return ONLY a valid JSON object. No markdown syntax or explanations.",
 
         "JSON STRUCTURE INTERFACE:",
         "{",
-        '  "title": "High CTR viral title with emojis",',
-        '  "hook": "The scroll stopping opening line",',
-        '  "voiceover": "CRITICAL: Put the entire 90-130 words complete cinematic narration here as one unified continuous paragraph. Do not put fragments here. It must include the hook, explanation, twist, and loop sentence together so the audio generator reads it all.",',
+        '  "title": "High CTR viral title",',
+        '  "voiceover": "The entire 90-120 words continuous narrative with punctuation marks for deep natural pauses.",',
         '  "scenes": [',
-        '    {"scene_number": 1, "visual_query": "dark silhouette portrait, mystery shadow face"},',
-        '    {"scene_number": 2, "visual_query": "moody person alone, cinematic darkness"},',
-        '    {"scene_number": 3, "visual_query": "phone glow face, surveillance concept"},',
-        '    {"scene_number": 4, "visual_query": "human eye closeup, psychological tension"},',
-        '    {"scene_number": 5, "visual_query": "mysterious silhouette walking, dark realization"}',
-        '  ],',
-        '  "psychological_takeaway": "Powerful lesson summary",',
-        '  "engagement_question": "Comment generating question"',
+        '    {"scene_number": 1, "visual_query": "dark silhouette face shadow"},',
+        '    {"scene_number": 2, "visual_query": "smartphone screen glow dark room"},',
+        '    {"scene_number": 3, "visual_query": "anxious person hands typing"},',
+        '    {"scene_number": 4, "visual_query": "macro human eye dilating"},',
+        '    {"scene_number": 5, "visual_query": "mysterious concrete alleyway dark"},',
+        '    {"scene_number": 6, "visual_query": "abstract digital matrix code"},',
+        '    {"scene_number": 7, "visual_query": "person head in hands stressed"},',
+        '    {"scene_number": 8, "visual_query": "security camera red blinking light"},',
+        '    {"scene_number": 9, "visual_query": "silhouette walking away fog"},',
+        '    {"scene_number": 10, "visual_query": "close up phone screen scrolling"},',
+        '    {"scene_number": 11, "visual_query": "moody neon rain reflection"},',
+        '    {"scene_number": 12, "visual_query": "dark psychological realization portrait"}',
+        '  ]',
         "}"
     ]
 
     system_prompt = "\n".join(prompt_lines)
-
-    user_prompt = f"""
-    Create a highly viral dark psychology short-form video script.
-    TOPIC: {topic if topic else "Dark Psychology"}
-    
-    Requirements:
-    - The 'voiceover' field MUST be 90 to 130 words long (Full full story paragraph).
-    - Exactly 5 distinct scenes mapped with high-retention portrait search terms.
-    - End with a sentence that naturally loops back to the first sentence.
-    - Return only raw valid JSON.
-    """
+    user_prompt = f"Create a high-retention 12-scene dark psychology loop script about: {topic if topic else 'Dark Psychology'}. Ensure the voiceover has 90-120 words with deep dramatic punctuation."
 
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
@@ -110,24 +72,12 @@ def generate_script(topic: str) -> dict:
     )
 
     raw_output = response.choices[0].message.content.strip()
-
     try:
         data = json.loads(raw_output)
     except json.JSONDecodeError:
-        logger.warning("⚠️ Invalid JSON returned. Attempting extraction...")
         match = re.search(r'\{.*\}', raw_output, re.DOTALL)
         if not match:
-            raise RuntimeError(f"Could not parse JSON from model output:\n{raw_output}")
+            raise RuntimeError(f"Could not parse JSON: {raw_output}")
         data = json.loads(match.group(0))
-
-    voiceover = data.get("voiceover", "")
-    word_count = len(voiceover.split())
-
-    logger.info(f"✅ Script generated successfully | Words in Voiceover: {word_count}")
-
-    if word_count < 90:
-        logger.warning(f"⚠️ Voiceover too short ({word_count} words). Content may feel fragmented.")
-    elif word_count > 130:
-        logger.warning(f"⚠️ Voiceover too long ({word_count} words). May exceed Shorts time limits.")
 
     return data
