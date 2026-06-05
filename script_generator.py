@@ -1,5 +1,6 @@
 """
-script_generator.py — VIRAL DOMINATION ENGINE v3.0 (USA/UK STABLE HIGH RETENTION)
+script_generator.py — VIRAL DOMINATION ENGINE v3.1 (USA/UK STABLE HIGH RETENTION)
+Optimized for v10.1 Standards: High "YOU" Density, 0-Sec Hook Punch, No Black Frames
 """
 import json
 import os
@@ -105,41 +106,46 @@ TOPIC_POOL = [
 ]
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  AI SCRIPT GENERATION LOGIC
+#  AI SCRIPT GENERATION LOGIC WITH v10.1 RETENTION MATRIX
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def generate_script(topic: str):
     """
-    Uses Groq AI to generate a viral script based on the hook formula with strict aesthetic blocks.
+    Uses Groq AI to generate a hyper-viral script with strict 'YOU' density, 
+    immediate zero-frame hook response, and direct social psychological mapping.
     """
     client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
-    # Dynamic pool mapping to inject exact metadata context without losing anything
     matched_meta = next((item for item in TOPIC_POOL if item["topic"] == topic), None)
-    pool_cta = matched_meta["cta"] if matched_meta else "Follow for more dark secrets."
+    pool_cta = matched_meta["cta"] if matched_meta else "Save this — you'll use it tomorrow"
     pool_theme = matched_meta["scenes_theme"] if matched_meta else "dark psychology eyes"
 
-    # Strict system block injected to enforce hypnotic b-rolls and block office assets
+    # STRICT SYSTEM BLOCK UPGRADED TO v10.1 PSYCHOLOGICAL DENSITY STANDARDS
     prompt = f"""
     Write an elite viral TikTok/Shorts script for USA/UK audiences based on this topic: "{topic}".
     
-    CRITICAL STRUCTURE MATRIX:
-    1. HOOK (First 3 seconds): Must be aggressive, fast-paced, psychological, or revealing.
-    2. BODY: Explain the deep dark psychology or body language behind it. Keep it engaging.
-    3. CTA (Last 3 seconds): You MUST end the voiceover text naturally with this exact call to action phrase: "{pool_cta}".
+    CRITICAL HIGH-RETENTION STRUCTURE MATRIX:
+    1. ZERO-FRAME HOOK (0.0 - 0.3 seconds): Absolutely NO slow introductions like "Have you ever wondered" or "In this video". Start IMMEDIATELY with an aggressive, hyper-personalized psychological punch or an intense identity threat.
     
+    2. "YOU" PERSONALIZATION DENSITY RULE: You must design the narrative so that every 4 to 5 words contains a personal pronoun targeting the viewer ('YOU', 'YOUR', 'YOUR MIND', 'YOUR EYES'). Do not make it general. Change phrases like "When people look away" to "When THEY look away from YOU".
+    
+    3. INFECTIOUS NARRATIVE PACE: Keep sentences short (3-6 words maximum per sentence layer). The text must read like a fast, rhythmic, dark, mysterious revelation.
+    
+    4. MANDATORY END CAP CTA: You MUST end the final segment of the voiceover text naturally with this exact call to action phrase: "{pool_cta}".
+
     B-ROLL ASSET SEARCH INSTRUCTIONS:
-    - You MUST output exactly 3 scenes.
-    - Each 'visual_query' MUST be explicitly related to these keywords: {pool_theme}, dark psychology, neon brains, macro eyes, pupil dilation, shadows.
-    - STRICT BAN: Never include keywords like 'office', 'meeting', 'corporate', 'happy business team', or 'bright casual conversation'. Keep it cinematic, raw, and mysterious.
+    - Output exactly 4 fast-cutting scenes to maintain high visual retention and prevent boring loops.
+    - Each 'visual_query' MUST be highly cinematic and explicitly contain keywords related to: {pool_theme}, macro close up, pupil dilation, intense eyes blinking, neon brain visualization glitch, dark shadowy silhouettes.
+    - STRICT BAN: Never include keywords like 'office', 'meeting', 'corporate', 'happy business team', or 'bright casual conversation'. Keep it raw, shadowy, and mysterious.
 
     Output ONLY a valid JSON object format:
     {{
-        "title": "Short title highlighting the psychological trap",
-        "voiceover": "Full narrative script including the hook, body, and the absolute final CTA text.",
+        "title": "A short 4-5 word capitalised aggressive title using the word YOU or YOUR",
+        "voiceover": "The entire script text here. Ensure it begins with a hyper aggressive punch hook, has massive 'YOU' density throughout, and finishes precisely with the phrase: {pool_cta}",
         "scenes": [
-            {{"visual_query": "macro portrait close up of serious dark eyes staring"}},
-            {{"visual_query": "shadowy silhouette figure in a dark foggy room mystery"}},
+            {{"visual_query": "macro close up portrait of dark intense serious eyes staring directly into camera"}},
+            {{"visual_query": "cinematic macro shot of pupil dilating in an eye"}},
+            {{"visual_query": "shadowy silhouette figure moving in a dark foggy room mystery shadows"}},
             {{"visual_query": "cinematic neon glowing brain synapses glitching visualization"}}
         ]
     }}
@@ -148,6 +154,7 @@ def generate_script(topic: str):
     response = client.chat.completions.create(
         messages=[{"role": "user", "content": prompt}],
         model="llama-3.3-70b-versatile",
+        temperature=0.3,  # Lower temperature keeps the AI rigidly focused on the rules
         response_format={"type": "json_object"}
     )
     
