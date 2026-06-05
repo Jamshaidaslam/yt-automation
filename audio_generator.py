@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 
 # ─── Voice Config ──────────────────────────────────────────────────────────────
 VOICE_ID   = "en-US-EricNeural"
-BASE_RATE  = "+4%"
-BASE_PITCH = "-2Hz"
+BASE_RATE  = "+0%"
+BASE_PITCH = "-4Hz"
 
 # ─── Podcast Style Filter ──────────────────────────────────────────────────────
 PODCAST_FILTER = (
@@ -69,9 +69,9 @@ async def _extract_boundaries_fallback(plain_text: str) -> list:
             
             break_duration = 0.0
             if word_clean.endswith(".") or word_clean.endswith("!") or word_clean.endswith("?"):
-                break_duration = 0.40
+                break_duration = 0.55
             elif word_clean.endswith(","):
-                break_duration = 0.20
+                break_duration = 0.30
                 
             word_timings.append({
                 "word": word_clean.upper(),
