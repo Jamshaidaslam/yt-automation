@@ -1,16 +1,7 @@
 """
-video_compiler.py — Elite Production Compositor Engine (PRODUCTION CORE v10.0 - USA/UK OPTIMIZED)
+video_compiler.py — Elite Production Compositor Engine (v10.5 - LASER TIMING RE-SYNC)
 AI Dark Realities · Short-Form Video Pipeline
 ───────────────────────────────────────────────────────────────────────────────────
-
-FIXES v10.0 (USA/UK Audience Optimized):
-  - Caption position locked to 72% height (safe zone — below UI buttons, above bottom bar)
-  - Consistent font: Bold white + black stroke always (no random colors)
-  - Keyword highlight: Yellow ONLY for high-impact words (TRAP, DARK, SECRET, etc.)
-  - Font size reduced to 72px for readability on mobile screens
-  - "Watch till end" hook text added at 3 seconds
-  - No more random jumping captions (position was confusing viewers)
-  - Smooth 0.6s outro fade out matrix and native dynamic pool CTA appended seamlessly
 """
 
 import os
@@ -27,13 +18,12 @@ logger = logging.getLogger(__name__)
 
 # ─── USA/UK Caption Style Constants ───────────────────────────────────────────
 CAPTION_Y_POSITION   = 0.72   # 72% from top = safe zone on all platforms
-CAPTION_FONT_SIZE    = 72     # Readable on 5-6" mobile screens
-CAPTION_COLOR        = "#FFFFFF"  # Always white base
+CAPTION_FONT_SIZE    = 72     # Readable on mobile screens
+CAPTION_COLOR        = "#FFFFFF"  
 CAPTION_STROKE_COLOR = "black"
-CAPTION_STROKE_WIDTH = 7.0    # Strong outline for readability on any background
-CAPTION_HIGHLIGHT_COLOR = "#FF073A"  # Yellow ONLY for high-impact keywords
+CAPTION_STROKE_WIDTH = 7.0    
+CAPTION_HIGHLIGHT_COLOR = "#FF073A"  # Neon Red/Yellow high-impact palette
 
-# Words that get yellow highlight treatment
 HIGHLIGHT_KEYWORDS = {
     "TRAP", "TRAPPED", "DARK", "SECRET", "SECRETS", "CONTROL", "CONTROLS",
     "MANIPULATE", "MANIPULATION", "DOPAMINE", "ADDICTED", "ADDICTION",
@@ -42,7 +32,7 @@ HIGHLIGHT_KEYWORDS = {
 }
 
 HOOK_TEXT = "👇 WATCH TILL THE END"
-HOOK_DISPLAY_TIME = 3.5   # Show at 3s, disappear after 3.5s duration
+HOOK_DISPLAY_TIME = 3.5   
 HOOK_START_TIME   = 2.8
 
 
@@ -92,7 +82,7 @@ def get_caption_color(chunk_text: str) -> str:
 
 
 def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_file_path: str, output_path: str):
-    logger.info("🎬 Initializing USA/UK optimized compositor (v10.0)...")
+    logger.info("🎬 Initializing USA/UK optimized compositor (v10.5 - TIMING FIXED)...")
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
 
     voice_clip = AudioFileClip(voiceover_data["audio_path"])
@@ -138,8 +128,6 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_file_
                                          color=(15, 15, 15)).set_duration(duration))
 
     base_stitched  = concatenate_videoclips(processed_clips, method="chain")
-    
-    # Smooth audio-visual fadeout applied to structural track to prevent abrupt cutoffs
     stitched_video = fadeout(base_stitched.set_duration(duration), duration=0.6)
 
     # ── Font setup ────────────────────────────────────────────────────────────
@@ -147,13 +135,24 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_file_
     if not os.path.exists(font_asset_path):
         font_asset_path = "Arial Black"
 
-    # ── FIXED caption Y position (pixels from top) ────────────────────────────
     caption_y_px = int(TARGET_HEIGHT * CAPTION_Y_POSITION)   # 1382px
-
     text_clips = []
+    
     word_timings = voiceover_data["word_timings"]
-    chunk_size   = 2   # 2 words per caption chunk = fast, punchy
+    
+    # ── FIXED: TIME-RESCALE STRETCH MATRIX FOR ZERO DESYNC ──────────────────
+    # Re-aligns math fallback boundaries if they structurally drift from audio length
+    if word_timings:
+        theoretical_end = word_timings[-1]["end"]
+        # If timestamps don't match the audio stream duration, calculate stretch ratio
+        if abs(theoretical_end - duration) > 0.5 and theoretical_end > 0:
+            stretch_ratio = duration / theoretical_end
+            logger.info(f"🔄 Re-scaling timeline ratio by: {round(stretch_ratio, 3)}x to match exact voiceover duration")
+            for item in word_timings:
+                item["start"] = round(item["start"] * stretch_ratio, 3)
+                item["end"]   = round(item["end"] * stretch_ratio, 3)
 
+    chunk_size = 2   # Fast punchy 2-word chunks
     for i in range(0, len(word_timings), chunk_size):
         chunk = word_timings[i:i+chunk_size]
         if not chunk or chunk[0]["start"] >= duration:
@@ -161,14 +160,15 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_file_
 
         chunk_text = " ".join([item["word"] for item in chunk]).upper()
         start_time = chunk[0]["start"]
-        end_time   = min(chunk[-1]["end"], duration)
-
+        
+        # Enforce dynamic end boundary sync
+        end_time = chunk[-1]["end"]
         if (i + chunk_size) < len(word_timings):
             end_time = min(end_time, word_timings[i + chunk_size]["start"])
+            
         if end_time <= start_time:
             end_time = start_time + 0.35
 
-        # ✅ Color: yellow for power words, white for rest
         text_color = get_caption_color(chunk_text)
 
         try:
@@ -181,13 +181,12 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_file_
                             stroke_width=CAPTION_STROKE_WIDTH,
                             method="caption",
                             size=(TARGET_WIDTH - 160, None),
-                            align="center"           # ✅ Always centered
+                            align="center"
                         )
                         .set_start(start_time)
                         .set_end(end_time))
 
-            animated_txt  = apply_text_pop_effect(txt_clip, pop_duration=0.07)
-            # ✅ Fixed position — no more random jumping
+            animated_txt   = apply_text_pop_effect(txt_clip, pop_duration=0.07)
             positioned_txt = animated_txt.set_position(("center", caption_y_px))
             text_clips.append(positioned_txt)
 
@@ -198,12 +197,12 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_file_
     hook_end = min(HOOK_START_TIME + HOOK_DISPLAY_TIME, duration)
     if hook_end > HOOK_START_TIME:
         try:
-            hook_y_px = int(TARGET_HEIGHT * 0.12)   # Top area, above main captions
+            hook_y_px = int(TARGET_HEIGHT * 0.12)
             hook_clip = (TextClip(
                              HOOK_TEXT,
                              font=font_asset_path,
                              fontsize=52,
-                             color="#FF4444",         # Red — attention grabbing
+                             color="#FF4444",
                              stroke_color="black",
                              stroke_width=5.0,
                              method="caption",
@@ -214,21 +213,19 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_file_
                          .set_end(hook_end)
                          .set_position(("center", hook_y_px)))
             text_clips.append(hook_clip)
-            logger.info(f"✅ Hook text injected at {HOOK_START_TIME}s")
         except Exception as hook_err:
             logger.warning(f"⚠️ Hook text failed: {hook_err}")
 
     # ── High Conversion Outro Graphic Matrix ──────────────────────────────────
-    # Closes out the video gaplessly by rendering a dedicated conversion card
     try:
         outro_start_time = max(0, duration - 3.5)
-        outro_y_px = int(TARGET_HEIGHT * 0.78) # Safe bottom overlay zone
+        outro_y_px = int(TARGET_HEIGHT * 0.78)
 
         outro_cta_clip = (TextClip(
                              "⚠️ EXPOSED! SAVE & FOLLOW NOW",
                              font=font_asset_path,
                              fontsize=56,
-                             color="#FF073A", # Locked to high impact palette
+                             color="#FF073A",
                              stroke_color="black",
                              stroke_width=6.0,
                              method="caption",
@@ -240,7 +237,6 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_file_
                          .set_position(("center", outro_y_px)))
         
         text_clips.append(apply_text_pop_effect(outro_cta_clip, pop_duration=0.10))
-        logger.info(f"🎯 Persistent Conversion Node injected smoothly at {outro_start_time}s")
     except Exception as outro_err:
         logger.warning(f"⚠️ Outro conversion block dropped: {outro_err}")
 
