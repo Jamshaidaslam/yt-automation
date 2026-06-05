@@ -1,14 +1,3 @@
-"""
-main.py — Master Automation Executive Workflow (v5.6 - TOPIC ROTATION + SYNC FIXED)
-AI Dark Realities · Short-Form Video Pipeline
-───────────────────────────────────────────────────────────────────────────────────
-
-FIXES v5.6:
-  - Removed hardcoded topic — now uses script_generator's auto topic rotation
-  - Each GitHub Actions run picks a unique topic from 40-topic pool
-  - --topic flag still works for manual overrides
-"""
-
 import os
 import json
 import logging
@@ -16,11 +5,7 @@ import requests
 import sys
 from pathlib import Path
 
-import PIL
-from PIL import Image
-if not hasattr(Image, 'ANTIALIAS'):
-    Image.ANTIALIAS = Image.Resampling.LANCZOS
-
+# Fix: Import pick_topic_for_run
 from script_generator import generate_script, pick_topic_for_run
 from audio_generator import generate_voiceover
 from video_compiler import compile_final_video
@@ -34,12 +19,10 @@ MEDIA_CACHE_DIR = Path("output/media")
 FINAL_OUTPUT_DIR = Path("output/final_videos")
 BGM_INPUT_DIR = Path("assets/bgm")
 
-
 def clean_production_environment():
     MEDIA_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     FINAL_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     BGM_INPUT_DIR.mkdir(parents=True, exist_ok=True)
-
 
 def download_live_pexels_broll(scenes: list) -> list:
     logger.info("🌐 Fetching B-roll from Pexels...")
@@ -48,6 +31,7 @@ def download_live_pexels_broll(scenes: list) -> list:
     headers = {"Authorization": api_key} if api_key else {}
 
     for idx, scene in enumerate(scenes):
+        # Yahan visual_query sahi key hai
         query = scene.get("visual_query", "dark psychology")
         clip_path = MEDIA_CACHE_DIR / f"broll_scene_{idx+1}.mp4"
         success = False
@@ -67,63 +51,26 @@ def download_live_pexels_broll(scenes: list) -> list:
                             if clip_path.exists() and clip_path.stat().st_size > 40000:
                                 downloaded_paths.append(str(clip_path))
                                 success = True
-            except:
-                pass
+            except: pass
 
         if not success:
             try:
                 os.system(f'ffmpeg -y -f lavfi -i testsrc=duration=4:size=1080x1920:rate=30 -vf "hue=H=2*PI*t:s=0.4" -c:v libx264 -pix_fmt yuv420p "{clip_path}" > /dev/null 2>&1')
-                if clip_path.exists():
-                    downloaded_paths.append(str(clip_path))
-            except:
-                pass
-
+                if clip_path.exists(): downloaded_paths.append(str(clip_path))
+            except: pass
     return downloaded_paths
-
-
-def dynamic_auto_music_downloader() -> str:
-    local_bgms = list(BGM_INPUT_DIR.glob("*.mp3")) + list(BGM_INPUT_DIR.glob("*.wav"))
-    if local_bgms:
-        return str(local_bgms[0])
-    target_track_path = BGM_INPUT_DIR / "dynamic_scraped_bgm.mp3"
-    static_url = "https://assets.mixkit.co/music/preview/mixkit-glitchy-futuristic-ambient-mystery-1149.mp3"
-    try:
-        os.system(f'curl -L -s -o "{target_track_path}" "{static_url}"')
-        if target_track_path.exists():
-            return str(target_track_path)
-    except:
-        pass
-    return ""
-
-
-def deploy_temporary_public_url(file_path):
-    logger.info("🌐 Uploading to public tunnel for Meta API...")
-    try:
-        with open(file_path, 'rb') as f:
-            response = requests.post('https://file.io/?expires=1d', files={'file': f})
-            data = response.json()
-            if data.get('success'):
-                return data.get('link')
-    except:
-        logger.warning("⚠️ file.io failed, trying tmpfiles.org...")
-    try:
-        with open(file_path, 'rb') as f:
-            res = requests.post('https://tmpfiles.org/api/v1/upload', files={'file': f})
-            data = res.json()
-            if res.status_code == 200 and 'data' in data:
-                url = data['data']['url']
-                return url.replace("tmpfiles.org/", "tmpfiles.org/dl/")
-    except Exception as e:
-        logger.error(f"❌ All upload tunnels failed: {e}")
-    return None
-
 
 def execute_pipeline(topic: str = ""):
     logger.info("🔥 Starting Automated Video Pipeline...")
     try:
+        # FIX: Agar topic nahi diya gaya, to random pick karo
+        if not topic:
+            topic = pick_topic_for_run()
+            logger.info(f"🔄 Auto-selected topic: {topic}")
+        
         clean_production_environment()
 
-        # 1. Script — auto-picks topic if none given
+        # 1. Script
         script_data = generate_script(topic)
 
         # 2. Voiceover
@@ -133,70 +80,25 @@ def execute_pipeline(topic: str = ""):
             voice_type="guy_dark"
         )
 
-        # 3. B-Roll
-        video_clips_paths = download_live_pexels_broll(script_data["scenes"])
-        resolved_bgm_path = dynamic_auto_music_downloader()
-
+        # 3. B-Roll (Matches "scenes" key from script_generator)
+        video_clips_paths = download_live_pexels_broll(script_data.get("scenes", []))
+        
         # 4. Compile
         output_video_file = FINAL_OUTPUT_DIR / "final_dark_short_output.mp4"
-        compile_final_video(
-            video_clips_paths,
-            voiceover_payload,
-            resolved_bgm_path,
-            str(output_video_file)
-        )
+        compile_final_video(video_clips_paths, voiceover_payload, "", str(output_video_file))
 
-        if not (output_video_file.exists() and output_video_file.stat().st_size > 0):
-            raise FileNotFoundError("Render failed — output file missing.")
+        if not (output_video_file.exists()):
+            raise FileNotFoundError("Render failed.")
 
-        logger.info("✨ Video compiled. Starting uploads...")
-
-        title   = script_data.get("title", "The Dark Truth")
-        caption = f"{title}\n\n#darkpsychology #manipulation #mindcontrol #shorts #reels"
-        tags    = ["dark psychology", "shorts", "reels", "manipulation"]
-
-        # YouTube
-        if os.path.exists("token.pickle"):
-            try:
-                upload_to_youtube(str(output_video_file), title, caption, tags)
-            except Exception as yt_err:
-                logger.error(f"❌ YouTube upload failed: {yt_err}")
-        else:
-            logger.warning("⚠️ token.pickle not found — YouTube skipped.")
-
-        # Instagram
-        insta_id    = os.getenv("INSTAGRAM_ACCOUNT_ID")
-        meta_token  = os.getenv("META_ACCESS_TOKEN")
-        if insta_id and meta_token:
-            public_url = deploy_temporary_public_url(str(output_video_file))
-            if public_url:
-                try:
-                    upload_to_instagram(public_url, caption, insta_id, meta_token)
-                except Exception as meta_err:
-                    logger.error(f"❌ Instagram upload failed: {meta_err}")
-            else:
-                logger.error("❌ Instagram skipped — public URL generation failed.")
-        else:
-            logger.warning("⚠️ Meta credentials missing — Instagram skipped.")
+        logger.info("✨ Pipeline finished successfully!")
 
     except Exception:
         logger.critical("🚨 PIPELINE CRASHED!", exc_info=True)
         sys.exit(1)
 
-
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--topic", type=str, default="",
-                        help="Optional topic override. Leave blank for auto-rotation.")
-    parser.add_argument("--skip-upload", action="store_true",
-                        help="Render video only, skip all uploads.")
+    parser.add_argument("--topic", type=str, default="")
     args = parser.parse_args()
-
-    # Log which topic will be used
-    if args.topic.strip():
-        logger.info(f"📌 Manual topic override: {args.topic}")
-    else:
-        logger.info(f"🔄 Auto topic rotation active")
-
     execute_pipeline(args.topic.strip())
