@@ -1,5 +1,5 @@
 """
-main.py — Automated Production Executive Matrix (v10.5 - STABLE CONTROL & AUTO-UPLOAD)
+main.py — Automated Production Executive Matrix (v10.8 - WORKFLOW PARAMETER LOCK)
 AI Dark Realities · Short-Form Video Pipeline
 ───────────────────────────────────────────────────────────────────────────────────
 """
@@ -38,20 +38,16 @@ def clean_production_environment():
 
 
 def download_live_pexels_broll(scenes: list) -> list:
-    """
-    Fetches raw cinematic portrait assets natively from Pexels API 
-    using defensive validation to secure against empty binary stream corruption.
-    """
+    """Fetches cinematic portrait assets from Pexels API dynamically."""
     logger.info("🌐 Fetching B-roll from Pexels...")
     api_key = os.getenv("PEXELS_API_KEY")
     downloaded_paths = []
     headers = {"Authorization": api_key} if api_key else {}
 
     for idx, scene in enumerate(scenes):
-        query = scene.get("visual_query", "dark psychology")
+        query = scene.get("visual_query", "dark psychology eyes microexpression")
         clip_path = MEDIA_CACHE_DIR / f"broll_scene_{idx+1}.mp4"
         
-        # Clear stale video clips before requesting fresh stream nodes
         if clip_path.exists():
             try: clip_path.unlink()
             except: pass
@@ -71,25 +67,25 @@ def download_live_pexels_broll(scenes: list) -> list:
                             target_file = sorted(valid_files, key=lambda x: abs(x.get("width", 0) - 1080))[0]
                             video_link = target_file["link"]
                             
-                            logger.info(f"📥 Downloading asset file node via proxy link: {query}")
+                            logger.info(f"📥 Downloading asset file node: {query}")
                             os.system(f'curl -L -s -o "{clip_path}" "{video_link}"')
                             
                             if clip_path.exists() and clip_path.stat().st_size > 15000:
                                 downloaded_paths.append(str(clip_path))
-                                logger.info(f"✅ Clip {idx+1} downloaded: {query}")
+                                logger.info(f"✅ Clip {idx+1} downloaded successfully")
                                 success = True
             except Exception as e:
                 logger.warning(f"⚠️ Pexels fetch error: {e}")
 
         if not success:
-            logger.warning(f"🔄 Reverted to dynamic asset generation fallback for: {query}")
+            logger.warning(f"🔄 Reverted to dynamic fallback generation for: {query}")
             os.system(f'ffmpeg -y -f lavfi -i testsrc=duration=6:size=1080x1920:rate=30 -c:v libx264 -pix_fmt yuv420p "{clip_path}" > /dev/null 2>&1')
             downloaded_paths.append(str(clip_path))
 
     return downloaded_paths
 
 
-def execute_pipeline(topic: str = ""):
+def execute_pipeline(topic: str = "", skip_upload: bool = False):
     """Core executive control structure linking atomic automation components."""
     logger.info("🔥 Starting Automated Video Pipeline...")
     try:
@@ -102,7 +98,7 @@ def execute_pipeline(topic: str = ""):
         # 1. AI Script Generation Matrix
         script_data = generate_script(topic)
 
-        # 2. Audio Voiceover Rendering with Podcast Quality
+        # 2. Audio Voiceover Rendering with Dynamic Rescale
         voiceover_payload = generate_voiceover(
             script_data["voiceover"],
             "temp_voice_stream",
@@ -114,8 +110,6 @@ def execute_pipeline(topic: str = ""):
         
         # 4. Hollywood Style Short-Form Video Compositor
         output_video_file = FINAL_OUTPUT_DIR / "final_dark_short_output.mp4"
-        
-        # Optional: Resolve background score if asset is deployed in source tree
         resolved_bgm_track = "output/media/bgm.mp3" if os.path.exists("output/media/bgm.mp3") else ""
 
         compile_final_video(
@@ -130,45 +124,37 @@ def execute_pipeline(topic: str = ""):
             logger.info(f"✨ Pipeline finished successfully! Video saved at: {output_video_file}")
             
             # 5. AUTOMATIC SOCIAL MEDIA UPLOAD TRIGGER 🚀
+            if skip_upload:
+                logger.info("ℹ️ Skip upload parameter detected via workflow engine — Posting Aborted.")
+                return
+
             logger.info("🛰️ Initializing Automatic Social Media Upload Matrix...")
             
-            video_title = script_data.get("title", "Dark Psychology Secrets")
-            video_description = f"{script_data.get('voiceover', '')}\n\n#darkpsychology #manipulation #psychologyfacts #shorts"
+            real_title = script_data.get("title", topic if topic else "Dark Psychology Secrets")
+            real_description = script_data.get("voiceover", "Watch till the end to uncover the truth.")
             
-            # Smart auto-detection and safety routing for existing modules
-            upload_triggered = False
+            seo_payload = {
+                "title": real_title,
+                "description": real_description,
+                "hashtags": ["#darkpsychology", "#manipulation", "#psychologyfacts", "#shorts", "#Shorts", "#microexpression"]
+            }
             
-            # Check for generic uploader module
             if os.path.exists("uploader.py"):
                 try:
-                    logger.info("📦 Importing central uploader engine (uploader.py)...")
+                    logger.info("📦 Importing central uploader engine and pushing streams...")
                     import uploader
-                    # Dynamic discovery of common execution functions
-                    if hasattr(uploader, 'upload_everywhere'):
-                        uploader.upload_everywhere(str(output_video_file), video_title, video_description)
-                    elif hasattr(uploader, 'main'):
-                        uploader.main()
-                    upload_triggered = True
-                    logger.info("✅ Central uploader matrix executed successfully.")
+                    
+                    # Call exact upload function from uploader.py
+                    upload_logs = uploader.upload_all_platforms(
+                        video_path=str(output_video_file),
+                        seo=seo_payload,
+                        thumbnail_path=None
+                    )
+                    logger.info(f"📊 Central uploader completed execution. Results array: {upload_logs}")
                 except Exception as up_err:
-                    logger.error(f"❌ Central uploader execution failed: {up_err}")
-            
-            # Check for dedicated YouTube uploader
-            if os.path.exists("youtube_uploader.py") or os.path.exists("youtube_upload.py"):
-                try:
-                    yt_module_name = "youtube_uploader" if os.path.exists("youtube_uploader.py") else "youtube_upload"
-                    logger.info(f"📺 Triggering standalone YouTube asset node ({yt_module_name}.py)...")
-                    yt_upload = __import__(yt_module_name)
-                    if hasattr(yt_upload, 'upload_video'):
-                        yt_upload.upload_video(str(output_video_file), video_title, video_description)
-                    elif hasattr(yt_upload, 'main'):
-                        yt_upload.main()
-                    upload_triggered = True
-                except Exception as yt_err:
-                    logger.error(f"❌ YouTube automated deployment failed: {yt_err}")
-
-            if not upload_triggered:
-                logger.warning("⚠️ No uploading scripts could be auto-routed. Ensure uploader.py or youtube_uploader.py is present in the workspace root.")
+                    logger.error(f"❌ Central uploader module runtime crash: {up_err}")
+            else:
+                logger.warning("⚠️ uploader.py was not found in root workspace directory.")
                 
         else:
             raise Exception("Compilation failed - output short-form file was not compiled correctly.")
@@ -181,5 +167,8 @@ def execute_pipeline(topic: str = ""):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--topic", type=str, default="")
+    # FIXED: Added support for the --skip-upload flag dispatched by automate.yml
+    parser.add_argument("--skip-upload", action="store_true", help="Skip social media upload step.")
     args = parser.parse_args()
-    execute_pipeline(args.topic.strip())
+    
+    execute_pipeline(topic=args.topic.strip(), skip_upload=args.skip_upload)
