@@ -1,5 +1,5 @@
 """
-main.py — Master Automation Executive Workflow (PRODUCTION ENGINE v4.0 - FULL SCALE TIMINGS)
+main.py — Master Automation Executive Workflow (PRODUCTION ENGINE v4.1 - 12 SCENE SPLIT)
 AI Dark Realities · Short-Form Video Pipeline
 ───────────────────────────────────────────────────────────────────────────────────
 """
@@ -9,10 +9,8 @@ import shutil
 import logging
 import requests
 import sys
-import re
 from pathlib import Path
 
-# Hotfix layer matrix for Pillow compatibility tracking
 import PIL
 from PIL import Image
 if not hasattr(Image, 'ANTIALIAS'):
@@ -38,10 +36,9 @@ def clean_production_environment():
     BGM_INPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 def download_live_pexels_broll(scenes: list) -> list:
-    logger.info("🌐 Activating live Pexels API media scraper engine...")
+    logger.info("🌐 Activating live Pexels API 12-node split engine...")
     api_key = os.getenv("PEXELS_API_KEY")
     downloaded_paths = []
-
     headers = {"Authorization": api_key} if api_key else {}
 
     for idx, scene in enumerate(scenes):
@@ -50,10 +47,9 @@ def download_live_pexels_broll(scenes: list) -> list:
         success = False
 
         if api_key:
-            logger.info(f"🔍 Searching Pexels for Clip [{idx+1}]: '{query}'")
-            url = f"https://api.pexels.com/videos/search?query={requests.utils.quote(query)}&per_page=5&orientation=portrait"
+            url = f"https://api.pexels.com/videos/search?query={requests.utils.quote(query)}&per_page=3&orientation=portrait"
             try:
-                response = requests.get(url, headers=headers, timeout=15)
+                response = requests.get(url, headers=headers, timeout=12)
                 if response.status_code == 200:
                     videos = response.json().get("videos", [])
                     if videos:
@@ -64,21 +60,19 @@ def download_live_pexels_broll(scenes: list) -> list:
                         if target_file:
                             download_url = target_file["link"]
                             os.system(f'curl -L -s -o "{clip_path}" "{download_url}"')
-                            if clip_path.exists() and clip_path.stat().st_size > 50000:
+                            if clip_path.exists() and clip_path.stat().st_size > 40000:
                                 downloaded_paths.append(str(clip_path))
-                                logger.info(f"✅ Downloaded live clip: {clip_path}")
                                 success = True
-            except Exception as e:
-                logger.error(f"❌ Pexels download failed on scene [{idx+1}]: {e}")
+            except:
+                pass
 
         if not success:
-            logger.warning(f"⚠️ Falling back to high-retention structural base loop for scene [{idx+1}]")
             try:
-                os.system(f'ffmpeg -y -f lavfi -i testsrc=duration=7:size=1080x1920:rate=30 -vf "hue=H=2*PI*t:s=0.3" -c:v libx264 -pix_fmt yuv420p "{clip_path}" > /dev/null 2>&1')
+                os.system(f'ffmpeg -y -f lavfi -i testsrc=duration=4:size=1080x1920:rate=30 -vf "hue=H=2*PI*t:s=0.4" -c:v libx264 -pix_fmt yuv420p "{clip_path}" > /dev/null 2>&1')
                 if clip_path.exists():
                     downloaded_paths.append(str(clip_path))
-            except Exception as ffmpeg_err:
-                logger.error(f"❌ Failed to generate local asset loop: {ffmpeg_err}")
+            except:
+                pass
 
     return downloaded_paths
 
@@ -94,13 +88,11 @@ def dynamic_auto_music_downloader(topic: str) -> str:
     return ""
 
 def execute_pipeline(topic: str):
-    logger.info("🔥 Activating Automated Dark Realities Script Sequence Pipeline...")
+    logger.info("🔥 Activating Automated 12-Scene High Retention Pipeline...")
     try:
         clean_production_environment()
-
         script_data = generate_script(topic)
         voiceover_payload = generate_voiceover(script_data["voiceover"], "temp_voice_stream", voice_type="guy_dark")
-
         video_clips_paths = download_live_pexels_broll(script_data["scenes"])
         resolved_bgm_path = dynamic_auto_music_downloader(topic)
 
@@ -111,9 +103,8 @@ def execute_pipeline(topic: str):
             logger.info("✨ PIPELINE EXECUTION SUCCESSFUL.")
         else:
             raise FileNotFoundError("Render payload missing.")
-
-    except Exception as pipeline_error:
-        logger.critical("🚨 PIPELINE CRASHED INSIDE MASTER RUN LAYER!", exc_info=True)
+    except Exception as e:
+        logger.critical("🚨 PIPELINE CRASHED!", exc_info=True)
         sys.exit(1)
 
 if __name__ == "__main__":
