@@ -1,5 +1,5 @@
 """
-main.py — Automated Production Executive Matrix (v10.0 - STABLE CONTROL)
+main.py — Automated Production Executive Matrix (v10.5 - STABLE CONTROL & AUTO-UPLOAD)
 AI Dark Realities · Short-Form Video Pipeline
 ───────────────────────────────────────────────────────────────────────────────────
 """
@@ -64,12 +64,10 @@ def download_live_pexels_broll(scenes: list) -> list:
                 if response.status_code == 200:
                     videos = response.json().get("videos", [])
                     if videos:
-                        # Extract the best video file component strictly matching standard specifications
                         video_files = videos[0].get("video_files", [])
                         valid_files = [f for f in video_files if f.get("link") and f.get("file_type") == "video/mp4"]
                         
                         if valid_files:
-                            # Prefer HD standard profile resolution if matching arrays exist
                             target_file = sorted(valid_files, key=lambda x: abs(x.get("width", 0) - 1080))[0]
                             video_link = target_file["link"]
                             
@@ -127,8 +125,51 @@ def execute_pipeline(topic: str = ""):
             output_path=str(output_video_file)
         )
 
+        # ── Verification Check ────────────────────────────────────────────────
         if output_video_file.exists() and output_video_file.stat().st_size > 50000:
             logger.info(f"✨ Pipeline finished successfully! Video saved at: {output_video_file}")
+            
+            # 5. AUTOMATIC SOCIAL MEDIA UPLOAD TRIGGER 🚀
+            logger.info("🛰️ Initializing Automatic Social Media Upload Matrix...")
+            
+            video_title = script_data.get("title", "Dark Psychology Secrets")
+            video_description = f"{script_data.get('voiceover', '')}\n\n#darkpsychology #manipulation #psychologyfacts #shorts"
+            
+            # Smart auto-detection and safety routing for existing modules
+            upload_triggered = False
+            
+            # Check for generic uploader module
+            if os.path.exists("uploader.py"):
+                try:
+                    logger.info("📦 Importing central uploader engine (uploader.py)...")
+                    import uploader
+                    # Dynamic discovery of common execution functions
+                    if hasattr(uploader, 'upload_everywhere'):
+                        uploader.upload_everywhere(str(output_video_file), video_title, video_description)
+                    elif hasattr(uploader, 'main'):
+                        uploader.main()
+                    upload_triggered = True
+                    logger.info("✅ Central uploader matrix executed successfully.")
+                except Exception as up_err:
+                    logger.error(f"❌ Central uploader execution failed: {up_err}")
+            
+            # Check for dedicated YouTube uploader
+            if os.path.exists("youtube_uploader.py") or os.path.exists("youtube_upload.py"):
+                try:
+                    yt_module_name = "youtube_uploader" if os.path.exists("youtube_uploader.py") else "youtube_upload"
+                    logger.info(f"📺 Triggering standalone YouTube asset node ({yt_module_name}.py)...")
+                    yt_upload = __import__(yt_module_name)
+                    if hasattr(yt_upload, 'upload_video'):
+                        yt_upload.upload_video(str(output_video_file), video_title, video_description)
+                    elif hasattr(yt_upload, 'main'):
+                        yt_upload.main()
+                    upload_triggered = True
+                except Exception as yt_err:
+                    logger.error(f"❌ YouTube automated deployment failed: {yt_err}")
+
+            if not upload_triggered:
+                logger.warning("⚠️ No uploading scripts could be auto-routed. Ensure uploader.py or youtube_uploader.py is present in the workspace root.")
+                
         else:
             raise Exception("Compilation failed - output short-form file was not compiled correctly.")
 
