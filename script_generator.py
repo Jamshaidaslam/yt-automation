@@ -4,7 +4,7 @@ script_generator.py — VIRAL DOMINATION ENGINE v3.0
 import json
 import os
 import logging
-import random  # Yahan import move kar diya
+import random
 from groq import Groq
 
 logger = logging.getLogger(__name__)
@@ -114,13 +114,23 @@ def generate_script(topic: str):
     """
     client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
+    # FIX: Prompt mein 'scenes' key demand ki hai taake main.py crash na ho
     prompt = f"""
     Write a viral TikTok/Shorts script for this topic: "{topic}".
     Follow this structure:
     1. HOOK (First 3 seconds): Must be aggressive, controversial, or revealing.
     2. BODY: Explain the psychology behind it, fast-paced.
     3. CTA (Last 3 seconds): Force a specific action.
-    Keep it under 60 seconds. Output as JSON: {{"title": "...", "voiceover": "...", "visual_queries": ["...", "..."]}}
+    Keep it under 60 seconds.
+    Output ONLY valid JSON format:
+    {{
+        "title": "...",
+        "voiceover": "...",
+        "scenes": [
+            {{"visual_query": "short description for pexels search"}},
+            {{"visual_query": "short description for pexels search"}}
+        ]
+    }}
     """
 
     response = client.chat.completions.create(
