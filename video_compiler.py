@@ -1,5 +1,5 @@
 """
-video_compiler.py — Elite Production Compositor Engine (PRODUCTION CORE v9.0 - DYNAMIC CAPTIONS)
+video_compiler.py — Elite Production Compositor Engine (PRODUCTION CORE v9.2 - STABLE DYNAMIC CAPTIONS)
 AI Dark Realities · Short-Form Video Pipeline
 ───────────────────────────────────────────────────────────────────────────────────
 """
@@ -15,8 +15,8 @@ from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVide
 warnings.filterwarnings("ignore", category=UserWarning, module="moviepy")
 logger = logging.getLogger(__name__)
 
-def apply_dynamic_motion_scale(clip, zoom_ratio=0.08):
-    """Applies an aggressive yet fluid retention zoom transformation across frames."""
+def apply_dynamic_motion_scale(clip, zoom_ratio=0.06):
+    """Applies a smooth continuous zoom transformation matrix safely across frames."""
     def transform_matrix_frame(get_frame, t):
         frame = get_frame(t)
         h, w, c = frame.shape
@@ -35,15 +35,14 @@ def apply_dynamic_motion_scale(clip, zoom_ratio=0.08):
         
     return clip.fl(transform_matrix_frame)
 
-def apply_text_pop_effect(txt_clip, pop_duration=0.12):
-    """Creates a high-energy kinetic zoom-in pop effect right when the text appears."""
+def apply_text_pop_effect(txt_clip, pop_duration=0.10):
+    """Creates a clean kinetic zoom-in pop effect that locks inside its canvas boundary."""
     def text_filter(get_frame, t):
         frame = get_frame(t)
         h, w, c = frame.shape
         
-        # Max scale up to 1.25x then settle back down rapidly
         if t < pop_duration:
-            scale = 0.5 + (0.75 * (t / pop_duration))
+            scale = 0.6 + (0.4 * (t / pop_duration))
         else:
             scale = 1.0
             
@@ -53,12 +52,10 @@ def apply_text_pop_effect(txt_clip, pop_duration=0.12):
         pil_img = Image.fromarray(frame)
         resized_img = pil_img.resize((new_w, new_h), Image.Resampling.BICUBIC)
         
-        # Pad back to original dimensions to keep coordinates locked
         out_frame = np.zeros((h, w, c), dtype=np.uint8)
         pad_x = max(0, (w - new_w) // 2)
         pad_y = max(0, (h - new_h) // 2)
         
-        # Overlay the scaled text safely onto the canvas matrix
         render_w = min(new_w, w - pad_x)
         render_h = min(new_h, h - pad_y)
         out_frame[pad_y:pad_y+render_h, pad_x:pad_x+render_w] = np.array(resized_img)[0:render_h, 0:render_w]
@@ -76,7 +73,7 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_file_
     bgm_clip = None
     if bgm_file_path and os.path.exists(bgm_file_path) and os.path.getsize(bgm_file_path) > 20000:
         try:
-            bgm_clip = AudioFileClip(bgm_file_path).loop(duration=duration).volumex(0.04)
+            bgm_clip = AudioFileClip(bgm_file_path).loop(duration=duration).volumex(0.05)
             final_audio = CompositeAudioClip([voice_clip, bgm_clip])
         except Exception as audio_err:
             final_audio = CompositeAudioClip([voice_clip])
@@ -87,7 +84,8 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_file_
     TARGET_HEIGHT = 1920
 
     processed_clips = []
-    clip_slice_duration = max(2.2, duration / max(1, len(video_clips_paths)))
+    # Dynamic clip slice calculation to align with voice length
+    clip_slice_duration = max(2.5, duration / max(1, len(video_clips_paths)))
 
     for path in video_clips_paths:
         if not path or not os.path.exists(path):
@@ -100,16 +98,16 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_file_
             clip_cropped = clip_resized.crop(x1=x_center - (TARGET_WIDTH // 2), y1=0, 
                                              x2=x_center + (TARGET_WIDTH // 2), y2=TARGET_HEIGHT)
             
-            motion_clip = apply_dynamic_motion_scale(clip_cropped, zoom_ratio=0.07)
+            motion_clip = apply_dynamic_motion_scale(clip_cropped, zoom_ratio=0.05)
             processed_clips.append(motion_clip)
         except Exception as clip_err:
-            logger.error(f"⚠️ Discarding faulty node vector: {clip_err}")
+            logger.error(f"⚠️ Clip mapping issue: {clip_err}")
 
     if not processed_clips:
         from moviepy.editor import ColorClip
-        processed_clips.append(ColorClip(size=(TARGET_WIDTH, TARGET_HEIGHT), color=(12, 12, 12)).set_duration(duration))
+        processed_clips.append(ColorClip(size=(TARGET_WIDTH, TARGET_HEIGHT), color=(15, 15, 15)).set_duration(duration))
 
-    base_stitched = concatenate_videoclips(processed_clips, method="chain")
+    base_stitched = concatenate_videoclips(processed_clips, method="compose")
     stitched_video = base_stitched.loop(duration=duration)
 
     font_asset_path = "fonts/AmericanCaptain-MdEY.otf"
@@ -120,14 +118,13 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_file_
     word_timings = voiceover_data["word_timings"]
     chunk_size = 2 
     
-    # Pre-defined safe vertical anchors for dynamic positioning (Top, Center, Bottom)
+    # Precise, non-overlapping target zones
     vertical_positions = [
-        TARGET_HEIGHT * 0.25,  # Top Alert Zone
-        TARGET_HEIGHT * 0.48,  # Core Center Focus
-        TARGET_HEIGHT * 0.68   # Standard Lower Retention Zone
+        int(TARGET_HEIGHT * 0.22),  # Clean Top Focus
+        int(TARGET_HEIGHT * 0.46),  # Clean Center Focus
+        int(TARGET_HEIGHT * 0.70)   # Clean Lower Focus
     ]
     
-    # Keep track of last position to avoid repeating the same spot twice in a row
     last_pos = -1
 
     for i in range(0, len(word_timings), chunk_size):
@@ -139,34 +136,33 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_file_
         start_time = chunk[0]["start"]
         end_time = min(chunk[-1]["end"], duration)
         
+        # Color matrix selection logic
         text_color = "#FFFFFF"
-        if i % 4 == 0:
-            text_color = "#00FF00"  # Green pop
-        if any(k in chunk_text for k in ["PHONE", "DARK", "MIND", "TRAP", "CONTROL", "WATCHING", "ADDICTION", "PSYCHOLOGY", "YOU"]):
-            text_color = "#FFFF00"  # Attention-grabbing yellow
+        if i % 3 == 0:
+            text_color = "#00FF00"  # Viral Emerald
+        if any(k in chunk_text for k in ["PHONE", "DARK", "MIND", "TRAP", "CONTROL", "WATCHING", "ADDICTION", "PSYCHOLOGY", "YOU", "TOOL"]):
+            text_color = "#FFFF00"  # Retention Yellow
 
-        # Pick a different random position matrix for each chunk layer
+        # Avoid choosing the exact same position consecutively
         available_positions = [p for idx, p in enumerate(vertical_positions) if idx != last_pos]
         chosen_y = random.choice(available_positions)
         last_pos = vertical_positions.index(chosen_y)
 
         try:
-            # Generate the text block
-            txt_clip = (TextClip(chunk_text, font=font_asset_path, fontsize=92, color=text_color, 
-                                 stroke_color="black", stroke_width=7.0, method="caption",
+            # Clean boundary text block generation
+            txt_clip = (TextClip(chunk_text, font=font_asset_path, fontsize=95, color=text_color, 
+                                 stroke_color="black", stroke_width=6.0, method="caption",
                                  size=(TARGET_WIDTH - 240, None))
                         .set_start(start_time)
                         .set_end(end_time))
             
-            # Apply the text zoom/pop animation node
-            animated_txt = apply_text_pop_effect(txt_clip, pop_duration=0.10)
-            
-            # Position it at center-x and dynamically changing-y
+            # Apply pop and position cleanly
+            animated_txt = apply_text_pop_effect(txt_clip, pop_duration=0.08)
             positioned_txt = animated_txt.set_position(('center', chosen_y))
             
             text_clips.append(positioned_txt)
         except Exception as text_err:
-            logger.error(f"❌ Subtitle layer frame drops [{chunk_text}]: {text_err}")
+            logger.error(f"❌ Subtitle compile drop [{chunk_text}]: {text_err}")
 
     final_composite = CompositeVideoClip([stitched_video] + text_clips, size=(TARGET_WIDTH, TARGET_HEIGHT)).set_audio(final_audio)
 
@@ -176,12 +172,13 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_file_
         fps=30,
         codec="libx264",
         audio_codec="aac",
-        bitrate="6500k",
+        bitrate="7000k",
         threads=4,
         preset="ultrafast",
         logger=None
     )
 
+    # Memory Flush Sequence to prevent freeze drops
     final_composite.close()
     stitched_video.close()
     base_stitched.close()
@@ -190,4 +187,4 @@ def compile_final_video(video_clips_paths: list, voiceover_data: dict, bgm_file_
         except: pass
     voice_clip.close()
     if bgm_clip: bgm_clip.close()
-    logger.info("✅ Render sequence compiled with Full Dynamic Pop Captions.")
+    logger.info("✅ Render process executed cleanly.")
