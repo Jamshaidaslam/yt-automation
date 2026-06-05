@@ -131,7 +131,7 @@ def generate_script(topic: str):
     
 import random
 
-def pick_topic_for_run():
+    def pick_topic_for_run():
     """Selects a random topic from the pool."""
-    from script_generator import TOPIC_POOL # Import here to avoid circularity
+    # Direct access, no need to re-import
     return random.choice(TOPIC_POOL)["topic"]
