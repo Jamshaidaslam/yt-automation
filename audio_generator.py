@@ -1,5 +1,5 @@
 """
-audio_generator.py — Production Voice Synthesis Layer (PRODUCTION ENGINE v2.6 - TIMING FIXED)
+audio_generator.py — Production Voice Synthesis Layer (PRODUCTION ENGINE v2.7 - RE IMPORT FIXED)
 AI Dark Realities · Short-Form Video Pipeline
 ───────────────────────────────────────────────────────────────────────────────────
 """
@@ -8,6 +8,7 @@ import os
 import logging
 import requests
 import asyncio
+import re  # ✅ FIXED: Added missing regex module import
 from pathlib import Path
 import edge_tts
 
@@ -21,13 +22,15 @@ def generate_voiceover(text_script: str, output_filename: str, voice_type: str =
     target_audio_path = output_dir / f"{output_filename}.mp3"
 
     if target_audio_path.exists():
-        try: target_audio_path.unlink()
-        except Exception as ce: logger.warning(f"⚠️ Clear audio cache failed: {ce}")
+        try: 
+            target_audio_path.unlink()
+        except Exception as ce: 
+            logger.warning(f"⚠️ Clear audio cache failed: {ce}")
 
     # Voice ID Mapping - USA Dramatic Tone
     voice_id = "en-US-ChristopherNeural" if voice_type == "guy_dark" else "en-US-GuyNeural"
     
-    # Run Edge-TTS natively to generate real cinematic pacing (no rush)
+    # Run Edge-TTS natively to generate real cinematic pacing (Natural Speed)
     async def _render_tts():
         communicate = edge_tts.Communicate(text_script, voice_id, rate="-4%", pitch="-2Hz")
         await communicate.save(target_audio_path)
@@ -44,18 +47,17 @@ def generate_voiceover(text_script: str, output_filename: str, voice_type: str =
     word_timings = []
     current_time = 0.0
     
-    # 35-55s balance metrics spacing allocation
+    # Natural speaking pace calculations (Fixes rushing/fast audio)
     for word in words:
         clean_word = re.sub(r'[^\w\s]', '', word)
-        word_duration = 0.45 if len(clean_word) > 5 else 0.32
+        word_duration = 0.48 if len(clean_word) > 5 else 0.35
         word_timings.append({
             "word": word,
             "start": round(current_time, 2),
             "end": round(current_time + word_duration, 2)
         })
-        current_time += word_duration + 0.05
+        current_time += word_duration + 0.06
 
-    # Force clip duration match update
     from moviepy.editor import AudioFileClip
     try:
         real_duration = AudioFileClip(str(target_audio_path)).duration
