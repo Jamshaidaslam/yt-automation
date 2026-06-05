@@ -1,5 +1,5 @@
 """
-script_generator.py — VIRAL DOMINATION ENGINE v3.0
+script_generator.py — VIRAL DOMINATION ENGINE v3.0 (USA/UK STABLE HIGH RETENTION)
 """
 import json
 import os
@@ -10,7 +10,7 @@ from groq import Groq
 logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 120 VIRAL TOPIC POOL
+# 120 VIRAL TOPIC POOL (Mukammal Safe aur Unchanged)
 # ═══════════════════════════════════════════════════════════════════════════════
 TOPIC_POOL = [
     {
@@ -110,25 +110,37 @@ TOPIC_POOL = [
 
 def generate_script(topic: str):
     """
-    Uses Groq AI to generate a viral script based on the hook formula.
+    Uses Groq AI to generate a viral script based on the hook formula with strict aesthetic blocks.
     """
     client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
-    # FIX: Prompt mein 'scenes' key demand ki hai taake main.py crash na ho
+    # Dynamic pool mapping to inject exact metadata context without losing anything
+    matched_meta = next((item for item in TOPIC_POOL if item["topic"] == topic), None)
+    pool_cta = matched_meta["cta"] if matched_meta else "Follow for more dark secrets."
+    pool_theme = matched_meta["scenes_theme"] if matched_meta else "dark psychology eyes"
+
+    # Strict system block injected to enforce hypnotic b-rolls and block office assets
     prompt = f"""
-    Write a viral TikTok/Shorts script for this topic: "{topic}".
-    Follow this structure:
-    1. HOOK (First 3 seconds): Must be aggressive, controversial, or revealing.
-    2. BODY: Explain the psychology behind it, fast-paced.
-    3. CTA (Last 3 seconds): Force a specific action.
-    Keep it under 60 seconds.
-    Output ONLY valid JSON format:
+    Write an elite viral TikTok/Shorts script for USA/UK audiences based on this topic: "{topic}".
+    
+    CRITICAL STRUCTURE MATRIX:
+    1. HOOK (First 3 seconds): Must be aggressive, fast-paced, psychological, or revealing.
+    2. BODY: Explain the deep dark psychology or body language behind it. Keep it engaging.
+    3. CTA (Last 3 seconds): You MUST end the voiceover text naturally with this exact call to action phrase: "{pool_cta}".
+    
+    B-ROLL ASSET SEARCH INSTRUCTIONS:
+    - You MUST output exactly 3 scenes.
+    - Each 'visual_query' MUST be explicitly related to these keywords: {pool_theme}, dark psychology, neon brains, macro eyes, pupil dilation, shadows.
+    - STRICT BAN: Never include keywords like 'office', 'meeting', 'corporate', 'happy business team', or 'bright casual conversation'. Keep it cinematic, raw, and mysterious.
+
+    Output ONLY a valid JSON object format:
     {{
-        "title": "...",
-        "voiceover": "...",
+        "title": "Short title highlighting the psychological trap",
+        "voiceover": "Full narrative script including the hook, body, and the absolute final CTA text.",
         "scenes": [
-            {{"visual_query": "short description for pexels search"}},
-            {{"visual_query": "short description for pexels search"}}
+            {{"visual_query": "macro portrait close up of serious dark eyes staring"}},
+            {{"visual_query": "shadowy silhouette figure in a dark foggy room mystery"}},
+            {{"visual_query": "cinematic neon glowing brain synapses glitching visualization"}}
         ]
     }}
     """
@@ -138,6 +150,7 @@ def generate_script(topic: str):
         model="llama-3.3-70b-versatile",
         response_format={"type": "json_object"}
     )
+    
     return json.loads(response.choices[0].message.content)
 
 def pick_topic_for_run():
