@@ -1,5 +1,5 @@
 """
-main.py — Master Automation Executive Workflow (PRODUCTION ENGINE v5.0 - PATH MATRIX SYNC)
+main.py — Master Automation Executive Workflow (v5.5 - MULTI-TUNNEL BACKUP)
 AI Dark Realities · Short-Form Video Pipeline
 ───────────────────────────────────────────────────────────────────────────────────
 """
@@ -30,7 +30,6 @@ FINAL_OUTPUT_DIR = Path("output/final_videos")
 BGM_INPUT_DIR = Path("assets/bgm")
 
 def clean_production_environment():
-    logger.info("🧹 Performing complete media cache clean reset...")
     MEDIA_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     FINAL_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     BGM_INPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -88,70 +87,87 @@ def dynamic_auto_music_downloader() -> str:
     return ""
 
 def deploy_temporary_public_url(file_path):
-    logger.info("🌐 Mapping binary video block to public cloud tunnel...")
+    """Deploys with dual-tunnel automated failover redundancy for Meta Graph API compliance."""
+    logger.info("🌐 Mapping binary video block to primary cloud tunnel (file.io)...")
     try:
         with open(file_path, 'rb') as f:
             response = requests.post('https://file.io/?expires=1d', files={'file': f})
             data = response.json()
             if data.get('success'):
                 return data.get('link')
-            else:
-                raise RuntimeError(f"Cloud mapping failed: {data}")
+    except:
+        logger.warning("⚠️ Primary tunnel failed. Initializing secondary backup cluster (tmpfiles.org)...")
+        
+    try:
+        # Secondary backup engine endpoint if file.io is down or ratelimited
+        with open(file_path, 'rb') as f:
+            res = requests.post('https://tmpfiles.org/api/v1/upload', files={'file': f})
+            data = res.json()
+            if res.status_code == 200 and 'data' in data:
+                # Convert standard view URL to direct absolute download stream link
+                url = data['data']['url']
+                return url.replace("tmpfiles.org/", "tmpfiles.org/dl/")
     except Exception as e:
-        logger.error(f"❌ Critical temporary hosting error: {e}")
-        return None
+        logger.error(f"❌ All public cloud tunnels exhausted: {e}")
+    return None
 
 def execute_pipeline(topic: str):
     logger.info("🔥 Activating Automated High Retention Workflow...")
     try:
         clean_production_environment()
         
-        # 1. Script Generation
+        # 1. Script Node
         script_data = generate_script(topic)
         
-        # 2. Audio Generation (SSML Pitch Shifts + SubMaker Sync)
-        # Dynamic variable mapping saves directly to output/media/temp_voice_stream.mp3
+        # 2. Audio Node
         voiceover_payload = generate_voiceover(script_data["voiceover"], "temp_voice_stream", voice_type="guy_dark")
         
-        # 3. Download Media B-Roll Assets
+        # 3. Media Download
         video_clips_paths = download_live_pexels_broll(script_data["scenes"])
         resolved_bgm_path = dynamic_auto_music_downloader()
 
-        # 4. Rendering Step
+        # 4. Compiler Core Render
         output_video_file = FINAL_OUTPUT_DIR / "final_dark_short_output.mp4"
         compile_final_video(video_clips_paths, voiceover_payload, resolved_bgm_path, str(output_video_file))
 
         if not (output_video_file.exists() and output_video_file.stat().st_size > 0):
             raise FileNotFoundError("Render payload missing.")
             
-        logger.info("✨ VIDEO PIPELINE COMPILED. Triggering Distribution Node...")
+        logger.info("✨ VIDEO PIPELINE COMPILED. Triggering Distribution Channels...")
 
         title = script_data.get("title", "The Dark Truth")
         caption = f"{title}\n\n#darkpsychology #manipulation #mindcontrol #shorts #reels"
         tags = ["dark psychology", "shorts", "reels", "manipulation"]
 
-        # --- YouTube Upload ---
-        try:
-            upload_to_youtube(str(output_video_file), title, caption, tags)
-        except Exception as yt_err:
-            logger.error(f"❌ YouTube upload skipped: {yt_err}")
+        # --- YouTube Module ---
+        if os.path.exists("token.pickle"):
+            logger.info("📡 Dispatching asset stream to YouTube Data API pipeline...")
+            try:
+                upload_to_youtube(str(output_video_file), title, caption, tags)
+            except Exception as yt_err:
+                logger.error(f"❌ YouTube upload crashed: {yt_err}")
+        else:
+            logger.warning("⚠️ token.pickle was not found on the workspace. YouTube deployment skipped.")
 
-        # --- Instagram Upload ---
+        # --- Instagram Module ---
         insta_id = os.getenv("INSTAGRAM_ACCOUNT_ID")
         meta_token = os.getenv("META_ACCESS_TOKEN")
         
         if insta_id and meta_token:
             public_video_url = deploy_temporary_public_url(str(output_video_file))
             if public_video_url:
+                logger.info("📡 Dispatching asset stream to Meta Graph Cloud Matrix...")
                 try:
                     upload_to_instagram(public_video_url, caption, insta_id, meta_token)
                 except Exception as meta_err:
-                    logger.error(f"❌ Meta Reels upload skipped: {meta_err}")
+                    logger.error(f"❌ Meta Reels upload crashed: {meta_err}")
             else:
-                logger.error("❌ Instagram upload aborted: Cloud URL tunnel returned None.")
+                logger.error("❌ Instagram upload skipped: Public file link generation failed.")
+        else:
+            logger.warning("⚠️ Meta environment credentials missing from secrets setup. Instagram skipped.")
 
     except Exception as e:
-        logger.critical("🚨 PIPELINE CRASHED!", exc_info=True)
+        logger.critical("🚨 MASTER PIPELINE CRASHED!", exc_info=True)
         sys.exit(1)
 
 if __name__ == "__main__":
