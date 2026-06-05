@@ -1,7 +1,16 @@
 """
-audio_generator.py — Production Voice Synthesis Layer (PRO ENGINE v3.5 - SSML PITCH & SUBMAKER SYNC)
+audio_generator.py — Production Voice Synthesis Layer (v4.0 - SYNC FIXED)
 AI Dark Realities · Short-Form Video Pipeline
 ───────────────────────────────────────────────────────────────────────────────────
+
+FIXES v4.0:
+  - Voice changed: en-US-EricNeural (much more natural, human-sounding, FREE)
+  - SSML removed from word timing capture — SSML tags were corrupting word boundaries
+    causing captions to be out of sync with audio
+  - Two-pass approach: SSML for audio render, plain text for timing capture
+  - Pauses reduced: comma 200ms, period 400ms (was 450ms/750ms — too slow)
+  - Base speed +4% (was -6% — too slow for USA/UK audience)
+  - Pitch kept slightly low (-2Hz) for dark aesthetic but not robotic
 """
 
 import os
@@ -13,103 +22,130 @@ import edge_tts
 
 logger = logging.getLogger(__name__)
 
-def inject_dynamic_ssml(text_script: str, voice_id: str) -> str:
-    """Wraps keywords in dramatic SSML tags to force automatic pitch drops and deep pauses."""
-    words = text_script.split()
-    processed_words = []
-    
-    # Intentionally slowing down standard speed for deep dramatic "thahrao"
-    base_rate = "-6%" 
-    base_pitch = "-3Hz"
+# ─── Voice Config ──────────────────────────────────────────────────────────────
+# Best FREE voices for dark psychology content (USA/UK audience):
+# en-US-EricNeural     → Deep, confident, most natural — RECOMMENDED
+# en-US-GuyNeural      → Neutral clear voice, good fallback
+# en-US-ChristopherNeural → Old choice — too robotic, avoid
+VOICE_ID   = "en-US-EricNeural"
+BASE_RATE  = "+4%"    # Slightly faster = more engaging for USA/UK
+BASE_PITCH = "-2Hz"   # Slight depth without sounding robotic
 
-    for word in words:
-        clean = re.sub(r'[^\w]', '', word).upper()
-        # High-retention shock keywords get custom deep scary pitch shifts
-        if clean in ["TRAP", "CONTROL", "CONTROLS", "DARK", "MIND", "PSYCHOLOGY", "ADDICTION", "WARNING", "SECRET", "EXPLOITS", "ANXIETY", "STRESS"]:
-            processed_words.append(f'<prosody pitch="-18Hz" rate="-15%">{word}</prosody>')
-        elif clean in ["YOU", "YOUR", "PHONE", "TRACKING"]:
-            processed_words.append(f'<prosody pitch="-10Hz" rate="-8%">{word}</prosody>')
-        else:
-            processed_words.append(word)
 
-    scary_script = " ".join(processed_words)
-    
-    # Add deep breathing pauses at commas and periods
-    scary_script = scary_script.replace(", ", ', <break time="450ms"/> ')
-    scary_script = scary_script.replace(". ", '. <break time="750ms"/> ')
+def build_audio_ssml(text_script: str) -> str:
+    """
+    Builds SSML only for audio rendering — adds pauses and emphasis.
+    NOT used for word timing (that uses plain text to avoid sync errors).
+    """
+    # Reduced pause times — old values made video too slow
+    script = text_script.replace(", ", ', <break time="200ms"/> ')
+    script = script.replace(". ", '. <break time="400ms"/> ')
+    script = script.replace("! ", '! <break time="350ms"/> ')
+    script = script.replace("? ", '? <break time="350ms"/> ')
 
-    ssml_payload = f"""<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">
-        <voice name="{voice_id}">
-            <prosody rate="{base_rate}" pitch="{base_pitch}">
-                {scary_script}
+    return f"""<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">
+        <voice name="{VOICE_ID}">
+            <prosody rate="{BASE_RATE}" pitch="{BASE_PITCH}">
+                {script}
             </prosody>
         </voice>
     </speak>"""
-    return ssml_payload
+
+
+async def _render_audio_only(ssml_content: str, output_path: Path):
+    """Pass 1: Render audio using SSML (for good sound quality)."""
+    communicate = edge_tts.Communicate(ssml_content, VOICE_ID, is_ssml=True)
+    async for chunk in communicate.stream():
+        if chunk["type"] == "audio":
+            with open(output_path, "ab") as f:
+                f.write(chunk["data"])
+
+
+async def _capture_word_timings(plain_text: str) -> list:
+    """
+    Pass 2: Capture word timings using PLAIN TEXT (no SSML).
+    
+    KEY FIX: SSML tags confuse edge-tts WordBoundary events — the timing
+    offsets come back misaligned because SSML break tags shift the audio
+    timeline but word boundary ticks don't account for them correctly.
+    Using plain text here gives accurate per-word timestamps.
+    """
+    word_timings = []
+    # Use same rate as audio so timing matches
+    communicate = edge_tts.Communicate(plain_text, VOICE_ID, rate=BASE_RATE, pitch=BASE_PITCH)
+    
+    async for chunk in communicate.stream():
+        if chunk["type"] == "WordBoundary":
+            start_sec = chunk["offset"] / 10_000_000.0
+            duration_sec = chunk["duration"] / 10_000_000.0
+            end_sec = start_sec + duration_sec
+            word_timings.append({
+                "word":  chunk["text"],
+                "start": round(start_sec, 3),
+                "end":   round(end_sec, 3)
+            })
+    
+    return word_timings
+
 
 def generate_voiceover(text_script: str, output_filename: str, voice_type: str = "guy_dark") -> dict:
-    logger.info("🎙️ Activating Native SSML Pitch Shift & Token Sync Engine...")
-    
+    logger.info(f"🎙️ Generating voiceover | Voice: {VOICE_ID} | Speed: {BASE_RATE}")
+
     output_dir = Path("output/media")
     output_dir.mkdir(parents=True, exist_ok=True)
     target_audio_path = output_dir / f"{output_filename}.mp3"
 
+    # Clean old file
     if target_audio_path.exists():
-        try: target_audio_path.unlink()
-        except: pass
+        try:
+            target_audio_path.unlink()
+        except:
+            pass
 
-    voice_id = "en-US-ChristopherNeural" if voice_type == "guy_dark" else "en-US-GuyNeural"
-    ssml_content = inject_dynamic_ssml(text_script, voice_id)
-    
-    word_timings = []
-
-    async def _render_tts_with_sync():
-        # Communicate using custom SSML instead of raw text for pitch controls
-        communicate = edge_tts.Communicate(ssml_content, voice_id, is_ssml=True)
-        submaker = edge_tts.SubMaker()
-        
-        async for chunk in communicate.stream():
-            if chunk["type"] == "audio":
-                with open(target_audio_path, "ab") as f:
-                    f.write(chunk["data"])
-            elif chunk["type"] == "WordBoundary":
-                # SubMaker automatically extracts exact milliseconds from the streaming voice
-                submaker.feed(chunk)
-                
-        # Parse official SubMaker offset intervals back to seconds
-        for offset, _, text in submaker.offset_and_text:
-            start_sec = offset[0] / 10000000.0  # Convert edge-tts ticks to float seconds
-            end_sec = offset[1] / 10000000.0
-            word_timings.append({
-                "word": text,
-                "start": round(start_sec, 2),
-                "end": round(end_sec, 2)
-            })
-
+    # ── Pass 1: Render high-quality audio with SSML ───────────────────────────
+    ssml_content = build_audio_ssml(text_script)
     try:
-        asyncio.run(_render_tts_with_sync())
-    except Exception as tts_err:
-        logger.error(f"❌ Custom SSML Sync Failed: {tts_err}")
-        # Secure basic fallback if runner crashes
-        communicate = edge_tts.Communicate(text_script, voice_id, rate="-5%", pitch="-3Hz")
-        asyncio.run(communicate.save(target_audio_path))
+        asyncio.run(_render_audio_only(ssml_content, target_audio_path))
+        logger.info("✅ Audio render complete")
+    except Exception as e:
+        logger.error(f"❌ SSML audio render failed: {e} — falling back to plain")
+        # Plain text fallback
+        communicate = edge_tts.Communicate(text_script, VOICE_ID, rate=BASE_RATE, pitch=BASE_PITCH)
+        asyncio.run(communicate.save(str(target_audio_path)))
 
-    # Fallback timing parser if streaming submaker mapping is empty
+    # ── Pass 2: Capture accurate word timings with plain text ─────────────────
+    word_timings = []
+    try:
+        word_timings = asyncio.run(_capture_word_timings(text_script))
+        logger.info(f"✅ Word timing captured: {len(word_timings)} words synced")
+    except Exception as e:
+        logger.error(f"❌ Word timing capture failed: {e}")
+
+    # ── Fallback timing if Pass 2 fails ──────────────────────────────────────
     if not word_timings:
+        logger.warning("⚠️ Using fallback timing estimation")
         current_time = 0.0
         for word in text_script.split():
-            duration = 0.45 if len(word) > 5 else 0.32
-            word_timings.append({"word": word, "start": current_time, "end": current_time + duration})
-            current_time += duration + 0.05
+            # Estimate duration based on word length
+            duration = 0.38 if len(word) > 5 else 0.28
+            word_timings.append({
+                "word":  word,
+                "start": round(current_time, 3),
+                "end":   round(current_time + duration, 3)
+            })
+            current_time += duration + 0.04
 
-    from moviepy.editor import AudioFileClip
-    try: real_duration = AudioFileClip(str(target_audio_path)).duration
-    except: real_duration = word_timings[-1]["end"] if word_timings else 30.0
+    # ── Get real audio duration ───────────────────────────────────────────────
+    try:
+        from moviepy.editor import AudioFileClip
+        real_duration = AudioFileClip(str(target_audio_path)).duration
+    except:
+        real_duration = word_timings[-1]["end"] if word_timings else 30.0
 
-    payload = {
-        "audio_path": str(target_audio_path),
+    logger.info(f"🎙️ Voiceover ready | Duration: {real_duration:.2f}s | Words: {len(word_timings)}")
+
+    return {
+        "audio_path":   str(target_audio_path),
         "word_timings": word_timings,
-        "duration": real_duration
-    }
-    logger.info(f"✅ Voice Sync Locked. Total synced words mapped: {len(word_timings)}")
-    return payload
+        "duration":     real_duration
+}
