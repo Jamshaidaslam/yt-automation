@@ -164,14 +164,18 @@ def generate_script(topic: str):
     
     JSON STRUCTURE:
     {{
-        "title": "4-5 words MAX. Use YOU/YOUR. No forbidden words. Count words strictly.",
+        "title": "4-5 words MAX. Use YOU/YOUR. No forbidden words.",
+        "description": "100-120 words. Viral hook, insight, call to action, 5 hashtags.",
+        "tags": "15 comma-separated viral tags.",
         "voiceover": "Fast-paced, dark rhythm. YOU density locked. Start with YOU punch. End with {pool_cta}",
         "scenes": [
             {{"visual_query": "{pool_theme}, macro close up, staring at YOU"}},
             {{"visual_query": "{pool_theme}, pupil dilation macro"}},
             {{"visual_query": "mirror reflection of eyes looking at YOU"}},
             {{"visual_query": "phone camera POV eyes looking at viewer"}}
-        ]
+        ],
+        "thumbnail_line1": "2 words MAX. YOU + POWER WORD.",
+        "thumbnail_line2": "2 words MAX. VERB + YOU/YOUR."
     }}
     """
 
