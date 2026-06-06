@@ -1,5 +1,5 @@
 """
-main.py — Automated Production Executive Matrix (v10.8 - WORKFLOW PARAMETER LOCK)
+main.py — Automated Production Executive Matrix (v10.9 - DISPATCH MATRIX LOCK)
 AI Dark Realities · Short-Form Video Pipeline
 ───────────────────────────────────────────────────────────────────────────────────
 """
@@ -109,11 +109,15 @@ def execute_pipeline(topic: str = "", skip_upload: bool = False):
         # 3. Dynamic B-Roll Fetch Engine
         video_clips_paths = download_live_pexels_broll(script_data.get("scenes", []))
         
-        # --- FRAME TRAP INJECTION (Thumbnail as Intro) ---
-        hook_text = f"{script_data.get('thumbnail_line1', 'WATCH NOW')} {script_data.get('thumbnail_line2', 'SEE TRUTH')}"
+        # --- FIXED RE-ROUTE: FRAME TRAP INJECTION WITH MULTI-LINE PARAMETERS ---
+        keyword_query = "dark psychology eyes"
+        if script_data.get("scenes") and len(script_data["scenes"]) > 0:
+            keyword_query = script_data["scenes"][0].get("visual_query", keyword_query)
+
         thumb_path = generate_professional_thumbnail(
-            keyword=script_data["scenes"][0]["visual_query"],
-            hook_text=hook_text,
+            keyword=keyword_query,
+            line1=script_data.get('thumbnail_line1', 'WATCH NOW'),
+            line2=script_data.get('thumbnail_line2', 'SEE TRUTH'),
             output_stem="frame_trap"
         )
 
@@ -122,7 +126,7 @@ def execute_pipeline(topic: str = "", skip_upload: bool = False):
             intro_clip = MEDIA_CACHE_DIR / "intro_trap.mp4"
             os.system(f'ffmpeg -y -loop 1 -i "{thumb_path}" -t 0.5 -vf "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2" -c:v libx264 -pix_fmt yuv420p "{intro_clip}" > /dev/null 2>&1')
             video_clips_paths.insert(0, str(intro_clip))
-        # --------------------------------------------------
+        # -----------------------------------------------------------------------
 
         # 4. Hollywood Style Short-Form Video Compositor
         output_video_file = FINAL_OUTPUT_DIR / "final_dark_short_output.mp4"
@@ -144,10 +148,11 @@ def execute_pipeline(topic: str = "", skip_upload: bool = False):
 
             logger.info("🛰️ Initializing Automatic Social Media Upload Matrix...")
             
+            # Map dynamic AI fields to SEO Engine Structure
             seo_payload = {
                 "title": script_data.get("title", topic),
                 "description": script_data.get("description", "Watch till the end."),
-                "hashtags": ["#darkpsychology", "#manipulation", "#psychologyfacts", "#shorts"]
+                "hashtags": [t.strip() for t in script_data.get("tags", "#darkpsychology,#shorts").split(",") if t.strip()]
             }
             
             if os.path.exists("uploader.py"):
