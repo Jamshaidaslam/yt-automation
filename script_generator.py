@@ -189,8 +189,10 @@ def generate_script(topic: str):
         
         content = response.choices[0].message.content
         # v4.1 Atomic Fix
-        content = content.replace("```json", "").replace("
-```", "").strip()
+        content = response.choices[0].message.content
+        # v4.1 Atomic Fix
+        content = content.replace("```json", "").replace("```", "").strip()
+        
         if not content.startswith('{'):
             content = content[content.find('{'):]
             
