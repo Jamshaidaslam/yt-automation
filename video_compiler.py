@@ -16,10 +16,10 @@ warnings.filterwarnings("ignore", category=UserWarning, module="moviepy")
 logger = logging.getLogger(__name__)
 
 # ─── VIRAL SETTINGS ──────────────────────────────────────────────────────────
-CAPTION_Y_PX = 1380          # Fixed Y position for mobile safe zone
-CAPTION_FONT_SIZE = 72
-CAPTION_COLOR = "#FFFFFF"
-CAPTION_HIGHLIGHT_COLOR = "#FF073A"  # Neon Red for impact
+CAPTION_Y_PX = 1300          # Fixed Y position for mobile safe zone
+CAPTION_FONT_SIZE = 82
+CAPTION_COLOR = "#FFD700"
+CAPTION_HIGHLIGHT_COLOR = "#FFFF00"  # Neon Red for impact
 HIGHLIGHT_KEYWORDS = {
     "TRAP", "TRAPPED", "DARK", "SECRET", "SECRETS", "CONTROL", "CONTROLS",
     "MANIPULATE", "MANIPULATION", "DOPAMINE", "ADDICTED", "ADDICTION",
@@ -92,7 +92,7 @@ def compile_final_video(video_clips_paths, voiceover_data, bgm_file_path, output
         
         txt_clip = TextClip(
             txt, font=font, fontsize=CAPTION_FONT_SIZE, 
-            color=color, stroke_color="black", stroke_width=7, 
+            color=color, stroke_color="black", stroke_width=9, 
             size=(880, None), method="caption"
         )
         
