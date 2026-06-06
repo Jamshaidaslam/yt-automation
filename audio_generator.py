@@ -1,5 +1,5 @@
 """
-audio_generator.py — Production Voice Synthesis Layer (v5.1 - ZERO-FAIL SYNC LOCK)
+audio_generator.py — Production Voice Synthesis Layer (v5.2 - STREAMING SYNC REPAIR)
 AI Dark Realities · Short-Form Video Pipeline
 ───────────────────────────────────────────────────────────────────────────────────
 """
@@ -48,43 +48,15 @@ def apply_podcast_filter(input_path: Path, output_path: Path) -> bool:
             logger.info("✅ Podcast filter applied successfully")
             return True
         else:
-            logger.warning(f"⚠️ ffmpeg filter failed — using raw audio")
+            logger.warning("⚠️ ffmpeg filter failed — using raw audio")
             return False
     except (FileNotFoundError, subprocess.TimeoutExpired) as e:
         logger.warning(f"⚠️ ffmpeg not available: {e} — using raw audio")
         return False
 
 
-async def _extract_boundaries_fallback(plain_text: str) -> list:
-    """Dedicated secondary pass to extract word boundaries if the primary stream misses them."""
-    word_timings = []
-    communicate = edge_tts.Communicate(plain_text, VOICE_ID, rate=BASE_RATE, pitch=BASE_PITCH)
-    accumulated_pause = 0.0
-    
-    async for chunk in communicate.stream():
-        if chunk["type"] == "WordBoundary":
-            start_sec = (chunk["offset"] / 10_000_000.0) + accumulated_pause
-            duration_sec = chunk["duration"] / 10_000_000.0
-            word_clean = chunk["text"]
-            
-            break_duration = 0.0
-            if word_clean.endswith(".") or word_clean.endswith("!") or word_clean.endswith("?"):
-                break_duration = 0.55
-            elif word_clean.endswith(","):
-                break_duration = 0.30
-                
-            word_timings.append({
-                "word": word_clean.upper(),
-                "start": round(start_sec, 3),
-                "end": round(start_sec + duration_sec, 3)
-            })
-            accumulated_pause += break_duration
-            
-    return word_timings
-
-
 def generate_voiceover(text_script: str, output_filename: str, voice_type: str = "guy_dark") -> dict:
-    logger.info(f"🎙️ Activating Zero-Fail Sync Stream Matrix...")
+    logger.info("🎙️ Activating Zero-Fail Sync Stream Matrix...")
 
     output_dir = Path("output/media")
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -102,35 +74,34 @@ def generate_voiceover(text_script: str, output_filename: str, voice_type: str =
     clean_text_stream = " ".join(clean_text_stream.strip().split())
 
     word_timings = []
-    
-    # Pass 1: Render High-Quality Voice Track Natively
-    try:
+
+    async def run_combined_stream():
         communicate = edge_tts.Communicate(clean_text_stream, VOICE_ID, rate=BASE_RATE, pitch=BASE_PITCH)
-        
-        async def run_audio_save():
-            async for chunk in communicate.stream():
-                if chunk["type"] == "audio":
-                    with open(raw_audio_path, "ab") as f:
-                        f.write(chunk["data"])
-                elif chunk["type"] == "WordBoundary" and len(word_timings) < 5:
-                    # Collect early boundaries if available
-                    pass
+        # Single-pass parsing: Audio aur Timestamps aik sath fetch honge
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                with open(raw_audio_path, "ab") as f:
+                    f.write(chunk["data"])
+            elif chunk["type"] == "WordBoundary":
+                # Naye Edge-TTS mapping objects ko standard coordinate dictionaries me convert karein
+                start_sec = chunk.get("offset", 0) / 10_000_000.0
+                duration_sec = chunk.get("duration", 0) / 10_000_000.0
+                text_word = chunk.get("text", "")
+                
+                if text_word:
+                    word_timings.append({
+                        "word": text_word.upper(),
+                        "start": round(start_sec, 3),
+                        "end": round(start_sec + duration_sec, 3)
+                    })
 
-        asyncio.run(run_audio_save())
-        logger.info("✅ Audio asset stream rendered successfully.")
-    except Exception as stream_err:
-        logger.error(f"❌ Pass 1 Audio Render crash: {stream_err}")
-
-    # Pass 2: Forced Core Boundary Extraction Guarantee
     try:
-        logger.info("🔍 Syncing boundary timestamps matrix...")
-        word_timings = asyncio.run(_extract_boundaries_fallback(clean_text_stream))
-        logger.info(f"✅ Boundaries extraction complete. Synced words count: {len(word_timings)}")
-    except Exception as boundary_err:
-        logger.critical(f"❌ Pass 2 boundary extractor failed: {boundary_err}")
-        word_timings = []
+        asyncio.run(run_combined_stream())
+        logger.info(f"✅ Audio rendered & Boundaries synced. Words count: {len(word_timings)}")
+    except Exception as stream_err:
+        logger.error(f"❌ Audio/Boundary Stream Engine Crash: {stream_err}")
 
-    # ── Master Podcast Filter Execution Node ─────────────────────────────────
+    # Master Podcast Filter Execution Node
     filter_success = apply_podcast_filter(raw_audio_path, target_audio_path)
     if not filter_success:
         import shutil
@@ -148,22 +119,22 @@ def generate_voiceover(text_script: str, output_filename: str, voice_type: str =
     except:
         real_duration = word_timings[-1]["end"] if word_timings else 30.0
 
-    # Safety Fallback: Enforce math-based timing chunks if API returns absolutely empty blocks
+    # Smart Mathematical Fallback Engine (Agar API bilkul hi zero response de)
     if not word_timings:
         logger.warning("⚠️ Boundary array empty! Enforcing calculated math fallback presets...")
         current_time = 0.0
         for word in clean_text_stream.split():
-            dur = 0.35 if len(word) > 5 else 0.25
+            dur = 0.38 if len(word) > 5 else 0.28
             word_timings.append({
                 "word": word.upper(),
                 "start": round(current_time, 3),
                 "end": round(current_time + dur, 3)
             })
-            current_time += dur + 0.05
+            current_time += dur + 0.04
 
-    # ── Safe CTA Overlap Filter ──────────────────────────────────────────────
-    # Hides normal subtitles 3.5 seconds before video ends to let the persistent CTA stand out cleanly
-    safe_cutoff_mark = max(0.0, real_duration - 3.5)
+    # ── Master Safe CTA Overlap Filter ───────────────────────────────────────
+    # Normal captions ko end se 3.2 seconds pehle freeze karein taaki persistent CTA overlay clear dikhe
+    safe_cutoff_mark = max(0.0, real_duration - 3.2)
     word_timings = [word for word in word_timings if word["start"] < safe_cutoff_mark]
     logger.info(f"🛡️ CTA Protection Layer applied. Active display captions: {len(word_timings)}")
 
@@ -171,4 +142,4 @@ def generate_voiceover(text_script: str, output_filename: str, voice_type: str =
         "audio_path":   str(target_audio_path),
         "word_timings": word_timings,
         "duration":     real_duration
-                }
+            }
