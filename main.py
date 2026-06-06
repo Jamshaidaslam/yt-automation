@@ -11,7 +11,7 @@ import requests
 import argparse
 from pathlib import Path
 
-# FIX: PIL Attribute Error (ANTIALIAS issue for rendering layers)
+# FIX: PIL Attribute Error
 from PIL import Image
 try:
     getattr(Image, 'Resampling')
@@ -22,6 +22,7 @@ except AttributeError:
 from script_generator import generate_script, pick_topic_for_run
 from audio_generator import generate_voiceover
 from video_compiler import compile_final_video
+from media_fetcher import generate_professional_thumbnail
 
 # Setup System Level Logging Stream
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
@@ -98,7 +99,7 @@ def execute_pipeline(topic: str = "", skip_upload: bool = False):
         # 1. AI Script Generation Matrix
         script_data = generate_script(topic)
 
-        # 2. Audio Voiceover Rendering with Dynamic Rescale
+        # 2. Audio Voiceover Rendering
         voiceover_payload = generate_voiceover(
             script_data["voiceover"],
             "temp_voice_stream",
@@ -108,6 +109,21 @@ def execute_pipeline(topic: str = "", skip_upload: bool = False):
         # 3. Dynamic B-Roll Fetch Engine
         video_clips_paths = download_live_pexels_broll(script_data.get("scenes", []))
         
+        # --- FRAME TRAP INJECTION (Thumbnail as Intro) ---
+        hook_text = f"{script_data.get('thumbnail_line1', 'WATCH NOW')} {script_data.get('thumbnail_line2', 'SEE TRUTH')}"
+        thumb_path = generate_professional_thumbnail(
+            keyword=script_data["scenes"][0]["visual_query"],
+            hook_text=hook_text,
+            output_stem="frame_trap"
+        )
+
+        if thumb_path:
+            logger.info("🛡️ Injecting Frame Trap as video intro 0.5s...")
+            intro_clip = MEDIA_CACHE_DIR / "intro_trap.mp4"
+            os.system(f'ffmpeg -y -loop 1 -i "{thumb_path}" -t 0.5 -vf "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2" -c:v libx264 -pix_fmt yuv420p "{intro_clip}" > /dev/null 2>&1')
+            video_clips_paths.insert(0, str(intro_clip))
+        # --------------------------------------------------
+
         # 4. Hollywood Style Short-Form Video Compositor
         output_video_file = FINAL_OUTPUT_DIR / "final_dark_short_output.mp4"
         resolved_bgm_track = "output/media/bgm.mp3" if os.path.exists("output/media/bgm.mp3") else ""
@@ -123,41 +139,31 @@ def execute_pipeline(topic: str = "", skip_upload: bool = False):
         if output_video_file.exists() and output_video_file.stat().st_size > 50000:
             logger.info(f"✨ Pipeline finished successfully! Video saved at: {output_video_file}")
             
-            # 5. AUTOMATIC SOCIAL MEDIA UPLOAD TRIGGER 🚀
             if skip_upload:
-                logger.info("ℹ️ Skip upload parameter detected via workflow engine — Posting Aborted.")
                 return
 
             logger.info("🛰️ Initializing Automatic Social Media Upload Matrix...")
             
-            real_title = script_data.get("title", topic if topic else "Dark Psychology Secrets")
-            real_description = script_data.get("voiceover", "Watch till the end to uncover the truth.")
-            
             seo_payload = {
-                "title": real_title,
-                "description": real_description,
-                "hashtags": ["#darkpsychology", "#manipulation", "#psychologyfacts", "#shorts", "#Shorts", "#microexpression"]
+                "title": script_data.get("title", topic),
+                "description": script_data.get("description", "Watch till the end."),
+                "hashtags": ["#darkpsychology", "#manipulation", "#psychologyfacts", "#shorts"]
             }
             
             if os.path.exists("uploader.py"):
                 try:
-                    logger.info("📦 Importing central uploader engine and pushing streams...")
                     import uploader
-                    
-                    # Call exact upload function from uploader.py
                     upload_logs = uploader.upload_all_platforms(
                         video_path=str(output_video_file),
                         seo=seo_payload,
-                        thumbnail_path=None
+                        thumbnail_path=thumb_path if 'thumb_path' in locals() else None
                     )
-                    logger.info(f"📊 Central uploader completed execution. Results array: {upload_logs}")
+                    logger.info(f"📊 Central uploader completed. Logs: {upload_logs}")
                 except Exception as up_err:
-                    logger.error(f"❌ Central uploader module runtime crash: {up_err}")
-            else:
-                logger.warning("⚠️ uploader.py was not found in root workspace directory.")
+                    logger.error(f"❌ Central uploader crash: {up_err}")
                 
         else:
-            raise Exception("Compilation failed - output short-form file was not compiled correctly.")
+            raise Exception("Compilation failed.")
 
     except Exception:
         logger.critical("🚨 PIPELINE EXECUTOR MATRIX CRASHED!", exc_info=True)
@@ -167,8 +173,7 @@ def execute_pipeline(topic: str = "", skip_upload: bool = False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--topic", type=str, default="")
-    # FIXED: Added support for the --skip-upload flag dispatched by automate.yml
-    parser.add_argument("--skip-upload", action="store_true", help="Skip social media upload step.")
+    parser.add_argument("--skip-upload", action="store_true")
     args = parser.parse_args()
     
     execute_pipeline(topic=args.topic.strip(), skip_upload=args.skip_upload)
