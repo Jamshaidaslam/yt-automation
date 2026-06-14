@@ -1,10 +1,11 @@
 """
-audio_generator.py — Production Voice Synthesis Layer (v5.3 - STABLE FIXED)
+audio_generator.py — Production Voice Synthesis Layer (v5.4 - FULL STABLE FIX)
 Fixes:
+- TypeError: voice_type support added
 - FileNotFoundError protection
-- Async Edge TTS stability
-- Safe temp handling
-- Production crash prevention
+- Async Edge-TTS crash fix
+- Safe temp + cleanup handling
+- Production-ready CI stability
 """
 
 import os
@@ -18,62 +19,85 @@ import edge_tts
 logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════
-# CONFIG SAFETY
+# CONFIG
 # ═══════════════════════════════════════
 
 OUTPUT_DIR = Path("output/media")
 TEMP_DIR = OUTPUT_DIR / "temp"
 
-VOICE = "en-US-AriaNeural"
+DEFAULT_VOICE = "en-US-AriaNeural"
 
+VOICE_MAP = {
+    "male": "en-US-GuyNeural",
+    "female": "en-US-AriaNeural",
+    "neutral": "en-US-JennyNeural"
+}
+
+
+# ═══════════════════════════════════════
+# SAFETY UTIL
+# ═══════════════════════════════════════
 
 def _ensure_dirs():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def _validate_file(path: Path):
+    if not path.exists():
+        raise FileNotFoundError(f"TTS file not created: {path}")
+
+    if path.stat().st_size < 1000:
+        raise Exception(f"TTS file too small (likely failed): {path}")
+
+
 # ═══════════════════════════════════════
 # CORE TTS ENGINE
 # ═══════════════════════════════════════
 
-async def _generate_tts(text: str, output_path: Path):
-    """
-    Safe Edge-TTS generator
-    """
-
-    communicate = edge_tts.Communicate(text=text, voice=VOICE)
-
+async def _generate_tts(text: str, voice: str, output_path: Path):
+    communicate = edge_tts.Communicate(text=text, voice=voice)
     await communicate.save(str(output_path))
 
 
-def generate_voiceover(text: str, output_name: str = "voice.mp3") -> str:
+# ═══════════════════════════════════════
+# MAIN FUNCTION (FIXED + BACKWARD COMPATIBLE)
+# ═══════════════════════════════════════
+
+def generate_voiceover(
+    text: str,
+    output_name: str = "voice.mp3",
+    voice_type: str = "female"
+) -> str:
     """
-    Main safe voice generator (SYNC WRAPPER)
+    Generate voiceover using Edge-TTS (SAFE VERSION)
+
+    Supports:
+    - voice_type: male / female / neutral
+    - backward compatible calls
     """
 
     _ensure_dirs()
 
+    voice = VOICE_MAP.get(voice_type, DEFAULT_VOICE)
+
+    temp_file = TEMP_DIR / "temp_voice_stream_raw.mp3"
+    final_file = OUTPUT_DIR / output_name
+
     try:
-        temp_file = TEMP_DIR / "temp_voice_stream_raw.mp3"
-        final_file = OUTPUT_DIR / output_name
+        # 🧠 Generate TTS (async safe run)
+        asyncio.run(_generate_tts(text, voice, temp_file))
 
-        # Run async TTS safely
-        asyncio.run(_generate_tts(text, temp_file))
+        # 🔍 Validate output
+        _validate_file(temp_file)
 
-        # Validate file exists
-        if not temp_file.exists():
-            raise FileNotFoundError(f"TTS failed, file not created: {temp_file}")
-
-        if temp_file.stat().st_size < 1000:
-            raise Exception("Generated voice file is too small (failed TTS)")
-
-        # Ensure final dir exists
+        # 📁 Ensure output directory exists
         final_file.parent.mkdir(parents=True, exist_ok=True)
 
-        # Copy safely
+        # 📦 Move file safely
         shutil.copy(temp_file, final_file)
 
-        logger.info(f"✅ Voice generated: {final_file}")
+        logger.info(f"✅ Voice generated successfully: {final_file}")
 
         return str(final_file)
 
@@ -82,9 +106,9 @@ def generate_voiceover(text: str, output_name: str = "voice.mp3") -> str:
         raise
 
     finally:
-        # cleanup temp file safely
+        # 🧹 Cleanup temp file safely
         try:
             if temp_file.exists():
                 temp_file.unlink()
-        except:
+        except Exception:
             pass
