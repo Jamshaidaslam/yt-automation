@@ -1,7 +1,6 @@
 """
-main.py — Automated Production Executive Matrix (v10.9 - DISPATCH MATRIX LOCK)
+main.py — Automated Production Executive Matrix (v11.0 - FULL STABLE FIX)
 AI Dark Realities · Short-Form Video Pipeline
-───────────────────────────────────────────────────────────────────────────────────
 """
 
 import os
@@ -9,12 +8,14 @@ import sys
 import logging
 import requests
 import argparse
+import subprocess
 from pathlib import Path
 
-# FIX: PIL Attribute Error
 from PIL import Image
+
+# PIL compatibility fix
 try:
-    getattr(Image, 'Resampling')
+    _ = Image.Resampling
     Image.ANTIALIAS = Image.Resampling.LANCZOS
 except AttributeError:
     Image.ANTIALIAS = Image.LANCZOS
@@ -24,7 +25,7 @@ from audio_generator import generate_voiceover
 from video_compiler import compile_final_video
 from media_fetcher import generate_professional_thumbnail
 
-# Setup System Level Logging Stream
+# ─────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -32,153 +33,173 @@ MEDIA_CACHE_DIR = Path("output/media")
 FINAL_OUTPUT_DIR = Path("output/final_videos")
 
 
+# ─────────────────────────────────────────────
 def clean_production_environment():
-    """Wipes old runtime state and initializes environment safely."""
     MEDIA_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     FINAL_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
+# ─────────────────────────────────────────────
+def run_cmd(cmd: str):
+    """Safe subprocess wrapper instead of os.system"""
+    subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+# ─────────────────────────────────────────────
 def download_live_pexels_broll(scenes: list) -> list:
-    """Fetches cinematic portrait assets from Pexels API dynamically."""
     logger.info("🌐 Fetching B-roll from Pexels...")
+
     api_key = os.getenv("PEXELS_API_KEY")
-    downloaded_paths = []
+    downloaded = []
     headers = {"Authorization": api_key} if api_key else {}
 
+    if not scenes:
+        scenes = [{"visual_query": "dark psychology cinematic"}]
+
     for idx, scene in enumerate(scenes):
-        query = scene.get("visual_query", "dark psychology eyes microexpression")
-        clip_path = MEDIA_CACHE_DIR / f"broll_scene_{idx+1}.mp4"
-        
+
+        query = scene.get("visual_query", "dark psychology eyes")
+        clip_path = MEDIA_CACHE_DIR / f"broll_{idx+1}.mp4"
+
         if clip_path.exists():
-            try: clip_path.unlink()
-            except: pass
+            clip_path.unlink()
 
         success = False
+
         if api_key:
-            url = f"https://api.pexels.com/videos/search?query={requests.utils.quote(query)}&per_page=5&orientation=portrait"
             try:
-                response = requests.get(url, headers=headers, timeout=15)
+                url = "https://api.pexels.com/videos/search"
+                params = {
+                    "query": query,
+                    "per_page": 5,
+                    "orientation": "portrait"
+                }
+
+                response = requests.get(url, headers=headers, params=params, timeout=15)
+
                 if response.status_code == 200:
                     videos = response.json().get("videos", [])
+
                     if videos:
-                        video_files = videos[0].get("video_files", [])
-                        valid_files = [f for f in video_files if f.get("link") and f.get("file_type") == "video/mp4"]
-                        
-                        if valid_files:
-                            target_file = sorted(valid_files, key=lambda x: abs(x.get("width", 0) - 1080))[0]
-                            video_link = target_file["link"]
-                            
-                            logger.info(f"📥 Downloading asset file node: {query}")
-                            os.system(f'curl -L -s -o "{clip_path}" "{video_link}"')
-                            
+                        files = videos[0].get("video_files", [])
+                        valid = [f for f in files if f.get("link")]
+
+                        if valid:
+                            best = sorted(valid, key=lambda x: abs(x.get("width", 0) - 1080))[0]
+                            run_cmd(f'curl -L -o "{clip_path}" "{best["link"]}"')
+
                             if clip_path.exists() and clip_path.stat().st_size > 15000:
-                                downloaded_paths.append(str(clip_path))
-                                logger.info(f"✅ Clip {idx+1} downloaded successfully")
+                                downloaded.append(str(clip_path))
                                 success = True
+
             except Exception as e:
-                logger.warning(f"⚠️ Pexels fetch error: {e}")
+                logger.warning(f"Pexels error: {e}")
 
         if not success:
-            logger.warning(f"🔄 Reverted to dynamic fallback generation for: {query}")
-            os.system(f'ffmpeg -y -f lavfi -i testsrc=duration=6:size=1080x1920:rate=30 -c:v libx264 -pix_fmt yuv420p "{clip_path}" > /dev/null 2>&1')
-            downloaded_paths.append(str(clip_path))
+            logger.warning(f"Fallback clip generated: {query}")
+            run_cmd(
+                f'ffmpeg -y -f lavfi -i testsrc=duration=6:size=1080x1920:rate=30 '
+                f'-c:v libx264 -pix_fmt yuv420p "{clip_path}"'
+            )
+            downloaded.append(str(clip_path))
 
-    return downloaded_paths
+    return downloaded
 
 
+# ─────────────────────────────────────────────
 def execute_pipeline(topic: str = "", skip_upload: bool = False):
-    """Core executive control structure linking atomic automation components."""
+
     logger.info("🔥 Starting Automated Video Pipeline...")
+
     try:
-        if not topic:
-            topic = pick_topic_for_run()
-            logger.info(f"🔄 Auto-selected topic from viral pool: {topic}")
-        
         clean_production_environment()
 
-        # 1. AI Script Generation Matrix
-        script_data = generate_script(topic)
+        if not topic:
+            topic = pick_topic_for_run()
+            logger.info(f"🔄 Auto-selected topic: {topic}")
 
-        # 2. Audio Voiceover Rendering
-        voiceover_payload = generate_voiceover(
-            script_data["voiceover"],
-            "temp_voice_stream",
-            voice_type="guy_dark"
+        # 1. SCRIPT
+        script_data = generate_script(topic) or {}
+
+        voice_text = script_data.get("voiceover", topic)
+
+        # FIX: ONLY supported voices
+        voiceover_path = generate_voiceover(
+            text=voice_text,
+            output_name="voice.mp3",
+            voice_type="female"
         )
 
-        # 3. Dynamic B-Roll Fetch Engine
-        video_clips_paths = download_live_pexels_broll(script_data.get("scenes", []))
-        
-        # --- FIXED RE-ROUTE: FRAME TRAP INJECTION WITH MULTI-LINE PARAMETERS ---
-        keyword_query = "dark psychology eyes"
-        if script_data.get("scenes") and len(script_data["scenes"]) > 0:
-            keyword_query = script_data["scenes"][0].get("visual_query", keyword_query)
+        # 2. BROLL
+        video_clips = download_live_pexels_broll(script_data.get("scenes", []))
+
+        # 3. THUMBNAIL
+        scenes = script_data.get("scenes", [])
+        keyword_query = scenes[0].get("visual_query", topic) if scenes else topic
 
         thumb_path = generate_professional_thumbnail(
             keyword=keyword_query,
-            line1=script_data.get('thumbnail_line1', 'WATCH NOW'),
-            line2=script_data.get('thumbnail_line2', 'SEE TRUTH'),
+            line1=script_data.get("thumbnail_line1", "WATCH NOW"),
+            line2=script_data.get("thumbnail_line2", "SEE THE TRUTH"),
             output_stem="frame_trap"
         )
 
+        # intro injection
         if thumb_path:
-            logger.info("🛡️ Injecting Frame Trap as video intro 0.5s...")
-            intro_clip = MEDIA_CACHE_DIR / "intro_trap.mp4"
-            os.system(f'ffmpeg -y -loop 1 -i "{thumb_path}" -t 0.5 -vf "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2" -c:v libx264 -pix_fmt yuv420p "{intro_clip}" > /dev/null 2>&1')
-            video_clips_paths.insert(0, str(intro_clip))
-        # -----------------------------------------------------------------------
+            intro_clip = MEDIA_CACHE_DIR / "intro.mp4"
+            run_cmd(
+                f'ffmpeg -y -loop 1 -i "{thumb_path}" -t 0.5 '
+                f'-vf "scale=1080:1920" -c:v libx264 -pix_fmt yuv420p "{intro_clip}"'
+            )
+            video_clips.insert(0, str(intro_clip))
 
-        # 4. Hollywood Style Short-Form Video Compositor
-        output_video_file = FINAL_OUTPUT_DIR / "final_dark_short_output.mp4"
-        resolved_bgm_track = "output/media/bgm.mp3" if os.path.exists("output/media/bgm.mp3") else ""
+        # 4. COMPILE
+        output_video = FINAL_OUTPUT_DIR / "final_output.mp4"
 
         compile_final_video(
-            video_clips_paths=video_clips_paths, 
-            voiceover_data=voiceover_payload, 
-            bgm_file_path=resolved_bgm_track, 
-            output_path=str(output_video_file)
+            video_clips_paths=video_clips,
+            voiceover_data=voiceover_path,   # FIXED: string only
+            bgm_file_path="output/media/bgm.mp3" if os.path.exists("output/media/bgm.mp3") else "",
+            output_path=str(output_video)
         )
 
-        # ── Verification Check ────────────────────────────────────────────────
-        if output_video_file.exists() and output_video_file.stat().st_size > 50000:
-            logger.info(f"✨ Pipeline finished successfully! Video saved at: {output_video_file}")
-            
+        # 5. VERIFY
+        if output_video.exists() and output_video.stat().st_size > 50000:
+            logger.info(f"✨ SUCCESS: {output_video}")
+
             if skip_upload:
                 return
 
-            logger.info("🛰️ Initializing Automatic Social Media Upload Matrix...")
-            
-            # Map dynamic AI fields to SEO Engine Structure
-            seo_payload = {
+            seo = {
                 "title": script_data.get("title", topic),
-                "description": script_data.get("description", "Watch till the end."),
-                "hashtags": [t.strip() for t in script_data.get("tags", "#darkpsychology,#shorts").split(",") if t.strip()]
+                "description": script_data.get("description", ""),
+                "hashtags": script_data.get("tags", "")
             }
-            
+
             if os.path.exists("uploader.py"):
                 try:
                     import uploader
-                    upload_logs = uploader.upload_all_platforms(
-                        video_path=str(output_video_file),
-                        seo=seo_payload,
-                        thumbnail_path=thumb_path if 'thumb_path' in locals() else None
+                    uploader.upload_all_platforms(
+                        video_path=str(output_video),
+                        seo=seo,
+                        thumbnail_path=thumb_path
                     )
-                    logger.info(f"📊 Central uploader completed. Logs: {upload_logs}")
-                except Exception as up_err:
-                    logger.error(f"❌ Central uploader crash: {up_err}")
-                
+                except Exception as e:
+                    logger.error(f"Upload failed: {e}")
+
         else:
-            raise Exception("Compilation failed.")
+            raise Exception("Video compilation failed")
 
     except Exception:
-        logger.critical("🚨 PIPELINE EXECUTOR MATRIX CRASHED!", exc_info=True)
+        logger.critical("🚨 PIPELINE CRASHED!", exc_info=True)
         sys.exit(1)
 
 
+# ─────────────────────────────────────────────
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--topic", type=str, default="")
     parser.add_argument("--skip-upload", action="store_true")
     args = parser.parse_args()
-    
+
     execute_pipeline(topic=args.topic.strip(), skip_upload=args.skip_upload)
