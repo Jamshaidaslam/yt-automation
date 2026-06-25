@@ -173,7 +173,7 @@ def execute_pipeline(topic: str = "", skip_upload: bool = False):
             seo = {
                 "title": script_data.get("title", topic),
                 "description": script_data.get("description", ""),
-                "hashtags": script_data.get("tags", "")
+                "hashtags": script_data.get("tags", "").split() or ["#darkpsychology", "#shorts"]
             }
 
             if os.path.exists("uploader.py"):
